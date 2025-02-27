@@ -98,6 +98,38 @@ export class ChatResolver {
     }
   }
 
+  @Mutation(() => String)
+  @JWTAuth()
+  async triggerAgentChatStream(
+    @Args('input') input: ChatInput,
+  ): Promise<string> {
+    try {
+      const iterator = this.chatProxyService.streamChat(input);
+      let accumulatedContent = '';
+
+      for await (const chunk of iterator) {
+        if (chunk) {
+          // const enhancedChunk = {
+          //   ...chunk,
+          //   chatId: input.chatId,
+          // };
+          // await this.pubSub.publish(`chat_stream_${input.chatId}`, {
+          //   chatStream: enhancedChunk,
+          // });
+
+          if (chunk.choices[0]?.delta?.content) {
+            accumulatedContent += chunk.choices[0].delta.content;
+          }
+        }
+      }
+
+      return accumulatedContent;
+    } catch (error) {
+      this.logger.error('Error in triggerChatStream:', error);
+      throw error;
+    }
+  }
+
   @Query(() => [String], { nullable: true })
   async getAvailableModelTags(): Promise<string[]> {
     try {

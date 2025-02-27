@@ -7,6 +7,7 @@ import {
   editFilePrompt,
   codeReviewPrompt,
   commitChangesPrompt,
+  summaryPrompt,
   AgentContext,
   TaskType,
 } from './agentPrompt';
@@ -25,6 +26,22 @@ import { ChatInputType } from '@/graphql/type';
  * displays it using a typewriter effect. After the entire text is shown, it appends
  * two newline characters.
  */
+const formatThinkingText = (text: string): string => {
+  // Format headers with simple separator
+  text = text.replace(
+    /^([A-Z][^:\n]+):$/gm,
+    (match) => `${match}\n-------------`
+  );
+
+  // Format bullet points
+  text = text.replace(/^[•-]\s/gm, '• ');
+
+  // Add extra newlines between sections
+  text = text.replace(/\n\n(?=[A-Z])/g, '\n\n\n');
+
+  return text;
+};
+
 const saveThinkingProcess = async (
   thinkingText: string,
   input: ChatInputType,
@@ -32,15 +49,8 @@ const saveThinkingProcess = async (
 ): Promise<void> => {
   if (!thinkingText) return;
 
-  // Accumulate the thinking process text for historical record.
-  context.accumulatedThoughts.push(thinkingText);
-
-  // Function to break the text into small chunks for a smoother typewriter animation.
-  const breakText = (text: string): string[] => {
-    return text.match(/(\S{1,3}|\s+)/g) || [];
-  };
-
-  // Typewriter effect: gradually display the text chunks with a specified delay.
+  // Format and accumulate the thinking process text for historical record.
+  context.accumulatedThoughts.push(formatThinkingText(thinkingText));
   const typewriterEffect = async (
     textArray: string[],
     delay: number
@@ -50,9 +60,13 @@ const saveThinkingProcess = async (
 
       const updateMessage = () => {
         if (index < textArray.length) {
-          context.setMessages((prev) => {
+          context.setIsTPUpdating(true);
+          context.setThinkingProcess((prev) => {
             const lastMsg = prev[prev.length - 1];
-            if (lastMsg?.role === 'assistant' && lastMsg.id === input.chatId) {
+            if (
+              lastMsg?.role === 'assistant' &&
+              lastMsg.id === context.tempId
+            ) {
               return [
                 ...prev.slice(0, -1),
                 {
@@ -64,7 +78,7 @@ const saveThinkingProcess = async (
               return [
                 ...prev,
                 {
-                  id: input.chatId,
+                  id: context.tempId,
                   role: 'assistant',
                   content: textArray[index],
                   createdAt: new Date().toISOString(),
@@ -83,26 +97,69 @@ const saveThinkingProcess = async (
       updateMessage();
     });
   };
-
-  // Break the provided thinkingText into chunks and display them.
   const brokenText = breakText(thinkingText);
   await typewriterEffect(brokenText, 10);
-
-  // After displaying all chunks, append two newlines to the final message.
-  context.setMessages((prev) => {
-    const lastMsg = prev[prev.length - 1];
-    if (lastMsg?.role === 'assistant' && lastMsg.id === input.chatId) {
-      return [
-        ...prev.slice(0, -1),
-        {
-          ...lastMsg,
-          content: lastMsg.content + '\n\n',
-        },
-      ];
-    }
-    return prev;
-  });
 };
+
+const saveFinalResponse = async (
+  final_response: string,
+  input: ChatInputType,
+  context: AgentContext
+): Promise<void> => {
+  const typewriterEffect = async (
+    textArray: string[],
+    delay: number
+  ): Promise<void> => {
+    return new Promise((resolve) => {
+      let index = 0;
+
+      const updateMessage = () => {
+        if (index < textArray.length) {
+          context.setMessages((prev) => {
+            const lastMsg = prev[prev.length - 1];
+            if (
+              lastMsg?.role === 'assistant' &&
+              lastMsg.id === context.tempId
+            ) {
+              return [
+                ...prev.slice(0, -1),
+                {
+                  ...lastMsg,
+                  content: lastMsg.content + textArray[index],
+                },
+              ];
+            } else {
+              return [
+                ...prev,
+                {
+                  id: context.tempId,
+                  role: 'assistant',
+                  content: textArray[index],
+                  createdAt: new Date().toISOString(),
+                },
+              ];
+            }
+          });
+
+          index++;
+          setTimeout(updateMessage, delay);
+        } else {
+          resolve();
+        }
+      };
+
+      updateMessage();
+    });
+  };
+  context.final_response = final_response;
+  const brokenText = breakText(final_response);
+  await typewriterEffect(brokenText, 10);
+};
+
+const breakText = (text: string): string[] => {
+  return text.match(/(\S{1,3}|\s+)/g) || [];
+};
+
 /**
  * Get the corresponding prompt based on the task type.
  */
@@ -178,7 +235,7 @@ export const taskTool = async (
     // Update context and display analysis
     context.task_type = taskType;
     await saveThinkingProcess(
-      `Task Analysis: This is a ${taskType} task.\n${result.description || ''}`,
+      `Task Analysis\n-------------\n\nType: ${taskType}\n\n${result.description ? `Description: ${result.description}\n` : ''}\n`,
       input,
       context
     );
@@ -239,7 +296,7 @@ export const taskTool = async (
 
     // Show analysis results
     await saveThinkingProcess(
-      `Found ${validFiles.length} relevant files:\n${validFiles.join('\n')}`,
+      `File Analysis\n-------------\n\nFound ${validFiles.length} relevant files:\n\n${validFiles.map((f) => `• ${f}`).join('\n\n')}`,
       input,
       context
     );
@@ -455,7 +512,7 @@ export async function codeReviewTool(
   // Parse review results using `parseXmlToJson`
   const result = parseXmlToJson(response);
   await saveThinkingProcess(
-    `Code Review:\n${result.review_result}\n\nComments:\n${result.comments?.join('\n')}`,
+    `Code Review\n-------------\n\nResult: ${result.review_result}\n\nComments:\n\n${result.comments?.map((c) => `• ${c}`).join('\n\n')}`,
     input,
     context
   );
@@ -504,7 +561,7 @@ export async function commitChangesTool(
   // Parse commit message using `parseXmlToJson`
   const result = parseXmlToJson(response);
   await saveThinkingProcess(
-    `Generated commit message:\n${result.commit_message}`,
+    `Generated Commit Message\n-------------\n\n${result.commit_message}`,
     input,
     context
   );
@@ -514,4 +571,114 @@ export async function commitChangesTool(
   }
 
   context.commitMessage = result.commit_message;
+}
+
+/**
+ * Summary tool:
+ * Generates a final response and thinking process summary for the conversation.
+ */
+export async function summaryTool(
+  input: ChatInputType,
+  context: AgentContext
+): Promise<void> {
+  console.log('summaryTool called');
+
+  try {
+    // Prepare code changes analysis
+    const codeAnalysis = Object.entries(context.modifiedFiles)
+      .map(([filePath, newContent]) => {
+        const originalContent = context.fileContents[filePath] || '';
+        const fileExtension = filePath.split('.').pop() || '';
+
+        return `
+File: ${filePath}
+-------------
+
+[Original Code]
+\`\`\`${fileExtension}
+${originalContent}
+\`\`\`
+
+[Modified Code]
+\`\`\`${fileExtension}
+${newContent}
+\`\`\`
+`;
+      })
+      .join('\n\n');
+
+    // Generate summary prompt with both thoughts and code changes
+    const promptContent = `
+${context.accumulatedThoughts.map((thought, i) => `Step ${i + 1}:\n${thought}`).join('\n\n')}
+
+Code Changes Analysis
+-------------
+${codeAnalysis || 'No code changes were made.'}
+
+Analysis Requirements
+-------------
+1. File-specific Changes:
+   • What modifications were made to each file
+   • Impact of each change
+
+2. Change Justification:
+   • Why these changes were necessary
+   • Problems being solved
+
+3. Integration Analysis:
+   • How changes work together
+   • System-wide impact
+
+4. Technical Details:
+   • Implementation specifics
+   • Framework/library usage
+   • Performance considerations
+`;
+
+    const prompt = summaryPrompt(promptContent);
+    const response = await startChatStream(
+      {
+        chatId: input.chatId,
+        message: prompt,
+        model: input.model,
+        role: input.role,
+      },
+      context.token
+    );
+
+    // Parse response
+    const result = parseXmlToJson(response);
+    if (!result.final_response) {
+      throw new Error('Invalid summary response format');
+    }
+
+    // Store both the AI's analysis and the code diffs
+
+    context.setLoadingSubmit(false);
+    context.setIsTPUpdating(false);
+    // Format the final response with clear sections
+    const formattedResponse = `
+Changes Summary
+-------------
+
+${result.final_response
+  .split('\n\n')
+  .map((section) => {
+    // Add bullet points to list items and extra line breaks
+    if (section.match(/^\d\./m)) {
+      return section
+        .replace(/^(\d\.)/gm, '•')
+        .split('\n')
+        .join('\n\n');
+    }
+    return section;
+  })
+  .join('\n\n\n')}
+`;
+    await saveFinalResponse(formattedResponse, input, context);
+    console.log('Summary generated successfully');
+  } catch (error) {
+    console.error('Error in summaryTool:', error);
+    throw error;
+  }
 }

@@ -25,12 +25,12 @@ export default function CodeDisplayBlock({ code, lang }: ButtonCodeblockProps) {
   };
 
   return (
-    <div className="relative my-4 overflow-scroll overflow-x-scroll  flex flex-col   text-start  ">
+    <div className="relative my-4 overflow-scroll overflow-x-scroll flex flex-col text-start rounded-lg border bg-muted">
       <Button
         onClick={copyToClipboard}
-        variant="ghost"
+        variant="secondary"
         size="icon"
-        className="h-5 w-5 absolute top-2 right-2"
+        className="h-6 w-6 absolute top-3 right-3 opacity-50 hover:opacity-100 transition-opacity"
       >
         {isCopied ? (
           <CheckIcon className="w-4 h-4 scale-100 transition-all" />
@@ -39,11 +39,10 @@ export default function CodeDisplayBlock({ code, lang }: ButtonCodeblockProps) {
         )}
       </Button>
       <CodeBlock
-        customStyle={
-          theme === 'dark'
-            ? { background: '#303033' }
-            : { background: '#fcfcfc' }
-        }
+        customStyle={{
+          background: 'transparent',
+          padding: '1rem',
+        }}
         text={code}
         language="tsx"
         showLineNumbers={false}
