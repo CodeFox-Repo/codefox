@@ -137,6 +137,8 @@ export const useChatStream = ({
     setMessages((prev) => [...prev, newMessage]);
 
     if (!currentChatId) {
+      console.log('currentChatId: ' + currentChatId);
+      console.log('Creating new chat...');
       try {
         await createChat({
           variables: {
