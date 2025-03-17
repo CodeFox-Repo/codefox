@@ -41,7 +41,6 @@ export const useChatStream = ({
       setCurProjectPath(curProject.projectPath);
     }
   }, [curProject]);
-
   // Use useEffect to handle new chat event and cleanup
   useEffect(() => {
     const updateChatId = () => {
