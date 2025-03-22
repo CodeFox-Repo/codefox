@@ -4,11 +4,11 @@ import { CreateDateColumn, UpdateDateColumn, Column } from 'typeorm';
 @ObjectType()
 export class SystemBaseModel {
   @Field()
-  @CreateDateColumn({ type: 'datetime' })
+  @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
   @Field()
-  @UpdateDateColumn({ type: 'datetime' })
+  @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
 
   @Field()

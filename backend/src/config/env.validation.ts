@@ -22,6 +22,15 @@ export class EnvironmentVariables {
   @IsString()
   DB_DATABASE?: string;
 
+  @IsOptional()
+  @IsString()
+  DB_REGION?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['true', 'false'])
+  USE_REMOTE_DB?: string;
+
   @IsNumber()
   PORT: number = 8000;
 

@@ -68,4 +68,32 @@ export class AppConfigService {
       (config.endpoint || config.accountId)
     );
   }
+
+  /**
+   * Check if production environment
+   */
+  get isProduction(): boolean {
+    return this.configService.get('NODE_ENV') === 'production';
+  }
+
+  /**
+   * Check if using remote database
+   */
+  get useRemoteDb(): boolean {
+    return this.configService.get('USE_REMOTE_DB') === 'true';
+  }
+
+  /**
+   * Get database configuration
+   */
+  get dbConfig() {
+    return {
+      host: this.configService.get('DB_HOST'),
+      port: parseInt(this.configService.get('DB_PORT'), 10),
+      username: this.configService.get('DB_USERNAME'),
+      password: this.configService.get('DB_PASSWORD'),
+      database: this.configService.get('DB_DATABASE') || 'postgres',
+      region: this.configService.get('DB_REGION'),
+    };
+  }
 }

@@ -42,7 +42,7 @@ export class User extends SystemBaseModel {
   isEmailConfirmed: boolean;
 
   @Field()
-  @UpdateDateColumn({ type: 'datetime' })
+  @UpdateDateColumn({ type: 'timestamp' })
   lastEmailSendTime: Date;
 
   @Field(() => [Chat])
