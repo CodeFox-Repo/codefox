@@ -385,8 +385,8 @@ const ResponsiveToolbar = ({
               <Button variant="outline" className="p-2" disabled={isLoading}>
                 <Share2 className="w-4 h-4" />
               </Button> */}
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="icon"
                 className="h-8 w-8"
                 disabled={isLoading || !projectId || isDownloading}
