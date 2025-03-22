@@ -25,6 +25,11 @@ export class GitHubAppService {
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
   ) {
+    const githubEnabled = this.configService.get<string>('GITHUB_ENABLED');
+    if (githubEnabled !== 'true') {
+      this.logger.warn('GitHub APP Service integration is disabled');
+      return;
+    }
     // Load from environment or config
     const appId = this.configService.get('GITHUB_APP_ID');
     const privateKeyPath = this.configService.get('GITHUB_PRIVATE_KEY_PATH');
