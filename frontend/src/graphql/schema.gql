@@ -126,7 +126,6 @@ type Mutation {
   saveMessage(input: ChatInputType!): Boolean!
   subscribeToProject(projectId: ID!): Project!
   syncProjectToGitHub(projectId: String!): Project!
-  triggerAgentChatStream(input: ChatInputType!): String!
   triggerChatStream(input: ChatInputType!): Boolean!
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
