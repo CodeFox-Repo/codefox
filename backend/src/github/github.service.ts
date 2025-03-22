@@ -23,6 +23,12 @@ export class GitHubService {
     @InjectRepository(Project)
     private projectsRepository: Repository<Project>,
   ) {
+    const githubEnabled = this.configService.get<string>('GITHUB_ENABLED');
+    if (githubEnabled !== 'true') {
+      this.logger.warn('GitHub service integration is disabled');
+      return;
+    }
+
     this.appId = this.configService.get<string>('GITHUB_APP_ID');
 
     const privateKeyPath = this.configService.get<string>(

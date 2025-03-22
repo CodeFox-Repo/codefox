@@ -1,20 +1,30 @@
 // src/github/github-webhook.controller.ts
 
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Logger, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { createNodeMiddleware } from '@octokit/webhooks';
 import { GitHubAppService } from './githubApp.service';
 import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
 import { UserService } from 'src/user/user.service';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('github')
 export class GitHuController {
+  private readonly logger = new Logger('GitHuController');
+
   private readonly webhookMiddleware;
 
   constructor(
     private readonly gitHubAppService: GitHubAppService,
     private readonly userService: UserService,
+    private configService: ConfigService,
   ) {
+    const githubEnabled = this.configService.get<string>('GITHUB_ENABLED');
+    if (githubEnabled !== 'true') {
+      this.logger.warn('GitHub Controller integration is disabled');
+      return;
+    }
+
     // Get the App instance from the service
     const app = this.gitHubAppService.getApp();
 
