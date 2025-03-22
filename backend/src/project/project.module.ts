@@ -23,7 +23,14 @@ import { UserService } from 'src/user/user.service';
     UploadModule,
   ],
   controllers: [DownloadController],
-  providers: [ChatService, ProjectService, ProjectsResolver, ProjectGuard, GitHubService, UserService],
+  providers: [
+    ChatService,
+    ProjectService,
+    ProjectsResolver,
+    ProjectGuard,
+    GitHubService,
+    UserService,
+  ],
   exports: [ProjectService, ProjectGuard],
 })
 export class ProjectModule {}
