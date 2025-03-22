@@ -1,14 +1,12 @@
-import { Controller, Get, Logger, Param, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Logger, Param, Res } from '@nestjs/common';
 import { ProjectService } from 'src/project/project.service';
-import { ProjectGuard } from 'src/guard/project.guard';
 import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
 import { Response } from 'express';
 import * as fs from 'fs';
-import * as path from 'path';
 
 @Controller('download')
 export class DownloadController {
-private readonly logger = new Logger('DownloadController');
+  private readonly logger = new Logger('DownloadController');
   constructor(private readonly projectService: ProjectService) {}
 
   @Get('project/:projectId')
@@ -18,20 +16,20 @@ private readonly logger = new Logger('DownloadController');
     @Res() response: Response,
   ) {
     this.logger.log(`User ${userId} downloading project ${projectId}`);
-    
+
     const { zipPath, fileName } = await this.projectService.createProjectZip(
       userId,
       projectId,
     );
-    
+
     response.set({
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename="${fileName}"`,
     });
-    
+
     const fileStream = fs.createReadStream(zipPath);
     fileStream.pipe(response);
-    
+
     fileStream.on('end', () => {
       fs.unlink(zipPath, (err) => {
         if (err) {
