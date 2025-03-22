@@ -11,7 +11,10 @@ import { UserService } from 'src/user/user.service';
 export class GitHuController {
   private readonly webhookMiddleware;
 
-  constructor(private readonly gitHubAppService: GitHubAppService, private readonly userService: UserService) {
+  constructor(
+    private readonly gitHubAppService: GitHubAppService,
+    private readonly userService: UserService,
+  ) {
     // Get the App instance from the service
     const app = this.gitHubAppService.getApp();
 
@@ -24,7 +27,7 @@ export class GitHuController {
   @Post('webhook')
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
     console.log('📩 Received POST /github/webhook');
-  
+
     return this.webhookMiddleware(req, res, (error?: any) => {
       if (error) {
         console.error('Webhook middleware error:', error);
@@ -35,13 +38,17 @@ export class GitHuController {
       }
     });
   }
-  
+
   @Post('storeInstallation')
   async storeInstallation(
-    @Body() body: { installationId: string, githubCode: string },
+    @Body() body: { installationId: string; githubCode: string },
     @GetUserIdFromToken() userId: string,
   ) {
-    await this.userService.bindUserIdAndInstallId(userId, body.installationId, body.githubCode);
+    await this.userService.bindUserIdAndInstallId(
+      userId,
+      body.installationId,
+      body.githubCode,
+    );
     return { success: true };
   }
 }

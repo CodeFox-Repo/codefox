@@ -26,7 +26,14 @@ import { UserModule } from 'src/user/user.module';
     forwardRef(() => UserModule),
   ],
   controllers: [GitHuController],
-  providers: [ProjectService, ProjectGuard, GitHubAppService, GitHubService, ConfigService, ChatService],
+  providers: [
+    ProjectService,
+    ProjectGuard,
+    GitHubAppService,
+    GitHubService,
+    ConfigService,
+    ChatService,
+  ],
   exports: [GitHubService],
 })
 export class GitHubModule {}
