@@ -11,7 +11,7 @@ import { User } from 'src/user/user.model';
 import { Chat } from 'src/chat/chat.model';
 import { AppConfigModule } from 'src/config/config.module';
 import { UploadModule } from 'src/upload/upload.module';
-import { DownloadController } from './DownloadController';
+import { DownloadController } from './downloadController';
 import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 
