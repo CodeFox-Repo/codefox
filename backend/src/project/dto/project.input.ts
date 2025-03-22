@@ -1,6 +1,12 @@
 // DTOs for Project APIs
 import { InputType, Field, ID, ObjectType } from '@nestjs/graphql';
-import { IsNotEmpty, IsString, IsUUID, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 import { Project } from '../project.model';
 import { FileUpload, GraphQLUpload } from 'graphql-upload-minimal';
 

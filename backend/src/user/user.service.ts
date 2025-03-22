@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { User } from './user.model';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -63,24 +67,33 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async bindUserIdAndInstallId(userId: string, installationId: string, githubCode: string): Promise<boolean> {
+  async bindUserIdAndInstallId(
+    userId: string,
+    installationId: string,
+    githubCode: string,
+  ): Promise<boolean> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     if (user.githubInstallationId) {
-      throw new BadRequestException('User already linked to a GitHub installation.');
+      throw new BadRequestException(
+        'User already linked to a GitHub installation.',
+      );
     }
 
     if (!githubCode) {
       throw new BadRequestException('Missing GitHub OAuth code');
     }
 
-    console.log(`Binding GitHub installation ID ${installationId} to user code ${githubCode}`);
+    console.log(
+      `Binding GitHub installation ID ${installationId} to user code ${githubCode}`,
+    );
 
     //First request to GitHub to exchange the code for an access token (Wont expire)
-    const accessToken = await this.gitHubService.exchangeOAuthCodeForToken(githubCode);
+    const accessToken =
+      await this.gitHubService.exchangeOAuthCodeForToken(githubCode);
 
     user.githubInstallationId = installationId;
     user.githubAccessToken = accessToken;
@@ -90,7 +103,7 @@ export class UserService {
     } catch (error) {
       console.error('Error saving user:', error);
       throw new Error('Failed to save user with installation ID');
-    }    
+    }
 
     return true;
   }
