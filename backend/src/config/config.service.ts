@@ -96,4 +96,73 @@ export class AppConfigService {
       region: this.configService.get('DB_REGION'),
     };
   }
+
+  /**
+   * Get GitHub configuration
+   */
+  get githubConfig() {
+    return {
+      appId: this.configService.get('GITHUB_APP_ID'),
+      privateKeyPath: this.configService.get('GITHUB_PRIVATE_KEY_PATH'),
+      clientId: this.configService.get('GITHUB_CLIENT_ID'),
+      clientSecret: this.configService.get('GITHUB_CLIENT_SECRET'),
+      webhookSecret: this.configService.get('GITHUB_WEBHOOK_SECRET'),
+    };
+  }
+
+  get githubWebhookSecret(): string {
+    return this.configService.get('GITHUB_WEBHOOK_SECRET');
+  }
+
+  /**
+   * Get mail domain for email links
+   */
+  get mailDomain(): string {
+    return this.configService.get('MAIL_DOMAIN');
+  }
+
+  /**
+   * Get frontend URL for email links
+   */
+  get frontendUrl(): string {
+    return this.configService.get('FRONTEND_URL');
+  }
+
+  /**
+   * Get mail configuration
+   */
+  get mailConfig() {
+    return {
+      host: this.configService.get('MAIL_HOST'),
+      port: parseInt(this.configService.get('MAIL_PORT'), 10),
+      user: this.configService.get('MAIL_USER'),
+      password: this.configService.get('MAIL_PASSWORD'),
+      from: this.configService.get('MAIL_FROM'),
+    };
+  }
+
+  /**
+   * Check if mail service is enabled
+   */
+  get isMailEnabled(): boolean {
+    return (
+      this.configService.get('MAIL_ENABLED', 'false').toLowerCase() === 'true'
+    );
+  }
+
+  get githubAppId(): string {
+    return this.configService.get('GITHUB_APP_ID');
+  }
+
+  get githubPrivateKeyPath(): string {
+    return this.configService.get('GITHUB_PRIVATE_KEY_PATH');
+  }
+
+  get githubClientId(): string {
+    return this.configService.get('GITHUB_CLIENT_ID');
+  }
+
+  get githubClientSecret(): string {
+    return this.configService.get('GITHUB_CLIENT_SECRET');
+  }
 }

@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { AppConfigService } from 'src/config/config.service';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LoginUserInput } from 'src/user/dto/login-user.input';
@@ -34,7 +34,7 @@ export class AuthService {
     private userRepository: Repository<User>,
     private jwtService: JwtService,
     private jwtCacheService: JwtCacheService,
-    private configService: ConfigService,
+    private configService: AppConfigService,
     private mailService: MailService,
     @InjectRepository(Menu)
     private menuRepository: Repository<Menu>,
@@ -43,10 +43,7 @@ export class AuthService {
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
   ) {
-    // Read the MAIL_ENABLED environment variable, default to 'true'
-    this.isMailEnabled =
-      this.configService.get<string>('MAIL_ENABLED', 'false').toLowerCase() ===
-      'true';
+    this.isMailEnabled = this.configService.isMailEnabled;
   }
 
   async confirmEmail(token: string): Promise<EmailConfirmationResponse> {
