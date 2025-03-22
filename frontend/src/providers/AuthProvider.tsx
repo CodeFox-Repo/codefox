@@ -14,7 +14,7 @@ import { LocalStore } from '@/lib/storage';
 import { LoadingPage } from '@/components/global-loading';
 import { User } from '@/graphql/type';
 import { logger } from '@/app/log/logger';
-import { registerRefreshTokenFunction } from '@/lib/client';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextValue {
   isAuthorized: boolean;
@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
 
   const [checkToken] = useLazyQuery<{ checkToken: boolean }>(CHECK_TOKEN_QUERY);
   const [refreshTokenMutation] = useMutation(REFRESH_TOKEN_MUTATION);
@@ -122,14 +123,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refreshTokenMutation]);
 
-  const logout = useCallback(() => {
-    setToken(null);
-    setIsAuthorized(false);
-    setUser(null);
-    localStorage.removeItem(LocalStore.accessToken);
-    localStorage.removeItem(LocalStore.refreshToken);
-  }, []);
-
   const login = useCallback(
     (accessToken: string, refreshToken: string) => {
       localStorage.setItem(LocalStore.accessToken, accessToken);
@@ -145,10 +138,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [fetchUserInfo]
   );
 
-  // Register the refresh token function with Apollo Client
-  useEffect(() => {
-    registerRefreshTokenFunction(refreshAccessToken, logout);
-  }, [refreshAccessToken, logout]);
+  const logout = useCallback(() => {
+    setToken(null);
+    setIsAuthorized(false);
+    setUser(null);
+    localStorage.removeItem(LocalStore.accessToken);
+    localStorage.removeItem(LocalStore.refreshToken);
+
+    // Redirect to home page after logout
+    if (typeof window !== 'undefined') {
+      router.push('/');
+    }
+  }, [router]);
 
   useEffect(() => {
     async function initAuth() {
@@ -170,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isValid = (await refreshAccessToken()) ? true : false;
       }
 
-      // Final check
+      // Final decision
       if (isValid) {
         setIsAuthorized(true);
         await fetchUserInfo();
