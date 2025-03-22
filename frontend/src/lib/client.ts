@@ -6,37 +6,17 @@ import {
   ApolloLink,
   from,
   split,
-  Operation,
+  Observable,
+  FetchResult,
 } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
-import { getMainDefinition, Observable } from '@apollo/client/utilities';
+import { getMainDefinition } from '@apollo/client/utilities';
 import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
 import { LocalStore } from '@/lib/storage';
 import { logger } from '@/app/log/logger';
-
-// Token refresh state management 
-let isRefreshing = false;
-let pendingRequests: Array<{
-  operation: Operation;
-  forward: any;
-  observer: any;
-}> = [];
-
-// Function to refresh token - will be set by AuthProvider
-let refreshTokenFunction: () => Promise<string | boolean | void>;
-let logoutFunction: () => void;
-
-// Function to register the token refresh function
-export const registerRefreshTokenFunction = (
-  refreshFn: () => Promise<string | boolean | void>,
-  logout: () => void
-) => {
-  refreshTokenFunction = refreshFn;
-  logoutFunction = logout;
-};
-
+import { REFRESH_TOKEN_MUTATION } from '@/graphql/mutations/auth';
 
 // Create the upload link as the terminating link
 const uploadLink = createUploadLink({
@@ -95,123 +75,126 @@ const authMiddleware = new ApolloLink((operation, forward) => {
   return forward(operation);
 });
 
-// Function to retry failed operations with new token
-const retryFailedOperations = () => {
-  const requests = [...pendingRequests];
-  pendingRequests = [];
-  
-  requests.forEach(({ operation, forward, observer }) => {
-    // Update the authorization header with the new token
-    const token = localStorage.getItem(LocalStore.accessToken);
-    if (token) {
-      operation.setContext(({ headers = {} }) => ({
-        headers: {
-          ...headers,
-          Authorization: `Bearer ${token}`,
-        },
-      }));
+// Refresh Token Handling
+const refreshToken = async (): Promise<string | null> => {
+  try {
+    const refreshToken = localStorage.getItem(LocalStore.refreshToken);
+    if (!refreshToken) {
+      return null;
     }
-    
-    // Retry the operation
-    forward(operation).subscribe({
-      next: observer.next.bind(observer),
-      error: observer.error.bind(observer),
-      complete: observer.complete.bind(observer),
+
+    console.debug('start refreshToken mutate');
+
+    // Use the main client for the refresh token request
+    // The tokenRefreshLink will skip refresh attempts for this operation
+    const result = await client.mutate({
+      mutation: REFRESH_TOKEN_MUTATION,
+      variables: { refreshToken },
     });
-  });
+
+    if (result.data?.refreshToken?.accessToken) {
+      const newAccessToken = result.data.refreshToken.accessToken;
+      const newRefreshToken =
+        result.data.refreshToken.refreshToken || refreshToken;
+
+      localStorage.setItem(LocalStore.accessToken, newAccessToken);
+      localStorage.setItem(LocalStore.refreshToken, newRefreshToken);
+
+      logger.info('Token refreshed successfully');
+      return newAccessToken;
+    }
+
+    return null;
+  } catch (error) {
+    logger.error('Error refreshing token:', error);
+    return null;
+  }
 };
 
-// Error Link
-// Error Link with Token Refresh Logic
-const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
-  const isAuthError = graphQLErrors?.some(error => 
-    error.extensions?.code === 'UNAUTHENTICATED' || 
-    error.message.includes('not authenticated') ||
-    error.message.includes('jwt expired')
-  ) || networkError?.name === 'ServerError' && (networkError as any).statusCode === 401;
+// Handle token expiration and refresh
+const tokenRefreshLink = onError(
+  ({ graphQLErrors, networkError, operation, forward }) => {
+    if (graphQLErrors) {
+      for (const err of graphQLErrors) {
+        // Check for auth errors (adjust this check based on your API's error structure)
+        const isAuthError =
+          err.extensions?.code === 'UNAUTHENTICATED' ||
+          err.message.includes('Unauthorized') ||
+          err.message.includes('token expired');
 
-  if (isAuthError) {
-    // Check if we have a refresh token
-    const hasRefreshToken = !!localStorage.getItem(LocalStore.refreshToken);
-    
-    if (!hasRefreshToken || !refreshTokenFunction) {
-      // No refresh token or refresh function - logout
-      if (logoutFunction) {
-        logoutFunction();
+        // Don't try to refresh if this operation is the refresh token mutation
+        // This prevents infinite refresh loops
+        const operationName = operation.operationName;
+        const path = err.path;
+        const isRefreshTokenOperation =
+          operationName === 'RefreshToken' ||
+          (path && path.includes('refreshToken'));
+
+        if (isAuthError && !isRefreshTokenOperation) {
+          logger.info('Auth error detected, attempting token refresh');
+
+          // Return a new observable to handle the token refresh
+          return new Observable<FetchResult>((observer) => {
+            // Attempt to refresh the token
+            (async () => {
+              try {
+                const newToken = await refreshToken();
+
+                if (!newToken) {
+                  // If refresh fails, clear tokens and redirect
+                  localStorage.removeItem(LocalStore.accessToken);
+                  localStorage.removeItem(LocalStore.refreshToken);
+
+                  // Redirect to home/login page when running in browser
+                  if (typeof window !== 'undefined') {
+                    logger.warn(
+                      'Token refresh failed, redirecting to home page'
+                    );
+                    window.location.href = '/';
+                  }
+
+                  // Complete the observer with the original error
+                  observer.error(err);
+                  observer.complete();
+                  return;
+                }
+
+                // Retry the operation with the new token
+                // Clone the operation with the new token
+                const oldHeaders = operation.getContext().headers;
+                operation.setContext({
+                  headers: {
+                    ...oldHeaders,
+                    Authorization: `Bearer ${newToken}`,
+                  },
+                });
+
+                // Retry the request
+                forward(operation).subscribe({
+                  next: observer.next.bind(observer),
+                  error: observer.error.bind(observer),
+                  complete: observer.complete.bind(observer),
+                });
+              } catch (error) {
+                logger.error('Error in token refresh flow:', error);
+                observer.error(error);
+                observer.complete();
+              }
+            })();
+          });
+        }
       }
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
-      }
-      return;
     }
 
-    // Return a new observable to handle the retry logic
-    return new Observable(observer => {
-      // If we're already refreshing, queue this request
-      if (isRefreshing) {
-        pendingRequests.push({ operation, forward, observer });
-      } else {
-        isRefreshing = true;
-        
-        // Try to refresh the token
-        refreshTokenFunction()
-          .then(success => {
-            isRefreshing = false;
-            
-            if (success) {
-              // Retry this operation
-              const token = localStorage.getItem(LocalStore.accessToken);
-              if (token) {
-                operation.setContext(({ headers = {} }) => ({
-                  headers: {
-                    ...headers,
-                    Authorization: `Bearer ${token}`,
-                  },
-                }));
-              }
-              
-              // Retry all pending operations
-              retryFailedOperations();
-              
-              // Retry the current operation
-              forward(operation).subscribe({
-                next: observer.next.bind(observer),
-                error: observer.error.bind(observer),
-                complete: observer.complete.bind(observer),
-              });
-            } else {
-              // Refresh failed - redirect to homepage
-              if (logoutFunction) {
-                logoutFunction();
-              }
-              if (typeof window !== 'undefined') {
-                window.location.href = '/';
-              }
-              
-              // Complete the operation
-              observer.error(new Error('Session expired. Please log in again.'));
-            }
-          })
-          .catch(error => {
-            isRefreshing = false;
-            logger.error('Token refresh failed:', error);
-            
-            // Refresh failed - redirect to homepage
-            if (logoutFunction) {
-              logoutFunction();
-            }
-            if (typeof window !== 'undefined') {
-              window.location.href = '/';
-            }
-            
-            // Complete the operation
-            observer.error(new Error('Session expired. Please log in again.'));
-          });
-      }
-    });
+    if (networkError) {
+      logger.error(`[Network error]: ${networkError}`);
+      // Handle network errors if needed
+    }
   }
+);
 
-  // Handle other errors
+// Error Link
+const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors) {
     graphQLErrors.forEach(({ message, locations, path }) => {
       logger.error(
@@ -226,6 +209,7 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
 
 // Build the HTTP link chain
 const httpLinkWithMiddleware = from([
+  tokenRefreshLink, // Add token refresh link first
   errorLink,
   requestLoggingMiddleware,
   authMiddleware,
