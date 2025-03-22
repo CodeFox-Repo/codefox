@@ -581,8 +581,6 @@ export async function summaryTool(
   input: ChatInputType,
   context: AgentContext
 ): Promise<void> {
-  console.log('summaryTool called');
-
   try {
     // Prepare code changes analysis
     const codeAnalysis = Object.entries(context.modifiedFiles)
@@ -676,9 +674,8 @@ ${result.final_response
   .join('\n\n\n')}
 `;
     await saveFinalResponse(formattedResponse, input, context);
-    console.log('Summary generated successfully');
   } catch (error) {
-    console.error('Error in summaryTool:', error);
+    toast.error('Failed to generate summary');
     throw error;
   }
 }
