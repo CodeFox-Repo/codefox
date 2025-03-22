@@ -166,8 +166,15 @@ export class ProjectsResolver {
   }
 
   @Mutation(() => Project)
-  async syncProjectToGitHub(@Args('projectId') projectId: string, @GetUserIdFromToken() userId: string,) {
+  async syncProjectToGitHub(
+    @Args('projectId') projectId: string,
+    @GetUserIdFromToken() userId: string,
+  ) {
     // TODO: MAKE PUBLIC DYNAMIC
-    return this.projectService.syncProjectToGitHub(userId, projectId, true /* isPublic? */);
+    return this.projectService.syncProjectToGitHub(
+      userId,
+      projectId,
+      true /* isPublic? */,
+    );
   }
 }

@@ -10,12 +10,15 @@ import { ConfigService } from '@nestjs/config';
 
 @Controller('github')
 export class GitHuController {
-  private readonly logger = new Logger("GitHuController");
-  
+  private readonly logger = new Logger('GitHuController');
+
   private readonly webhookMiddleware;
 
-  constructor(private readonly gitHubAppService: GitHubAppService, private readonly userService: UserService, private configService: ConfigService, ) {
-
+  constructor(
+    private readonly gitHubAppService: GitHubAppService,
+    private readonly userService: UserService,
+    private configService: ConfigService,
+  ) {
     const githubEnabled = this.configService.get<string>('GITHUB_ENABLED');
     if (githubEnabled !== 'true') {
       this.logger.warn('GitHub Controller integration is disabled');
@@ -34,7 +37,7 @@ export class GitHuController {
   @Post('webhook')
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
     console.log('📩 Received POST /github/webhook');
-  
+
     return this.webhookMiddleware(req, res, (error?: any) => {
       if (error) {
         console.error('Webhook middleware error:', error);
@@ -45,13 +48,17 @@ export class GitHuController {
       }
     });
   }
-  
+
   @Post('storeInstallation')
   async storeInstallation(
-    @Body() body: { installationId: string, githubCode: string },
+    @Body() body: { installationId: string; githubCode: string },
     @GetUserIdFromToken() userId: string,
   ) {
-    await this.userService.bindUserIdAndInstallId(userId, body.installationId, body.githubCode);
+    await this.userService.bindUserIdAndInstallId(
+      userId,
+      body.installationId,
+      body.githubCode,
+    );
     return { success: true };
   }
 }
