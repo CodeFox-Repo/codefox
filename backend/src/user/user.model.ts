@@ -11,8 +11,8 @@ import {
   ManyToMany,
   JoinTable,
   OneToMany,
-  UpdateDateColumn,
 } from 'typeorm';
+import { UniversalCreateDateColumn } from 'src/common/decorators/universal-date-column';
 
 @Entity()
 @ObjectType()
@@ -42,7 +42,7 @@ export class User extends SystemBaseModel {
   isEmailConfirmed: boolean;
 
   @Field()
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UniversalCreateDateColumn()
   lastEmailSendTime: Date;
 
   @Field(() => [Chat])

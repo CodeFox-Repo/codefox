@@ -12,10 +12,10 @@ export async function getDatabaseConfig(
     return {
       type: 'sqlite',
       database: join(process.cwd(), './database.db'),
-      synchronize: false,
+      synchronize: config.isDevEnv,
       entities,
       migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
-      migrationsRun: true,
+      migrationsRun: !config.isDevEnv,
       logging: !config.isProduction,
     };
   }

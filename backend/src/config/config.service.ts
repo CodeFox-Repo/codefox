@@ -77,6 +77,14 @@ export class AppConfigService {
   }
 
   /**
+   * Check if development environment
+   */
+  get isDevEnv(): boolean {
+    const env = this.configService.get('NODE_ENV');
+    return env?.toUpperCase() === 'DEV';
+  }
+
+  /**
    * Check if using remote database
    */
   get useRemoteDb(): boolean {

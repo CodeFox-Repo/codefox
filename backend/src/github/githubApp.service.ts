@@ -25,8 +25,8 @@ export class GitHubAppService {
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
   ) {
-    const githubEnabled = this.configService.get<string>('GITHUB_ENABLED');
-    if (githubEnabled !== 'true') {
+    const githubEnabled = this.configService.githubEnabled;
+    if (!githubEnabled) {
       this.logger.warn('GitHub APP Service integration is disabled');
       return;
     }
