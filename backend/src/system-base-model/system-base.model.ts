@@ -1,14 +1,18 @@
 import { Field, ObjectType } from '@nestjs/graphql';
-import { CreateDateColumn, UpdateDateColumn, Column } from 'typeorm';
+import { Column } from 'typeorm';
+import {
+  UniversalCreateDateColumn,
+  UniversalUpdateDateColumn,
+} from '../common/decorators/universal-date-column';
 
 @ObjectType()
 export class SystemBaseModel {
   @Field()
-  @CreateDateColumn({ type: 'datetime' })
+  @UniversalCreateDateColumn()
   createdAt: Date;
 
   @Field()
-  @UpdateDateColumn({ type: 'datetime' })
+  @UniversalUpdateDateColumn()
   updatedAt: Date;
 
   @Field()

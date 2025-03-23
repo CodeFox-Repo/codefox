@@ -5,7 +5,7 @@ import * as jwt from 'jsonwebtoken';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ConfigService } from '@nestjs/config';
+import { AppConfigService } from 'src/config/config.service';
 import { Project } from 'src/project/project.model';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,25 +19,23 @@ export class GitHubService {
   private ignored = ['node_modules', '.git', '.gitignore', '.env'];
 
   constructor(
-    private configService: ConfigService,
+    private configService: AppConfigService,
     @InjectRepository(Project)
     private projectsRepository: Repository<Project>,
   ) {
-    const githubEnabled = this.configService.get<string>('GITHUB_ENABLED');
-    if (githubEnabled !== 'true') {
+    const githubEnabled = this.configService.githubEnabled;
+    if (!githubEnabled) {
       this.logger.warn('GitHub service integration is disabled');
       return;
     }
 
-    this.appId = this.configService.get<string>('GITHUB_APP_ID');
+    this.appId = this.configService.githubAppId;
 
-    const privateKeyPath = this.configService.get<string>(
-      'GITHUB_PRIVATE_KEY_PATH',
-    );
+    const privateKeyPath = this.configService.githubPrivateKeyPath;
 
     if (!privateKeyPath) {
       throw new Error(
-        'GITHUB_PRIVATE_KEY_PATH is not set in environment variables',
+        'GitHub private key path is not set in environment variables',
       );
     }
 
@@ -87,8 +85,8 @@ export class GitHubService {
   }
 
   async exchangeOAuthCodeForToken(code: string): Promise<string> {
-    const clientId = this.configService.get<string>('GITHUB_CLIENT_ID');
-    const clientSecret = this.configService.get<string>('GITHUB_CLIENT_SECRET');
+    const clientId = this.configService.githubClientId;
+    const clientSecret = this.configService.githubClientSecret;
 
     console.log('Exchanging OAuth Code:', {
       code,
