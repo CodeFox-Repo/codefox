@@ -17,6 +17,7 @@ import { logger } from '@/app/log/logger';
 import { useMutation, useQuery, gql } from '@apollo/client';
 import { toast } from 'sonner';
 import { SYNC_PROJECT_TO_GITHUB, GET_PROJECT } from '../../../graphql/request';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 interface ResponsiveToolbarProps {
   isLoading: boolean;
@@ -37,43 +38,48 @@ const ResponsiveToolbar = ({
   const [compactIcons, setCompactIcons] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { token, user, refreshUserInfo } = useAuthContext();
-  
+
   // Poll for GitHub installation status when needed
   const [isPollingGitHub, setIsPollingGitHub] = useState(false);
-  
+
   // Apollo mutations and queries
-  const [syncProject, { loading: isPublishingToGitHub }] = useMutation(SYNC_PROJECT_TO_GITHUB, {
-    onCompleted: (data) => {
+  const [syncProject, { loading: isPublishingToGitHub }] = useMutation(
+    SYNC_PROJECT_TO_GITHUB,
+    {
+      onCompleted: (data) => {
+        const syncResult = data.syncProjectToGitHub;
 
-      const syncResult = data.syncProjectToGitHub;
+        toast.success('Successfully published to GitHub!');
 
-      toast.success('Successfully published to GitHub!');
-      
-      // Offer to open the repo in a new tab
-      const repoUrl = syncResult.githubRepoUrl;
-      console.log('GitHub repo URL:', repoUrl);
-      if (repoUrl) {
-        const shouldOpen = window.confirm('Would you like to open the GitHub repository?');
-        if (shouldOpen) {
-          window.open(repoUrl, '_blank');
+        // Offer to open the repo in a new tab
+        const repoUrl = syncResult.githubRepoUrl;
+        console.log('GitHub repo URL:', repoUrl);
+        if (repoUrl) {
+          const shouldOpen = window.confirm(
+            'Would you like to open the GitHub repository?'
+          );
+          if (shouldOpen) {
+            window.open(repoUrl, '_blank');
+          }
         }
-      }
-    },
-    onError: (error) => {
-      logger.error('Error publishing to GitHub:', error);
-      toast.error(`Error publishing to GitHub: ${error.message}`);
+      },
+      onError: (error) => {
+        logger.error('Error publishing to GitHub:', error);
+        toast.error(`Error publishing to GitHub: ${error.message}`);
+      },
     }
-  });
-  
+  );
+
   // Query to check if the project is already synced
   const { data: projectData } = useQuery(GET_PROJECT, {
     variables: { projectId },
     skip: !projectId,
     fetchPolicy: 'cache-and-network',
   });
-  
+
   // Determine if GitHub sync is complete based on query data
-  const isGithubSyncComplete = projectData?.getProject?.isSyncedWithGitHub || false; 
+  const isGithubSyncComplete =
+    projectData?.getProject?.isSyncedWithGitHub || false;
 
   const githubRepoUrl = projectData?.getProject?.githubRepoUrl || '';
 
@@ -111,14 +117,14 @@ const ResponsiveToolbar = ({
   // Poll for GitHub installation completion
   useEffect(() => {
     let pollInterval: NodeJS.Timeout;
-  
+
     if (isPollingGitHub) {
       pollInterval = setInterval(async () => {
         console.log('Polling backend for GitHub installation status...');
         try {
           // Call to refresh user info (from backend)
           await refreshUserInfo();
-  
+
           // Check if user now has installation ID
           if (user?.githubInstallationId) {
             console.log('GitHub installation complete!');
@@ -131,7 +137,7 @@ const ResponsiveToolbar = ({
         }
       }, 3000); // Poll every 3s
     }
-  
+
     return () => {
       if (pollInterval) clearInterval(pollInterval);
     };
@@ -140,7 +146,7 @@ const ResponsiveToolbar = ({
   const handlePublishToGitHub = async () => {
     // If already publishing, do nothing
     if (isPublishingToGitHub) return;
-    
+
     // If the user hasn't installed the GitHub App yet
     if (!user?.githubInstallationId) {
       try {
@@ -148,11 +154,11 @@ const ResponsiveToolbar = ({
         const shouldInstall = window.confirm(
           'You need to install the GitHub App to publish your project. Would you like to do this now?'
         );
-        
+
         if (shouldInstall) {
           // Start polling for installation completion
           setIsPollingGitHub(true);
-          
+
           // This format ensures GitHub will prompt the user to choose where to install
           const installUrl = `https://github.com/apps/codefox-project-fork/installations/new`;
           window.open(installUrl, '_blank');
@@ -161,32 +167,36 @@ const ResponsiveToolbar = ({
       } catch (error) {
         logger.error('Error opening GitHub installation:', error);
         setIsPollingGitHub(false);
-        toast.error('Error opening GitHub installation page. Please try again.');
+        toast.error(
+          'Error opening GitHub installation page. Please try again.'
+        );
         return;
       }
     }
-    
+
     // Ensure we have a project ID
     if (!projectId) {
       toast.error('Cannot publish: No project ID available');
       return;
     }
-    
+
     // If already synced and we have the URL, offer to open it
     if (isGithubSyncComplete && githubRepoUrl) {
-      const shouldOpen = window.confirm('This project is already published to GitHub. Would you like to open the repository?');
+      const shouldOpen = window.confirm(
+        'This project is already published to GitHub. Would you like to open the repository?'
+      );
       if (shouldOpen) {
         window.open(projectData.getProject.githubRepoUrl, '_blank');
       }
       return;
     }
-    
+
     // Execute the mutation
     try {
       await syncProject({
         variables: {
-          projectId
-        }
+          projectId,
+        },
       });
     } catch (error) {
       // Error is handled by the mutation's onError callback
@@ -202,7 +212,8 @@ const ResponsiveToolbar = ({
         // Create a hidden anchor element for download
         const a = document.createElement('a');
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+        const backendUrl =
+          process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
         // Set the download URL with credentials included
         const downloadUrl = `${backendUrl}/download/project/${projectId}`;
 
@@ -212,9 +223,14 @@ const ResponsiveToolbar = ({
         }
 
         // Fetch with credentials to ensure auth is included
-        const response = await fetch(downloadUrl, {
+        // const response = await fetch(downloadUrl, {
+        //   method: 'GET',
+        //   headers: headers,
+        // });
+
+        // Use authenticatedFetch which handles token refresh
+        const response = await authenticatedFetch(downloadUrl, {
           method: 'GET',
-          headers: headers,
         });
 
         if (!response.ok) {
@@ -234,9 +250,10 @@ const ResponsiveToolbar = ({
         const contentDisposition = response.headers.get('Content-Disposition');
         const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
         const matches = filenameRegex.exec(contentDisposition || '');
-        const filename = matches && matches[1] 
-          ? matches[1].replace(/['"]/g, '') 
-          : `project-${projectId}.zip`;
+        const filename =
+          matches && matches[1]
+            ? matches[1].replace(/['"]/g, '')
+            : `project-${projectId}.zip`;
 
         a.download = filename;
 
@@ -352,9 +369,14 @@ const ResponsiveToolbar = ({
                 Download
               </Button>
               <Button
-                variant={isGithubSyncComplete ? "secondary" : "outline"}
+                variant={isGithubSyncComplete ? 'secondary' : 'outline'}
                 className="text-sm"
-                disabled={isLoading || !projectId || isPublishingToGitHub || isPollingGitHub}
+                disabled={
+                  isLoading ||
+                  !projectId ||
+                  isPublishingToGitHub ||
+                  isPollingGitHub
+                }
                 onClick={handlePublishToGitHub}
               >
                 {isPublishingToGitHub ? (
@@ -362,7 +384,7 @@ const ResponsiveToolbar = ({
                 ) : (
                   <Github className="w-4 h-4 mr-1" />
                 )}
-                {isGithubSyncComplete ? "View on GitHub" : "GitHub"}
+                {isGithubSyncComplete ? 'View on GitHub' : 'GitHub'}
               </Button>
             </>
           )}
@@ -371,9 +393,9 @@ const ResponsiveToolbar = ({
               <Button variant="outline" className="p-2" disabled={isLoading}>
                 <Share2 className="w-4 h-4" />
               </Button>
-              <Button 
-                variant="outline" 
-                className="p-2" 
+              <Button
+                variant="outline"
+                className="p-2"
                 disabled={isLoading || !projectId || isDownloading}
                 onClick={handleDownload}
               >
@@ -383,10 +405,15 @@ const ResponsiveToolbar = ({
                   <Download className="w-4 h-4" />
                 )}
               </Button>
-              <Button 
-                variant={isGithubSyncComplete ? "secondary" : "outline"}
-                className="p-2" 
-                disabled={isLoading || !projectId || isPublishingToGitHub || isPollingGitHub}
+              <Button
+                variant={isGithubSyncComplete ? 'secondary' : 'outline'}
+                className="p-2"
+                disabled={
+                  isLoading ||
+                  !projectId ||
+                  isPublishingToGitHub ||
+                  isPollingGitHub
+                }
                 onClick={handlePublishToGitHub}
               >
                 {isPublishingToGitHub ? (
