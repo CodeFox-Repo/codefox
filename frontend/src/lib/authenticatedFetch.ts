@@ -1,6 +1,7 @@
 import { LocalStore } from '@/lib/storage';
 import { client } from '@/lib/client';
 import { REFRESH_TOKEN_MUTATION } from '@/graphql/mutations/auth';
+import { gql } from '@apollo/client';
 
 // Prevent multiple simultaneous refresh attempts
 let isRefreshing = false;
@@ -106,6 +107,76 @@ export const authenticatedFetch = async (
   }
 
   return response;
+};
+
+/**
+ * Processes a streaming response from a server-sent events endpoint
+ * @param response Fetch Response object (must be a streaming response)
+ * @param onChunk Optional callback to process each chunk as it arrives
+ * @returns Promise with the full aggregated content
+ */
+export const processStreamResponse = async (
+  response: Response,
+  onChunk?: (chunk: string) => void
+): Promise<string> => {
+  if (!response.body) {
+    throw new Error('Response has no body');
+  }
+
+  const reader = response.body.getReader();
+  let fullContent = '';
+  let isStreamDone = false;
+
+  try {
+    // More explicit condition than while(true)
+    while (!isStreamDone) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        isStreamDone = true;
+        continue;
+      }
+
+      const text = new TextDecoder().decode(value);
+      const lines = text.split('\n\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+
+          // Additional exit condition
+          if (data === '[DONE]') {
+            isStreamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              fullContent += parsed.content;
+              if (onChunk) {
+                onChunk(parsed.content);
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing SSE data:', e);
+          }
+        }
+      }
+    }
+
+    return fullContent;
+  } catch (error) {
+    console.error('Error reading stream:', error);
+    throw error;
+  } finally {
+    // Ensure we clean up the reader if we exit due to an error
+    if (!isStreamDone) {
+      reader
+        .cancel()
+        .catch((e) => console.error('Error cancelling reader:', e));
+    }
+  }
 };
 
 export default authenticatedFetch;
