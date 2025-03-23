@@ -3,7 +3,7 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/user.model';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
+import { AppConfigService } from 'src/config/config.service';
 
 @Injectable()
 export class MailService {
@@ -11,11 +11,11 @@ export class MailService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private readonly mailerService: MailerService,
-    private configService: ConfigService,
+    private configService: AppConfigService,
   ) {}
 
   async sendConfirmationEmail(email: string, token: string) {
-    const confirmUrl = `https://${this.configService.get('MAIL_DOMAIN')}/auth/confirm?token=${token}`;
+    const confirmUrl = `https://${this.configService.mailDomain}/auth/confirm?token=${token}`;
 
     await this.mailerService.sendMail({
       to: email,
@@ -26,7 +26,7 @@ export class MailService {
   }
 
   async sendPasswordResetEmail(user: User, token: string) {
-    const frontendUrl = this.configService.get('FRONTEND_URL');
+    const frontendUrl = this.configService.frontendUrl;
     const url = `${frontendUrl}/reset-password?token=${token}`;
 
     await this.mailerService.sendMail({

@@ -13,7 +13,6 @@ import { Project } from 'src/project/project.model';
 import { ProjectPackages } from 'src/project/project-packages.model';
 import { GitHuController } from './github.controller';
 import { ProjectService } from 'src/project/project.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserModule } from 'src/user/user.module';
 
 @Module({
@@ -22,7 +21,6 @@ import { UserModule } from 'src/user/user.module';
     AuthModule,
     AppConfigModule,
     UploadModule,
-    ConfigModule,
     forwardRef(() => UserModule),
   ],
   controllers: [GitHuController],
@@ -31,7 +29,6 @@ import { UserModule } from 'src/user/user.module';
     ProjectGuard,
     GitHubAppService,
     GitHubService,
-    ConfigService,
     ChatService,
   ],
   exports: [GitHubService],

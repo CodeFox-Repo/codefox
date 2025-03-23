@@ -3,7 +3,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { App, Octokit } from 'octokit';
 import { readFileSync } from 'fs';
-import { ConfigService } from '@nestjs/config';
+import { AppConfigService } from 'src/config/config.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/user.model';
 import { Repository } from 'typeorm';
@@ -19,23 +19,23 @@ export class GitHubAppService {
   //smee -u https://smee.io/asdasd -t http://127.0.0.1:8080/github/webhook
 
   constructor(
-    private configService: ConfigService,
+    private configService: AppConfigService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
   ) {
-    const githubEnabled = this.configService.get<string>('GITHUB_ENABLED');
-    if (githubEnabled !== 'true') {
+    const githubEnabled = this.configService.githubEnabled;
+    if (!githubEnabled) {
       this.logger.warn('GitHub APP Service integration is disabled');
       return;
     }
     // Load from environment or config
-    const appId = this.configService.get('GITHUB_APP_ID');
-    const privateKeyPath = this.configService.get('GITHUB_PRIVATE_KEY_PATH');
-    const secret = this.configService.get('GITHUB_WEBHOOK_SECRET');
-    const enterpriseHostname =
-      this.configService.get('enterpriseHostname') || '';
+    const config = this.configService.githubConfig;
+    const appId = config.appId;
+    const privateKeyPath = config.privateKeyPath;
+    const secret = config.webhookSecret;
+    const enterpriseHostname = ''; // Not supporting enterprise for now
 
     // Read the private key from file
     const privateKey = readFileSync(privateKeyPath, 'utf8');
