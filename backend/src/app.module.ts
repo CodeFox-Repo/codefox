@@ -1,6 +1,7 @@
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EnvironmentVariables } from './config/env.validation';
 import { GraphQLModule } from '@nestjs/graphql';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
@@ -17,14 +18,17 @@ import { LoggingInterceptor } from 'src/interceptor/LoggingInterceptor';
 import { PromptToolModule } from './prompt-tool/prompt-tool.module';
 import { MailModule } from './mail/mail.module';
 import { GitHubModule } from './github/github.module';
+import { AppConfigService } from './config/config.service';
+import { getDatabaseConfig } from './database.config';
 
-// TODO(Sma1lboy): move to a separate file
-function isProduction(): boolean {
-  return process.env.NODE_ENV === 'production';
-}
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: (config: Record<string, unknown>) => {
+        return Object.assign(new EnvironmentVariables(), config);
+      },
+    }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), '../frontend/src/graphql/schema.gql'),
@@ -36,11 +40,11 @@ function isProduction(): boolean {
       },
       context: ({ req, res }) => ({ req, res }),
     }),
-    TypeOrmModule.forRoot({
-      type: 'sqlite',
-      database: join(process.cwd(), './database.db'),
-      synchronize: !isProduction(),
-      entities: [__dirname + '/**/*.model{.ts,.js}'],
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService<EnvironmentVariables>) =>
+        getDatabaseConfig(new AppConfigService(config)),
+      inject: [ConfigService],
     }),
     InitModule,
     UserModule,
@@ -55,10 +59,12 @@ function isProduction(): boolean {
   ],
   providers: [
     AppResolver,
+    AppConfigService,
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
     },
   ],
+  exports: [AppConfigService],
 })
 export class AppModule {}
