@@ -13,8 +13,10 @@ interface UniversalDateOptions {
  * @returns 'timestamp' for remote database, 'datetime' for local
  */
 function getDateColumnType(): ColumnType {
-  const useRemoteDb = process.env.USE_REMOTE_DB === 'true';
-  return useRemoteDb ? 'timestamp' : ('datetime' as ColumnType);
+  // FIXME: optimize this logic to use a config file or environment variable
+  // const useRemoteDb = process.env.USE_REMOTE_DB === 'true';
+  // use timestamp for remote database
+  return 'datetime' as ColumnType;
 }
 
 /**
