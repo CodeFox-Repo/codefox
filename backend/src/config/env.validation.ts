@@ -82,6 +82,10 @@ export class EnvironmentVariables {
   // GitHub Configuration
   @IsOptional()
   @IsString()
+  GITHUB_ENABLED: boolean;
+
+  @IsOptional()
+  @IsString()
   GITHUB_APP_ID?: string;
 
   @IsOptional()

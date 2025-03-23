@@ -107,7 +107,12 @@ export class AppConfigService {
       clientId: this.configService.get('GITHUB_CLIENT_ID'),
       clientSecret: this.configService.get('GITHUB_CLIENT_SECRET'),
       webhookSecret: this.configService.get('GITHUB_WEBHOOK_SECRET'),
+      enabled: !!this.configService.get('GITHUB_ENABLED'),
     };
+  }
+
+  get githubEnabled(): boolean {
+    return this.configService.get('GITHUB_ENABLED') === 'true';
   }
 
   get githubWebhookSecret(): string {
