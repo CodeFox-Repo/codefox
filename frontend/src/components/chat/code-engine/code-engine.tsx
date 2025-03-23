@@ -473,7 +473,6 @@ export function CodeEngine({
                 )}
               </div>
 
-              {/* 添加不同阶段的消息 */}
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
