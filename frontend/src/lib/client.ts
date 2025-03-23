@@ -188,7 +188,25 @@ const tokenRefreshLink = onError(
 
     if (networkError) {
       logger.error(`[Network error]: ${networkError}`);
-      // Handle network errors if needed
+
+      // For network errors related to authentication endpoints, handle logout
+      const networkErrorOperation = operation.operationName;
+      if (
+        networkErrorOperation === 'RefreshToken' ||
+        networkErrorOperation === 'Login' ||
+        networkErrorOperation === 'ValidateToken'
+      ) {
+        // Only redirect for auth-related network errors
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(LocalStore.accessToken);
+          localStorage.removeItem(LocalStore.refreshToken);
+
+          logger.warn(
+            'Network error during authentication, redirecting to home'
+          );
+          window.location.href = '/';
+        }
+      }
     }
   }
 );
