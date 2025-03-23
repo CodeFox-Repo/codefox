@@ -50,6 +50,10 @@ export interface ProjectContextType {
   takeProjectScreenshot: (projectId: string, url: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
   editorRef?: React.MutableRefObject<any>;
+  recentlyCompletedProjectId: string | null;
+  setRecentlyCompletedProjectId: (id: string | null) => void;
+  chatId: string | null;
+  setChatId: (chatId: string | null) => void;
 }
 
 export const ProjectContext = createContext<ProjectContextType | undefined>(
@@ -105,7 +109,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const editorRef = useRef<any>(null);
-
+  const [recentlyCompletedProjectId, setRecentlyCompletedProjectId] = useState<
+    string | null
+  >(null);
+  const [chatId, setChatId] = useState<string | null>(null);
   interface ChatProjectCacheEntry {
     project: Project | null;
     timestamp: number;
@@ -142,6 +149,24 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       pendingOperations.current.clear();
     };
   }, []);
+  // Poll project data every 5 seconds
+  useEffect(() => {
+    if (!chatId) return;
+    let stopped = false;
+
+    const interval = setInterval(async () => {
+      const project = await pollChatProject(chatId);
+      if (project?.projectPath) {
+        setCurProject(project);
+        clearInterval(interval);
+        stopped = true;
+      }
+    }, 5000);
+
+    return () => {
+      if (!stopped) clearInterval(interval);
+    };
+  }, [chatId]);
 
   // Function to clean expired cache entries
   const cleanCache = useCallback(() => {
@@ -912,6 +937,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       takeProjectScreenshot,
       refreshProjects,
       editorRef,
+      chatId,
+      setChatId,
     }),
     [
       projects,
@@ -928,11 +955,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       takeProjectScreenshot,
       refreshProjects,
       editorRef,
+      chatId,
+      setChatId,
     ]
   );
 
   return (
-    <ProjectContext.Provider value={contextValue}>
+    <ProjectContext.Provider
+      value={{
+        ...contextValue,
+        recentlyCompletedProjectId,
+        setRecentlyCompletedProjectId,
+      }}
+    >
       {children}
     </ProjectContext.Provider>
   );
