@@ -76,11 +76,14 @@ export function CodeEngine({
           setIsLoading(true);
           const project = await pollChatProject(chatId);
           if (project) {
-            setLocalProject(project);
             // 如果成功加载项目，将状态设置为已完成
             if (project.projectPath) {
+              setLocalProject(project);
               setProjectCompleted(true);
               isProjectLoadedRef.current = true;
+              fetchFiles();
+            } else {
+              setLocalProject(project);
             }
           }
         } catch (error) {
@@ -340,24 +343,23 @@ export function CodeEngine({
           setTimerActive(false);
           setIsCompleting(false);
           setProjectCompleted(true);
-          // 同时更新ref以持久记住完成状态
           isProjectLoadedRef.current = true;
-
-          // 可选：在完成时将状态保存到localStorage
           try {
             localStorage.setItem(`project-completed-${chatId}`, 'true');
           } catch (e) {
-            // 忽略localStorage错误
+            logger.error('Failed to save project completion status:', e);
           }
         }, 800);
       }, 500);
 
       return () => clearTimeout(completionTimer);
-    } else if (
+    }
+    if (
       showLoader &&
       !timerActive &&
       !projectCompleted &&
-      !isProjectLoadedRef.current
+      !isProjectLoadedRef.current &&
+      estimateTime > 1
     ) {
       // 只有在项目未被标记为完成时才重置
       setTimerActive(true);
@@ -374,8 +376,9 @@ export function CodeEngine({
       interval = setInterval(() => {
         setEstimateTime((prevTime) => {
           if (prevTime <= 1) {
-            return initialTime;
+            return 1;
           }
+
           const elapsedTime = initialTime - prevTime + 1;
           const newProgress = Math.min(
             Math.floor((elapsedTime / initialTime) * 100),
@@ -464,6 +467,11 @@ export function CodeEngine({
                     }}
                   />
                 </div>
+                {estimateTime <= 1 && !projectCompleted && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Hang tight, almost there...
+                  </p>
+                )}
               </div>
 
               {/* 添加不同阶段的消息 */}
