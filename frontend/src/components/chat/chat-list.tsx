@@ -9,24 +9,40 @@ import remarkGfm from 'remark-gfm';
 import CodeDisplayBlock from '../code-display-block';
 import { Message } from '../../const/MessageType';
 import { Button } from '../ui/button';
-import { Check, Pencil, X, Code, Terminal } from 'lucide-react';
+import {
+  Check,
+  Pencil,
+  X,
+  Code,
+  Copy,
+  Trash2,
+  RotateCcw,
+  ThumbsUp,
+  ThumbsDown,
+} from 'lucide-react';
 import { useAuthContext } from '@/providers/AuthProvider';
+import ThinkingProcessBlock from './thinking-process-block';
 
 interface ChatListProps {
   messages: Message[];
   loadingSubmit?: boolean;
   onMessageEdit?: (messageId: string, newContent: string) => void;
+  thinkingProcess?: Message[];
+
+  isTPUpdating: boolean;
 }
 
 const isUserMessage = (role: string) => role.toLowerCase() === 'user';
-const isToolCall = (content: string) =>
-  content.includes('```') || content.includes('executing');
 
 export default function ChatList({
   messages,
   loadingSubmit,
   onMessageEdit,
+  thinkingProcess,
+
+  isTPUpdating,
 }: ChatListProps) {
+  console.log(thinkingProcess);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthContext();
 
@@ -65,20 +81,26 @@ export default function ChatList({
   };
 
   const renderMessageContent = (content: string) => {
-    return content.split('```').map((part, index) => {
-      if (index % 2 === 0) {
-        return (
-          <Markdown key={index} remarkPlugins={[remarkGfm]}>
-            {part}
-          </Markdown>
-        );
-      }
-      return (
-        <div className="my-2 w-full" key={index}>
-          <CodeDisplayBlock code={part} lang="" />
-        </div>
-      );
-    });
+    return (
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          code(props) {
+            const { children, className, node, ...rest } = props;
+            const match = /language-(\w+)/.exec(className || '');
+            return match ? (
+              <CodeDisplayBlock code={String(children)} lang={match[1]} />
+            ) : (
+              <code className={className} {...rest}>
+                {children}
+              </code>
+            );
+          },
+        }}
+      >
+        {content}
+      </Markdown>
+    );
   };
 
   if (messages.length === 0) {
@@ -112,7 +134,6 @@ export default function ChatList({
           {messages.map((message, index) => {
             const isUser = isUserMessage(message.role);
             const isEditing = message.id === editingMessageId;
-            const isTool = !isUser && isToolCall(message.content);
 
             return (
               <motion.div
@@ -124,10 +145,9 @@ export default function ChatList({
                   opacity: { duration: 0.15 },
                   y: { duration: 0.15 },
                 }}
-                className="flex flex-col gap-1 w-full group"
+                className="flex gap-3 items-start"
               >
-                {/* Sender info - always on the left */}
-                <div className="flex items-center gap-2 ml-1">
+                <div className="flex-shrink-0 mt-1">
                   <Avatar
                     className={cn(
                       'h-6 w-6',
@@ -154,34 +174,52 @@ export default function ChatList({
                       </>
                     )}
                   </Avatar>
-                  <span className="text-xs text-muted-foreground">
-                    {isUser ? user.username || 'You' : 'CodeFox'}
-                  </span>
                 </div>
 
-                {/* Message content */}
-                <div className="flex flex-col gap-1 pl-8 relative">
-                  {/* Edit buttons for user messages */}
-                  {isUser && !isEditing && onMessageEdit && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="absolute -left-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
-                      onClick={() => handleEditStart(message)}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                  )}
-
-                  {/* Message bubble */}
+                <div className="flex-grow flex flex-col gap-2">
                   {isEditing ? (
-                    <div className="flex flex-col gap-2 w-full pl-0">
-                      <textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="min-h-[100px] w-full p-2 rounded bg-background border resize-none text-foreground"
-                        autoFocus
-                      />
+                    <div className="flex flex-col gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-2">
+                          <div className="text-xs text-muted-foreground">
+                            Edit
+                          </div>
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="min-h-[200px] w-full p-2 rounded bg-background border resize-none text-foreground font-mono"
+                            autoFocus
+                            placeholder="Support Markdown formatting..."
+                            onKeyDown={(e) => {
+                              if (e.key === 'Tab') {
+                                e.preventDefault();
+                                const start = e.currentTarget.selectionStart;
+                                const end = e.currentTarget.selectionEnd;
+                                setEditContent(
+                                  editContent.substring(0, start) +
+                                    '  ' +
+                                    editContent.substring(end)
+                                );
+                                // Set cursor position after timeout to ensure state is updated
+                                setTimeout(() => {
+                                  e.currentTarget.selectionStart =
+                                    e.currentTarget.selectionEnd = start + 2;
+                                }, 0);
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <div className="text-xs text-muted-foreground">
+                            Preview
+                          </div>
+                          <div className="min-h-[200px] w-full p-2 rounded bg-muted prose dark:prose-invert prose-sm max-w-none overflow-auto">
+                            <Markdown remarkPlugins={[remarkGfm]}>
+                              {editContent}
+                            </Markdown>
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
@@ -203,40 +241,106 @@ export default function ChatList({
                       </div>
                     </div>
                   ) : (
-                    <div
-                      className={cn(
-                        'px-4 py-3 rounded-lg w-auto max-w-full',
-                        isUser
-                          ? 'bg-muted text-foreground border border-border/50'
-                          : isTool
-                            ? 'bg-slate-50 dark:bg-slate-900 border border-border/50'
-                            : 'bg-card text-card-foreground border border-border/50'
-                      )}
-                    >
-                      <div className="whitespace-pre-wrap">
+                    <div className="flex flex-col gap-2">
+                      <div
+                        className={cn(
+                          'px-4 py-1 rounded-lg break-words',
+                          !isUser
+                            ? 'bg-card text-card-foreground'
+                            : 'text-foreground'
+                        )}
+                      >
                         {isUser ? (
-                          message.content
-                        ) : isTool ? (
                           <div className="prose dark:prose-invert prose-sm max-w-none">
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
-                              <Terminal className="h-3.5 w-3.5" />
-                              <span>Tool Execution</span>
+                            <div className="mt-4 prose dark:prose-invert prose-sm max-w-none">
+                              {renderMessageContent(message.content)}
                             </div>
-                            {renderMessageContent(message.content)}
                           </div>
                         ) : (
-                          <div className="prose dark:prose-invert prose-sm max-w-none">
-                            {renderMessageContent(message.content)}
-                          </div>
+                          <>
+                            {(() => {
+                              const tpMsg = thinkingProcess.find(
+                                (tp) => tp.id === message.id
+                              );
+                              if (tpMsg) {
+                                return (
+                                  <ThinkingProcessBlock
+                                    key={message.id}
+                                    thinking={tpMsg}
+                                  />
+                                );
+                              }
+                              return null;
+                            })()}
+
+                            <div className="mt-4 prose dark:prose-invert prose-sm max-w-none">
+                              {renderMessageContent(message.content)}
+                            </div>
+                          </>
                         )}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Tool result or additional info could be added here */}
-                  {isTool && (
-                    <div className="text-xs text-muted-foreground mt-1 ml-2">
-                      <span>Tool output</span>
+                      {/* Action buttons */}
+                      <div className="px-2 flex gap-2">
+                        {isUser ? (
+                          <>
+                            {onMessageEdit && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2"
+                                onClick={() => handleEditStart(message)}
+                              >
+                                <Pencil className="h-3 w-3 mr-1" />
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                            >
+                              <ThumbsUp className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                            >
+                              <ThumbsDown className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -249,9 +353,9 @@ export default function ChatList({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col gap-1 w-full"
+            className="flex gap-3 items-start"
           >
-            <div className="flex items-center gap-2 ml-1">
+            <div className="flex-shrink-0 mt-1">
               <Avatar className="h-6 w-6 bg-secondary/10">
                 <AvatarImage
                   src="/codefox.svg"
@@ -260,21 +364,29 @@ export default function ChatList({
                 />
                 <AvatarFallback>AI</AvatarFallback>
               </Avatar>
-              <span className="text-xs text-muted-foreground">CodeFox</span>
             </div>
-
-            <div className="flex pl-8">
-              <div className="px-3 py-2 flex items-center">
-                <div className="flex gap-1.5">
-                  <span className="size-2 rounded-full bg-foreground/30 animate-bounce"></span>
-                  <span
-                    className="size-2 rounded-full bg-foreground/30 animate-bounce"
-                    style={{ animationDelay: '0.2s' }}
-                  ></span>
-                  <span
-                    className="size-2 rounded-full bg-foreground/30 animate-bounce"
-                    style={{ animationDelay: '0.4s' }}
-                  ></span>
+            <div className="flex-grow">
+              <div className="px-4 py-2 flex flex-col">
+                {isTPUpdating &&
+                  thinkingProcess &&
+                  thinkingProcess.length > 0 && (
+                    <ThinkingProcessBlock
+                      key="loading-tp"
+                      thinking={thinkingProcess[thinkingProcess.length - 1]}
+                    />
+                  )}
+                <div className="flex items-center mt-2">
+                  <div className="flex gap-1.5">
+                    <span className="size-2 rounded-full bg-foreground/30 animate-bounce"></span>
+                    <span
+                      className="size-2 rounded-full bg-foreground/30 animate-bounce"
+                      style={{ animationDelay: '0.2s' }}
+                    ></span>
+                    <span
+                      className="size-2 rounded-full bg-foreground/30 animate-bounce"
+                      style={{ animationDelay: '0.4s' }}
+                    ></span>
+                  </div>
                 </div>
               </div>
             </div>

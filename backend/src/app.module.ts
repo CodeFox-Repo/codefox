@@ -51,7 +51,7 @@ function isProduction(): boolean {
     PromptToolModule,
     MailModule,
     TypeOrmModule.forFeature([User]),
-    GitHubModule
+    GitHubModule,
   ],
   providers: [
     AppResolver,

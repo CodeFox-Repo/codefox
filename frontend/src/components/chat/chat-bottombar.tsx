@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import TextareaAutosize from 'react-textarea-autosize';
 import { PaperclipIcon, Send, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ChatProps } from './chat-panel';
+import { Message } from '../../const/MessageType';
 import Image from 'next/image';
 import {
   Tooltip,
@@ -13,6 +13,18 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+interface ChatBottombarProps {
+  messages: Message[];
+  input: string;
+  handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  stop: () => void;
+  formRef: React.RefObject<HTMLFormElement>;
+  setInput?: React.Dispatch<React.SetStateAction<string>>;
+  setMessages: (messages: Message[]) => void;
+  setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
+}
+
 export default function ChatBottombar({
   messages,
   input,
@@ -20,7 +32,9 @@ export default function ChatBottombar({
   handleSubmit,
   formRef,
   setInput,
-}: ChatProps) {
+  setMessages,
+  setSelectedModel,
+}: ChatBottombarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);

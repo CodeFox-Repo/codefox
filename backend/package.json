@@ -61,6 +61,7 @@
     "graphql-subscriptions": "^2.0.0",
     "graphql-upload-minimal": "^1.6.1",
     "graphql-ws": "^5.16.0",
+    "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "markdown-to-txt": "^2.0.1",
     "nodemailer": "^6.10.0",

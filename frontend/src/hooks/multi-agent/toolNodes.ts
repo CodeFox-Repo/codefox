@@ -7,6 +7,7 @@ import {
   codeReviewTool,
   commitChangesTool,
   editFileTool,
+  summaryTool,
 } from './tools';
 
 export interface ToolUsage {
@@ -26,6 +27,19 @@ export interface Tool {
 }
 
 export const managerTools: Tool[] = [
+  {
+    toolName: 'summaryTool',
+    behavior: summaryTool,
+    description:
+      'Generates a final response summary and thinking process summary of the conversation.',
+    usage: {
+      useFor: 'Summarizing conversation and generating final response',
+      input: 'Accumulated thoughts and conversation history',
+      output: 'Final response and thinking process summary',
+      whenToUse: 'After all task steps are completed',
+      nextStep: 'Task completed',
+    },
+  },
   {
     toolName: 'taskTool',
     behavior: taskTool,
