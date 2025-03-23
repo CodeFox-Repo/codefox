@@ -546,7 +546,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
         await updateProjectPhotoMutation({
           variables: {
-              input: {
+            input: {
               projectId,
               file,
             },
