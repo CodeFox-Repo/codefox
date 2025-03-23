@@ -96,20 +96,17 @@ function ChatSideBarComponent({
 }: SidebarProps) {
   const router = useRouter();
   const [currentChatid, setCurrentChatid] = useState('');
-  const { setCurProject, pollChatProject } = useContext(ProjectContext);
+  const { setChatId } = useContext(ProjectContext);
 
   const handleChatSelect = useCallback(
     (chatId: string) => {
       setCurrentChatid(chatId);
       router.push(`/chat?id=${chatId}`);
-      setCurProject(null);
-      pollChatProject(chatId).then((p) => {
-        setCurProject(p);
-      });
+      setChatId(chatId);
       const event = new Event(EventEnum.CHAT);
       window.dispatchEvent(event);
     },
-    [router, setCurProject, pollChatProject]
+    [router]
   );
 
   if (loading) return <SidebarSkeleton />;
