@@ -37,17 +37,16 @@ export function CodeEngine({
   >({});
   const projectPathRef = useRef(null);
 
-  const [progress, setProgress] = useState(0); // 从0%开始
-  const [estimateTime, setEstimateTime] = useState(6 * 60); // 保留估计时间
+  const [progress, setProgress] = useState(0);
+  const [estimateTime, setEstimateTime] = useState(6 * 60);
   const [timerActive, setTimerActive] = useState(false);
-  const initialTime = 6 * 60; // 初始总时间（6分钟）
+  const initialTime = 6 * 60; // start with 6 minutes
   const [projectCompleted, setProjectCompleted] = useState(false);
-  // 添加一个状态来跟踪完成动画
   const [isCompleting, setIsCompleting] = useState(false);
-  // 添加一个ref来持久跟踪项目状态，避免重新渲染时丢失
+  // add a ref to track if project is loaded
   const isProjectLoadedRef = useRef(false);
 
-  // 在组件挂载时从localStorage检查项目是否已完成
+  // Load project completion status from local storage
   useEffect(() => {
     try {
       const savedCompletion = localStorage.getItem(
@@ -59,13 +58,13 @@ export function CodeEngine({
         setProgress(100);
       }
     } catch (e) {
-      // 忽略localStorage错误
+      logger.error('Failed to load project completion status:', e);
     }
   }, [chatId]);
 
   // Poll for project if needed using chatId
   useEffect(() => {
-    // 如果项目已经完成，跳过轮询
+    // if project is already completed or project is already loaded, return
     if (projectCompleted || isProjectLoadedRef.current) {
       return;
     }
@@ -76,7 +75,7 @@ export function CodeEngine({
           setIsLoading(true);
           const project = await pollChatProject(chatId);
           if (project) {
-            // 如果成功加载项目，将状态设置为已完成
+            // if projectPath is present, set local project and fetch files
             if (project.projectPath) {
               setLocalProject(project);
               setProjectCompleted(true);
@@ -316,7 +315,7 @@ export function CodeEngine({
 
   // Determine if we're truly ready to render
   const showLoader = useMemo(() => {
-    // 如果项目已经被标记为完成，不再显示加载器
+    // if project is already completed or project is already loaded, return
     if (projectCompleted || isProjectLoadedRef.current) {
       return false;
     }
@@ -361,7 +360,7 @@ export function CodeEngine({
       !isProjectLoadedRef.current &&
       estimateTime > 1
     ) {
-      // 只有在项目未被标记为完成时才重置
+      // if project is not loaded and timer is not active, start timer
       setTimerActive(true);
       setEstimateTime(initialTime);
       setProgress(0);
