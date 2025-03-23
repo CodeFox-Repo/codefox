@@ -39,8 +39,8 @@ export async function GET(req: Request) {
 
     // Set viewport to a reasonable size
     await page.setViewport({
-      width: 1280,
-      height: 720,
+      width: 1920,
+      height: 1080,
     });
 
     // Navigate to URL with increased timeout and more reliable wait condition
@@ -49,10 +49,12 @@ export async function GET(req: Request) {
       timeout: 60000, // Increased timeout to 60 seconds
     });
 
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Waits for 1 seconds
+
     // Take screenshot
     const screenshot = await page.screenshot({
       type: 'png',
-      fullPage: false,
+      fullPage: true,
     });
 
     // Always close the page when done
