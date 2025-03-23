@@ -7,6 +7,7 @@ export enum TaskType {
   UNRELATED = 'unrelated',
 }
 export interface AgentContext {
+  tempId?: string; // Temporary ID for the conversation
   task_type: TaskType | null; // Current task type
   request: string; // Original request
   projectPath: string; // Project ID
@@ -23,6 +24,7 @@ export interface AgentContext {
   reviewComments?: string[]; // Code review comments
   commitMessage?: string; // Commit message
   accumulatedThoughts: string[]; // Accumulated thinking processes
+  final_response?: string; // Final summarized response
   setFilePath: (path: string) => void; // Set current file path in editor
   editorRef: React.MutableRefObject<any>; // Monaco editor reference for direct updates
   currentStep?: {
@@ -34,6 +36,9 @@ export interface AgentContext {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   saveMessage: any;
   token?: string;
+  setThinkingProcess: React.Dispatch<React.SetStateAction<Message[]>>;
+  setIsTPUpdating: React.Dispatch<React.SetStateAction<boolean>>;
+  setLoadingSubmit: React.Dispatch<React.SetStateAction<boolean>>;
 }
 export const systemPrompt = (): string => {
   return `# System Instructions
@@ -441,6 +446,27 @@ Make your decision based on the current context and ensure a logical progression
   );
 };
 
+export const summaryPrompt = (message: string) => {
+  return (
+    systemPrompt() +
+    `You are a conversation summarizer. Your mission is to provide a clear, concise summary of the code changes made during this interaction.
+
+### **Mission Objective:**
+- Create a clear summary of code changes and technical decisions
+- Include before/after code comparisons where relevant
+- Highlight key modifications and their purposes
+
+### **User-Provided Information:**
+${message}
+
+### **Output Format**
+<jsonResponse>{
+    "final_response": "Here is a summary of the changes made:\\n\\n1. Purpose: [describe purpose]\\n2. Modified files: [list files]\\n3. Changes accomplished: [describe changes]\\n4. Technical details: [list important details]"
+}</jsonResponse>
+
+Remember to include ALL code changes made during the conversation, formatted with proper markdown code blocks.`
+  );
+};
 export const findbugPrompt = (message: string, file_structure: string[]) => {
   return (
     systemPrompt() +
