@@ -277,32 +277,35 @@ const ResponsiveToolbar = ({
       <div className="flex items-center space-x-2">
         <Button
           variant={activeTab === 'preview' ? 'default' : 'outline'}
+          size="sm"
           className="text-sm"
           onClick={() => setActiveTab('preview')}
           disabled={isLoading}
         >
-          <Eye className="w-4 h-4 mr-1" />
+          <Eye className="w-3 h-3 mr-1" />
           Preview
         </Button>
         {visibleTabs >= 2 && (
           <Button
             variant={activeTab === 'code' ? 'default' : 'outline'}
+            size="sm"
             className="text-sm"
             onClick={() => setActiveTab('code')}
             disabled={isLoading}
           >
-            <CodeIcon className="w-4 h-4 mr-1" />
+            <CodeIcon className="w-3 h-3 mr-1" />
             Code
           </Button>
         )}
         {visibleTabs >= 3 && (
           <Button
             variant={activeTab === 'console' ? 'default' : 'outline'}
+            size="sm"
             className="text-sm"
             onClick={() => setActiveTab('console')}
             disabled={isLoading}
           >
-            <Terminal className="w-4 h-4 mr-1" />
+            <Terminal className="w-3 h-3 mr-1" />
             Console
           </Button>
         )}
@@ -312,31 +315,21 @@ const ResponsiveToolbar = ({
         <div className="flex items-center space-x-2">
           <Button
             variant="ghost"
+            size="sm"
             className={`p-0 ${compactIcons ? 'hidden' : 'block'}`}
             disabled={isLoading}
           >
-            <GitFork className="w-5 h-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            className={`p-0 ${compactIcons ? 'hidden' : 'block'}`}
-            disabled={isLoading}
-          >
-            <Share2 className="w-5 h-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            className={`p-0 ${compactIcons ? 'hidden' : 'block'}`}
-            disabled={isLoading}
-          >
-            <Copy className="w-5 h-5" />
+            <Copy className="w-3 h-3" />
           </Button>
         </div>
         <div className="flex items-center space-x-2">
           {!compactIcons && (
             <>
+              {/* 
+              //TODO: FIX ME (ALLEN)
               <Button
                 variant="outline"
+                size="sm"
                 className="text-sm"
                 disabled={isLoading}
               >
@@ -344,26 +337,29 @@ const ResponsiveToolbar = ({
               </Button>
               <Button
                 variant="outline"
+                size="sm"
                 className="text-sm"
                 disabled={isLoading}
               >
                 Publish
-              </Button>
+              </Button> */}
               <Button
                 variant="outline"
+                size="sm"
                 className="text-sm"
                 disabled={isLoading || !projectId || isDownloading}
                 onClick={handleDownload}
               >
                 {isDownloading ? (
-                  <Loader className="w-4 h-4 mr-1 animate-spin" />
+                  <Loader className="w-3 h-3 mr-1 animate-spin" />
                 ) : (
-                  <Download className="w-4 h-4 mr-1" />
+                  <Download className="w-3 h-3 mr-1" />
                 )}
                 Download
               </Button>
               <Button
                 variant={isGithubSyncComplete ? 'secondary' : 'outline'}
+                size="sm"
                 className="text-sm"
                 disabled={
                   isLoading ||
@@ -374,9 +370,9 @@ const ResponsiveToolbar = ({
                 onClick={handlePublishToGitHub}
               >
                 {isPublishingToGitHub ? (
-                  <Loader className="w-4 h-4 mr-1 animate-spin" />
+                  <Loader className="w-3 h-3 mr-1 animate-spin" />
                 ) : (
-                  <Github className="w-4 h-4 mr-1" />
+                  <Github className="w-3 h-3 mr-1" />
                 )}
                 {isGithubSyncComplete ? 'View on GitHub' : 'GitHub'}
               </Button>
@@ -384,19 +380,22 @@ const ResponsiveToolbar = ({
           )}
           {compactIcons && (
             <>
+              {/* 
+              //TODO: FIX ME (ALLEN)
               <Button variant="outline" className="p-2" disabled={isLoading}>
                 <Share2 className="w-4 h-4" />
-              </Button>
+              </Button> */}
               <Button
                 variant="outline"
-                className="p-2"
+                size="icon"
+                className="h-8 w-8"
                 disabled={isLoading || !projectId || isDownloading}
                 onClick={handleDownload}
               >
                 {isDownloading ? (
-                  <Loader className="w-4 h-4 animate-spin" />
+                  <Loader className="w-3 h-3 animate-spin" />
                 ) : (
-                  <Download className="w-4 h-4" />
+                  <Download className="w-3 h-3" />
                 )}
               </Button>
               <Button
@@ -411,9 +410,9 @@ const ResponsiveToolbar = ({
                 onClick={handlePublishToGitHub}
               >
                 {isPublishingToGitHub ? (
-                  <Loader className="w-4 h-4 animate-spin" />
+                  <Loader className="w-3 h-3 animate-spin" />
                 ) : (
-                  <Github className="w-4 h-4" />
+                  <Github className="w-3 h-3" />
                 )}
               </Button>
             </>
