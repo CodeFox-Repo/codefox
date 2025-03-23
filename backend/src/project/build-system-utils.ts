@@ -14,6 +14,7 @@ import { BuildSequence } from 'src/build-system/types';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateProjectInput } from './dto/project.input';
 import { FileStructureAndArchitectureHandler } from 'src/build-system/handlers/file-manager/file-struct';
+import { UIUXLayoutHandler } from 'src/build-system/handlers/ux/uiux-layout';
 
 export function buildProjectSequenceByProject(
   input: CreateProjectInput,
@@ -41,6 +42,10 @@ export function buildProjectSequenceByProject(
       {
         handler: UXSMSHandler,
         name: 'UX Sitemap Structure Node',
+      },
+      {
+        handler: UIUXLayoutHandler,
+        name: 'UI UX layout Node',
       },
       {
         handler: UXDMDHandler,
@@ -87,29 +92,37 @@ export function buildProjectSequenceByProject(
  * Generates a project name prompt based on the provided description.
  */
 export function generateProjectNamePrompt(description: string): string {
-  return `You are a project name generator. Based on the following project description, generate a concise, memorable, and meaningful project name.
+  return `You are a project name generator specializing in creating clear, descriptive titles for technical projects. Based on the provided description, generate a concise yet comprehensive project title.
 
 Input Description: ${description}
 
-Requirements for the project name:
-1. Must be 1-3 words maximum
-2. Should be clear and professional
-3. Avoid generic terms like "project" or "system"
-4. Use camelCase or kebab-case format
-5. Should reflect the core functionality or purpose
-6. Must be unique and memorable
-7. Should be easy to pronounce
-8. Avoid acronyms unless they're very intuitive
+Project Title Guidelines:
+1. Create a descriptive title (not exceeding 20 words)
+2. Format as a standard phrase that clearly identifies the project purpose
+3. Include specific details about:
+   - The type of application (e.g., Backend, Frontend, Mobile App)
+   - The industry or organization it serves
+   - Key functionality or purpose
+4. Ensure the title is:
+   - Clear and descriptive
+   - Professional and straightforward
+   - Easy to understand for stakeholders
+   - Specific enough to differentiate from other projects
+5. Acceptable formatting examples:
+   - "Backend System for Financial Reporting"
+   - "Mobile App for Patient Monitoring"
+   - "Data Analytics Platform for Retail Inventory"
+6. Include organization names when relevant (e.g., "Backend App for Chinese Sakura Bank")
 
-Please respond ONLY with the project name, without any explanation or additional text.
+Please respond ONLY with the project title. Do not include explanations or additional text.
 
-Example inputs and outputs:
-Description: "A task management system with real-time collaboration features"
-Output: taskFlow
+Example high-quality outputs:
+Description: "A task management system with real-time collaboration features for marketing teams"
+Output: Collaboration Platform for Marketing Task Management
 
-Description: "An AI-powered document analysis and extraction system"
-Output: docMind
+Description: "An AI-powered document analysis system for legal departments"
+Output: AI Document Analysis Tool for Legal Departments
 
-Description: "A microservice-based e-commerce platform with advanced inventory management"
-Output: tradeCore`;
+Description: "A microservice-based e-commerce platform with advanced inventory management for a furniture retailer"
+Output: E-commerce System for Furniture Inventory Management`;
 }

@@ -137,7 +137,8 @@ export class App {
         }
       } else {
         // Handle regular response
-        const response = await this.llmProvider.chat(input);
+        // TODO make it to dynamic Now is 200 second by defult.
+        const response = await this.llmProvider.chat(input, 200000);
         res.json({
           model: input.model,
           choices: [

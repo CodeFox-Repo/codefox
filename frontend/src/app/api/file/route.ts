@@ -3,15 +3,16 @@ import { NextResponse } from 'next/server';
 import { FileReader } from '@/utils/file-reader';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { logger } from '@/app/log/logger';
 
 export async function POST(req: Request) {
-  console.log('🚀 [API] Received POST request to update file');
+  logger.info('🚀 [API] Received POST request to update file');
 
   try {
     const { filePath, newContent } = await req.json();
 
     if (!filePath || !newContent) {
-      console.error('[API] Missing required parameters');
+      logger.error('[API] Missing required parameters');
       return NextResponse.json(
         { error: "Missing 'filePath' or 'newContent'" },
         { status: 400 }
@@ -20,13 +21,13 @@ export async function POST(req: Request) {
     const reader = FileReader.getInstance();
     reader.updateFile(filePath, newContent);
 
-    console.log('[API] File updated successfully');
+    logger.info('[API] File updated successfully');
     return NextResponse.json({
       message: 'File updated successfully',
       filePath,
     });
   } catch (error) {
-    console.error('[API] Error updating file:', error);
+    logger.error('[API] Error updating file:', error);
     return NextResponse.json(
       { error: 'Failed to update file' },
       { status: 500 }
@@ -59,6 +60,8 @@ function getFileType(filePath: string): string {
   const extension = filePath.split('.').pop()?.toLowerCase() || '';
 
   const typeMap: { [key: string]: string } = {
+    //TODO: Add more file types
+    tsx: 'typescriptreact',
     txt: 'text',
     md: 'markdown',
     json: 'json',

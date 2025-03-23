@@ -4,15 +4,15 @@ import { useState, useEffect } from 'react';
 import { LocalStore } from '@/lib/storage';
 import { GET_MODEL_TAGS } from '@/graphql/request';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { logger } from '@/app/log/logger';
 
 interface ModelsCache {
   models: string[];
   lastUpdate: number;
 }
-
 const CACHE_DURATION = 30 * 60 * 1000;
 export const useModels = () => {
-  const { isAuthorized, isChecking } = useAuthContext();
+  const { isAuthorized } = useAuthContext();
   const [selectedModel, setSelectedModel] = useState<string | undefined>(
     undefined
   );
@@ -51,9 +51,9 @@ export const useModels = () => {
   const { data, loading, error } = useQuery<{
     getAvailableModelTags: string[];
   }>(GET_MODEL_TAGS, {
-    skip: !isAuthorized || isChecking || !shouldUpdateCache(),
+    skip: !isAuthorized || !shouldUpdateCache(),
     onCompleted: (data) => {
-      console.log(data);
+      logger.info(data);
       if (data?.getAvailableModelTags) {
         updateCache(data.getAvailableModelTags);
       }
@@ -61,7 +61,7 @@ export const useModels = () => {
   });
 
   if (error) {
-    console.log(error);
+    logger.info(error);
     toast.error('Failed to load models');
   }
 

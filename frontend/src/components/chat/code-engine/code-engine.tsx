@@ -1,395 +1,489 @@
 'use client';
-import { Button } from '@/components/ui/button';
-import Editor from '@monaco-editor/react';
-import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { useContext, useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Code as CodeIcon,
-  Copy,
-  Eye,
-  GitFork,
-  Loader,
-  Share2,
-  Terminal,
-} from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { useContext, useEffect, useRef, useState } from 'react';
+import { Loader } from 'lucide-react';
 import { TreeItem, TreeItemIndex } from 'react-complex-tree';
-import FileExplorerButton from './file-explorer-button';
-import FileStructure from './file-structure';
 import { ProjectContext } from './project-context';
-import WebPreview from './web-view';
+import CodeTab from './tabs/code-tab';
+import PreviewTab from './tabs/preview-tab';
+import ConsoleTab from './tabs/console-tab';
+import ResponsiveToolbar from './responsive-toolbar';
+import SaveChangesBar from './save-changes-bar';
+import { logger } from '@/app/log/logger';
 
-export function CodeEngine({ chatId }: { chatId: string }) {
-  // Initialize state, refs, and context
-  const editorRef = useRef(null);
-  const { curProject, filePath, pollChatProject } = useContext(ProjectContext);
-  const [preCode, setPrecode] = useState('// some comment');
-  const [newCode, setCode] = useState('// some comment');
+export function CodeEngine({
+  chatId,
+  isProjectReady = false,
+  projectId,
+}: {
+  chatId: string;
+  isProjectReady?: boolean;
+  projectId?: string;
+}) {
+  const { curProject, projectLoading, pollChatProject, editorRef } =
+    useContext(ProjectContext);
+  const [localProject, setLocalProject] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filePath, setFilePath] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [type, setType] = useState('javascript');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false);
-  const [fileStructureData, setFileStructureData] = useState<
-    Record<TreeItemIndex, TreeItem<any>>
-  >({});
-  const theme = useTheme();
-  console.log('codeengine current chatId: ', chatId);
-
-  const [isProjectFinished, setIsProjectFinished] = useState<boolean>(false);
+  const [preCode, setPrecode] = useState('// Loading...');
+  const [newCode, setCode] = useState('// Loading...');
   const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'console'>(
     'code'
   );
+  const [isFileStructureLoading, setIsFileStructureLoading] = useState(false);
+  const [fileStructureData, setFileStructureData] = useState<
+    Record<TreeItemIndex, TreeItem<any>>
+  >({});
+  const projectPathRef = useRef(null);
 
-  // Callback: Handle editor mount
-  const handleEditorMount = (editorInstance) => {
-    editorRef.current = editorInstance;
-    // Set the editor DOM node's position for layout control
-    editorInstance.getDomNode().style.position = 'absolute';
-  };
+  const [progress, setProgress] = useState(0); // 从0%开始
+  const [estimateTime, setEstimateTime] = useState(6 * 60); // 保留估计时间
+  const [timerActive, setTimerActive] = useState(false);
+  const initialTime = 6 * 60; // 初始总时间（6分钟）
+  const [projectCompleted, setProjectCompleted] = useState(false);
+  // 添加一个状态来跟踪完成动画
+  const [isCompleting, setIsCompleting] = useState(false);
+  // 添加一个ref来持久跟踪项目状态，避免重新渲染时丢失
+  const isProjectLoadedRef = useRef(false);
 
+  // 在组件挂载时从localStorage检查项目是否已完成
   useEffect(() => {
-    async function checkChatProject() {
-      if (curProject?.id) {
-        setIsProjectFinished(false);
-        const linkedProject = await pollChatProject(chatId);
-        console.log(linkedProject);
-        setIsProjectFinished(true);
+    try {
+      const savedCompletion = localStorage.getItem(
+        `project-completed-${chatId}`
+      );
+      if (savedCompletion === 'true') {
+        setProjectCompleted(true);
+        isProjectLoadedRef.current = true;
+        setProgress(100);
+      }
+    } catch (e) {
+      // 忽略localStorage错误
+    }
+  }, [chatId]);
+
+  // Poll for project if needed using chatId
+  useEffect(() => {
+    // 如果项目已经完成，跳过轮询
+    if (projectCompleted || isProjectLoadedRef.current) {
+      return;
+    }
+
+    if (!curProject && chatId && !projectLoading) {
+      const loadProjectFromChat = async () => {
+        try {
+          setIsLoading(true);
+          const project = await pollChatProject(chatId);
+          if (project) {
+            setLocalProject(project);
+            // 如果成功加载项目，将状态设置为已完成
+            if (project.projectPath) {
+              setProjectCompleted(true);
+              isProjectLoadedRef.current = true;
+            }
+          }
+        } catch (error) {
+          logger.error('Failed to load project from chat:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadProjectFromChat();
+    } else {
+      setIsLoading(projectLoading);
+    }
+  }, [chatId, curProject, projectLoading, pollChatProject, projectCompleted]);
+
+  // Use either curProject from context or locally polled project
+  const activeProject = curProject || localProject;
+
+  // Update projectPathRef when project changes
+  useEffect(() => {
+    if (activeProject?.projectPath) {
+      projectPathRef.current = activeProject.projectPath;
+    }
+  }, [activeProject]);
+
+  async function fetchFiles() {
+    const projectPath = activeProject?.projectPath || projectPathRef.current;
+    if (!projectPath) {
+      return;
+    }
+
+    try {
+      setIsFileStructureLoading(true);
+      const response = await fetch(`/api/project?path=${projectPath}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file structure: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data && data.res) {
+        setFileStructureData(data.res);
       } else {
-        setIsProjectFinished(false);
+        logger.warn('Empty or invalid file structure data received');
       }
+    } catch (error) {
+      logger.error('Error fetching file structure:', error);
+    } finally {
+      setIsFileStructureLoading(false);
     }
-    checkChatProject();
-  }, [chatId, curProject, pollChatProject]);
+  }
 
-  // Effect: Fetch file content when filePath or projectId changes
+  // Effect for loading file structure when project is ready
   useEffect(() => {
-    async function getCode() {
-      const file_node = fileStructureData[`root/${filePath}`];
-      if (filePath == '' || !file_node) return;
-      const isFolder = file_node.isFolder;
-      if (isFolder) return;
-      try {
-        setIsLoading(true);
-        const res = await fetch(
-          `/api/file?path=${encodeURIComponent(`${curProject.projectPath}/${filePath}`)}`
-        ).then((res) => res.json());
-        setCode(res.content);
-        setPrecode(res.content);
-        setType(res.type);
-        setIsLoading(false);
-      } catch (error: any) {
-        console.error(error.message);
-      }
-    }
-    getCode();
-  }, [filePath, curProject]);
+    const shouldFetchFiles =
+      isProjectReady &&
+      (activeProject?.projectPath || projectPathRef.current) &&
+      Object.keys(fileStructureData).length === 0 &&
+      !isFileStructureLoading;
 
-  // Effect: Fetch file structure when projectId changes
+    if (shouldFetchFiles) {
+      fetchFiles();
+    }
+  }, [
+    isProjectReady,
+    activeProject,
+    isFileStructureLoading,
+    fileStructureData,
+  ]);
+
+  // Effect for selecting default file once structure is loaded
   useEffect(() => {
-    async function fetchFiles() {
-      if (!curProject?.projectPath) return;
+    if (
+      !isFileStructureLoading &&
+      Object.keys(fileStructureData).length > 0 &&
+      !filePath
+    ) {
+      selectDefaultFile();
+    }
+  }, [isFileStructureLoading, fileStructureData, filePath]);
 
-      try {
-        const response = await fetch(
-          `/api/project?path=${curProject.projectPath}`
-        );
-        const data = await response.json();
-        setFileStructureData(data.res || {});
-      } catch (error) {
-        console.error('Error fetching file structure:', error);
+  // Retry mechanism for fetching files if needed
+  useEffect(() => {
+    let retryTimeout;
+
+    if (
+      isProjectReady &&
+      activeProject?.projectPath &&
+      Object.keys(fileStructureData).length === 0 &&
+      !isFileStructureLoading
+    ) {
+      retryTimeout = setTimeout(() => {
+        logger.info('Retrying file structure fetch...');
+        fetchFiles();
+      }, 3000);
+    }
+
+    return () => {
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
+  }, [
+    isProjectReady,
+    activeProject,
+    fileStructureData,
+    isFileStructureLoading,
+  ]);
+
+  function selectDefaultFile() {
+    const defaultFiles = [
+      'src/App.tsx',
+      'src/App.js',
+      'src/index.tsx',
+      'src/index.js',
+      'app/page.tsx',
+      'pages/index.tsx',
+      'index.html',
+      'README.md',
+    ];
+
+    for (const defaultFile of defaultFiles) {
+      if (fileStructureData[`root/${defaultFile}`]) {
+        setFilePath(defaultFile);
+        return;
       }
     }
-    fetchFiles();
-  }, [curProject?.projectPath]);
 
-  // Reset code to previous state and update editor
+    const firstFile = Object.entries(fileStructureData).find(
+      ([key, item]) =>
+        key.startsWith('root/') && !item.isFolder && key !== 'root/'
+    );
+
+    if (firstFile) {
+      setFilePath(firstFile[0].replace('root/', ''));
+    }
+  }
+
   const handleReset = () => {
     setCode(preCode);
     editorRef.current?.setValue(preCode);
     setSaving(false);
   };
 
-  // Update file content on the server
   const updateCode = async (value) => {
+    const projectPath = activeProject?.projectPath || projectPathRef.current;
+    if (!projectPath || !filePath) return;
+
     try {
       const response = await fetch('/api/file', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          filePath: `${curProject.projectPath}/${filePath}`,
-          newContent: JSON.stringify(value),
+          filePath: `${projectPath}/${filePath}`,
+          newContent: value,
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update file: ${response.status}`);
+      }
+
       await response.json();
     } catch (error) {
-      console.error(error);
+      logger.error('Error updating file:', error);
     }
   };
 
-  // Save the new code and update the previous state
   const handleSave = () => {
     setSaving(false);
     setPrecode(newCode);
     updateCode(newCode);
   };
 
-  // Update code in state and mark as saving
   const updateSavingStatus = (value) => {
     setCode(value);
     setSaving(true);
   };
 
-  // Responsive toolbar component for header tabs and buttons
-  const ResponsiveToolbar = ({ isLoading }: { isLoading: boolean }) => {
-    const containerRef = useRef(null);
-    const [containerWidth, setContainerWidth] = useState(700);
-    const [visibleTabs, setVisibleTabs] = useState(3);
-    const [compactIcons, setCompactIcons] = useState(false);
-
-    // Observe container width changes
-    useEffect(() => {
-      const observer = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          setContainerWidth(entry.contentRect.width);
-        }
-      });
-
-      if (containerRef.current) {
-        observer.observe(containerRef.current);
-      }
-      return () => observer.disconnect();
-    }, []);
-
-    // Adjust visible tabs and icon style based on container width
-    useEffect(() => {
-      if (containerWidth > 650) {
-        setVisibleTabs(3);
-        setCompactIcons(false);
-      } else if (containerWidth > 550) {
-        setVisibleTabs(2);
-        setCompactIcons(false);
-      } else if (containerWidth > 450) {
-        setVisibleTabs(1);
-        setCompactIcons(true);
-      } else {
-        setVisibleTabs(0);
-        setCompactIcons(true);
-      }
-    }, [containerWidth]);
-
-    return (
-      <div
-        ref={containerRef}
-        className="flex items-center justify-between p-4 border-b w-full bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-      >
-        <div className="flex items-center space-x-2">
-          <Button
-            variant={activeTab === 'preview' ? 'default' : 'outline'}
-            className="text-sm"
-            onClick={() => setActiveTab('preview')}
-            disabled={isLoading}
-          >
-            <Eye className="w-4 h-4 mr-1" />
-            Preview
-          </Button>
-          {visibleTabs >= 2 && (
-            <Button
-              variant={activeTab === 'code' ? 'default' : 'outline'}
-              className="text-sm"
-              onClick={() => setActiveTab('code')}
-              disabled={isLoading}
-            >
-              <CodeIcon className="w-4 h-4 mr-1" />
-              Code
-            </Button>
-          )}
-          {visibleTabs >= 3 && (
-            <Button
-              variant={activeTab === 'console' ? 'default' : 'outline'}
-              className="text-sm"
-              onClick={() => setActiveTab('console')}
-              disabled={isLoading}
-            >
-              <Terminal className="w-4 h-4 mr-1" />
-              Console
-            </Button>
-          )}
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              className={`p-0 ${compactIcons ? 'hidden' : 'block'}`}
-              disabled={isLoading}
-            >
-              <GitFork className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              className={`p-0 ${compactIcons ? 'hidden' : 'block'}`}
-              disabled={isLoading}
-            >
-              <Share2 className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              className={`p-0 ${compactIcons ? 'hidden' : 'block'}`}
-              disabled={isLoading}
-            >
-              <Copy className="w-5 h-5" />
-            </Button>
-          </div>
-          <div className="flex items-center space-x-2">
-            {!compactIcons && (
-              <>
-                <Button
-                  variant="outline"
-                  className="text-sm"
-                  disabled={isLoading}
-                >
-                  Supabase
-                </Button>
-                <Button
-                  variant="outline"
-                  className="text-sm"
-                  disabled={isLoading}
-                >
-                  Publish
-                </Button>
-              </>
-            )}
-            {compactIcons && (
-              <Button variant="outline" className="p-2" disabled={isLoading}>
-                <Share2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'code':
+        return (
+          <CodeTab
+            editorRef={editorRef}
+            fileStructureData={fileStructureData}
+            newCode={newCode}
+            isFileStructureLoading={isFileStructureLoading}
+            updateSavingStatus={updateSavingStatus}
+            filePath={filePath}
+            setFilePath={setFilePath}
+          />
+        );
+      case 'preview':
+        return <PreviewTab />;
+      case 'console':
+        return <ConsoleTab />;
+      default:
+        return null;
+    }
   };
 
-  // Render the CodeEngine layout
-  return (
-    <div className="rounded-lg border shadow-sm overflow-hidden">
-      {/* Header Bar */}
-      <ResponsiveToolbar isLoading={!isProjectFinished} />
+  useEffect(() => {
+    async function getCode() {
+      const projectPath = activeProject?.projectPath || projectPathRef.current;
+      if (!projectPath || !filePath) return;
 
-      {/* Main Content Area with Loading */}
-      <div className="relative h-[calc(100vh-48px)]">
+      const file_node = fileStructureData[`root/${filePath}`];
+      if (!file_node) return;
+
+      const isFolder = file_node.isFolder;
+      if (isFolder) return;
+
+      try {
+        const res = await fetch(
+          `/api/file?path=${encodeURIComponent(`${projectPath}/${filePath}`)}`
+        );
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch file content: ${res.status}`);
+        }
+
+        const data = await res.json();
+        setCode(data.content);
+        setPrecode(data.content);
+      } catch (error) {
+        logger.error('Error loading file content:', error);
+      }
+    }
+
+    getCode();
+  }, [filePath, activeProject, fileStructureData]);
+
+  // Determine if we're truly ready to render
+  const showLoader = useMemo(() => {
+    // 如果项目已经被标记为完成，不再显示加载器
+    if (projectCompleted || isProjectLoadedRef.current) {
+      return false;
+    }
+    return (
+      !isProjectReady ||
+      isLoading ||
+      (!activeProject?.projectPath && !projectPathRef.current && !localProject)
+    );
+  }, [
+    isProjectReady,
+    isLoading,
+    activeProject,
+    projectCompleted,
+    localProject,
+  ]);
+
+  useEffect(() => {
+    if (!showLoader && timerActive) {
+      setIsCompleting(true);
+      setProgress(99);
+      const completionTimer = setTimeout(() => {
+        setProgress(100);
+        setTimeout(() => {
+          setTimerActive(false);
+          setIsCompleting(false);
+          setProjectCompleted(true);
+          // 同时更新ref以持久记住完成状态
+          isProjectLoadedRef.current = true;
+
+          // 可选：在完成时将状态保存到localStorage
+          try {
+            localStorage.setItem(`project-completed-${chatId}`, 'true');
+          } catch (e) {
+            // 忽略localStorage错误
+          }
+        }, 800);
+      }, 500);
+
+      return () => clearTimeout(completionTimer);
+    } else if (
+      showLoader &&
+      !timerActive &&
+      !projectCompleted &&
+      !isProjectLoadedRef.current
+    ) {
+      // 只有在项目未被标记为完成时才重置
+      setTimerActive(true);
+      setEstimateTime(initialTime);
+      setProgress(0);
+      setIsCompleting(false);
+    }
+  }, [showLoader, timerActive, projectCompleted, chatId]);
+
+  useEffect(() => {
+    let interval;
+
+    if (timerActive) {
+      interval = setInterval(() => {
+        setEstimateTime((prevTime) => {
+          if (prevTime <= 1) {
+            return initialTime;
+          }
+          const elapsedTime = initialTime - prevTime + 1;
+          const newProgress = Math.min(
+            Math.floor((elapsedTime / initialTime) * 100),
+            99
+          );
+          setProgress(newProgress);
+
+          return prevTime - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerActive]);
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="rounded-lg border shadow-sm overflow-scroll h-full">
+      <ResponsiveToolbar
+        isLoading={showLoader}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        projectId={curProject?.id || projectId}
+      />
+
+      <div className="relative h-[calc(100vh-48px-4rem)]">
         <AnimatePresence>
-          {!isProjectFinished && (
+          {(showLoader || isCompleting) && (
             <motion.div
               key="loader"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-30"
+              className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center gap-4 z-30"
             >
-              <Loader className="w-8 h-8 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">
-                Initializing project...
-              </p>
+              {progress === 100 ? (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 10 }}
+                  className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-10 w-10 text-green-500"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </motion.div>
+              ) : (
+                <Loader className="w-8 h-8 text-primary animate-spin" />
+              )}
+
+              <div className="w-64 flex flex-col items-center">
+                <p className="text-sm text-muted-foreground mb-2">
+                  {progress === 100
+                    ? 'Project ready!'
+                    : projectLoading
+                      ? 'Loading project...'
+                      : `Initializing project (${progress}%)`}
+                </p>
+
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-1">
+                  <motion.div
+                    className={`h-2.5 rounded-full ${
+                      progress === 100 ? 'bg-green-500' : 'bg-primary'
+                    }`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{
+                      ease: progress === 100 ? 'easeOut' : 'easeInOut',
+                      duration: progress === 100 ? 0.5 : 0.3,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 添加不同阶段的消息 */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-sm text-center max-w-xs text-muted-foreground"
+              ></motion.p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="flex h-full">
-          {activeTab === 'code' ? (
-            <>
-              {/* File Explorer Panel (collapsible) */}
-              <motion.div
-                animate={{
-                  width: isExplorerCollapsed ? '0px' : '300px',
-                  opacity: isExplorerCollapsed ? 0 : 1,
-                }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="overflow-y-auto border-r"
-              >
-                <FileStructure data={fileStructureData} filePath={filePath} />
-              </motion.div>
-              <div className="flex-1 relative">
-                <Editor
-                  height="100%"
-                  width="100%"
-                  defaultLanguage="typescript"
-                  value={newCode}
-                  language={type}
-                  loading={isLoading}
-                  onChange={updateSavingStatus}
-                  onMount={handleEditorMount}
-                  options={{
-                    fontSize: 14,
-                    minimap: { enabled: false },
-                    wordWrap: 'on',
-                    wrappingStrategy: 'advanced',
-                    scrollbar: {
-                      useShadows: false,
-                      vertical: 'visible',
-                      horizontal: 'visible',
-                      verticalScrollbarSize: 10,
-                      horizontalScrollbarSize: 10,
-                    },
-                  }}
-                  theme={theme.theme === 'dark' ? 'vs-dark' : 'vs'}
-                />
-              </div>
-            </>
-          ) : activeTab === 'preview' ? (
-            <div className="w-full h-full">
-              <WebPreview />
-            </div>
-          ) : activeTab === 'console' ? (
-            <div className="flex-1 p-4 text-sm">Console Content (Mock)</div>
-          ) : null}
-        </div>
+        <div className="flex h-full">{renderTabContent()}</div>
 
-        {/* Save Changes Bar */}
-        {saving && (
-          <SaveChangesBar
-            saving={saving}
-            onSave={handleSave}
-            onReset={handleReset}
-          />
-        )}
-
-        {/* File Explorer Toggle Button */}
-        {activeTab === 'code' && (
-          <FileExplorerButton
-            isExplorerCollapsed={isExplorerCollapsed}
-            setIsExplorerCollapsed={setIsExplorerCollapsed}
-          />
-        )}
+        {saving && <SaveChangesBar onSave={handleSave} onReset={handleReset} />}
       </div>
     </div>
   );
 }
 
-// SaveChangesBar component for showing unsaved changes status
-const SaveChangesBar = ({ saving, onSave, onReset }) => {
-  return (
-    saving && (
-      <div className="fixed bottom-4 right-4 flex items-center space-x-2 p-2 border rounded-full shadow bg-background">
-        <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />
-        <span className="text-sm text-foreground">Unsaved Changes</span>
-        <Button
-          variant="outline"
-          className="px-3 py-1 text-sm font-medium rounded-full"
-          onClick={onReset}
-        >
-          Reset
-        </Button>
-        <Button
-          variant="default"
-          className="px-4 py-1 text-sm font-medium rounded-full"
-          onClick={onSave}
-        >
-          Save
-        </Button>
-      </div>
-    )
-  );
-};
+export default CodeEngine;

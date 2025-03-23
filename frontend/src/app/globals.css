@@ -10,7 +10,7 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 8 100% 60%; /* #FF5533 */
+    --primary: 240 84% 60%; /* Indigo color - #6366F1 */
     --primary-foreground: 0 0% 98%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
@@ -22,7 +22,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 8 100% 60%;
+    --ring: 240 84% 60%; /* Changed to match indigo */
     --radius: 1rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -33,7 +33,6 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
-
   .dark {
     --background: 0 0% 9%;
     --foreground: 0 0% 98%;
@@ -41,19 +40,19 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 12%;
     --popover-foreground: 0 0% 98%;
-    --primary: 8 90% 55%;
+    --primary: 240 80% 55%; /* Darker indigo for dark mode */
     --primary-foreground: 0 0% 98%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 8 90% 55%;
+    --accent: 240 80% 55%; /* Changed to match indigo */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 8 90% 55%;
+    --ring: 240 80% 55%; /* Changed to match indigo */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -85,11 +84,17 @@
 
 /* 修改滚动条颜色为主题色调 */
 :root {
-  --scrollbar-thumb-color: rgba(255, 85, 51, 0.3); /* 主色调的半透明版本 */
-  --scrollbar-thumb-hover-color: rgba(255, 85, 51, 0.5);
+  --scrollbar-thumb-color: rgba(
+    99,
+    102,
+    241,
+    0.3
+  ); /* Indigo color with opacity */
+  --scrollbar-thumb-hover-color: rgba(99, 102, 241, 0.5);
 }
 
 ::-webkit-scrollbar {
+  display: none;
   width: 6px;
   height: 6px;
 }
@@ -127,4 +132,44 @@
     rgba(255, 255, 255, 0.1) 0%,
     rgba(255, 255, 255, 0) 100%
   );
+}
+
+/* Add cursor animation for typewriter effect */
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.cursor-animation {
+  animation: blink 1s infinite;
+  font-weight: 300;
+  color: currentColor;
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s infinite;
+}
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.button-no-border {
+  @apply !border-none !outline-none !shadow-none;
+}
+.button-no-border:hover,
+.button-no-border:focus,
+.button-no-border:active {
+  @apply !border-none !outline-none !shadow-none !ring-0;
 }

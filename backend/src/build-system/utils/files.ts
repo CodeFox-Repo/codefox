@@ -104,7 +104,7 @@ export async function readFileWithRetries(
       attempt++;
 
       // Optionally log a warning or debug
-      // console.warn(`Failed to read file: ${filePath}, attempt #${attempt}`);
+      // logger.warn(`Failed to read file: ${filePath}, attempt #${attempt}`);
 
       // Wait a short delay before retrying
       if (attempt < maxRetries) {
@@ -114,7 +114,7 @@ export async function readFileWithRetries(
   }
 
   // If we exhausted all retries, re-throw the last error
-  throw lastError;
+  return null;
 }
 
 /**

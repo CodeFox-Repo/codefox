@@ -60,7 +60,16 @@ function buildDependencyLayerGraph(jsonData: {
   const fileInfos: Record<string, FileDependencyInfo> = {};
   const nodes = new Set<string>();
 
+  const shouldIgnore = (filePath: string) => {
+    // this.logger.log(`Checking if should ignore: ${filePath}`);
+    return filePath.startsWith('@/components/ui/');
+  };
+
   Object.entries(jsonData.files).forEach(([fileName, details]) => {
+    if (shouldIgnore(fileName)) {
+      return;
+    }
+
     nodes.add(fileName);
 
     // Initialize the record
@@ -69,8 +78,16 @@ function buildDependencyLayerGraph(jsonData: {
       dependsOn: [],
     };
 
+    const filteredDeps = (details.dependsOn || []).filter(
+      (dep) => !shouldIgnore(dep),
+    );
+
     // In the JSON, "dependsOn" is an array of file paths
-    details.dependsOn.forEach((dep) => {
+    // details.dependsOn.forEach((dep) => {
+    //   nodes.add(dep);
+    //   fileInfos[fileName].dependsOn.push(dep);
+    // });
+    filteredDeps.forEach((dep) => {
       nodes.add(dep);
       fileInfos[fileName].dependsOn.push(dep);
     });

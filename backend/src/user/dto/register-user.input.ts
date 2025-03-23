@@ -14,6 +14,11 @@ export class RegisterUserInput {
   password: string;
 
   @Field()
+  @IsString()
+  @MinLength(6)
+  confirmPassword: string;
+
+  @Field()
   @IsEmail()
   email: string;
 }

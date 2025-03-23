@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ContextType,
 } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
@@ -16,29 +17,44 @@ export class ChatGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const gqlContext = GqlExecutionContext.create(context);
-    const request = gqlContext.getContext().req;
-
-    // Extract the authorization header
-    const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Authorization token is missing');
-    }
-
-    // Decode the token to get user information
-    const token = authHeader.split(' ')[1];
+    // Determine if this is a GraphQL or REST request
+    const contextType = context.getType();
+    let chatId: string;
     let user: any;
-    try {
-      user = this.jwtService.verify(token);
-    } catch (error) {
-      throw new UnauthorizedException('Invalid token');
+
+    if (contextType === 'http') {
+      // REST request (only for chat stream endpoint)
+      const request = context.switchToHttp().getRequest();
+      user = request.user;
+      chatId = request.body?.chatId;
+    } else if (contextType === ('graphql' as ContextType)) {
+      // GraphQL request (for all other chat operations)
+      const gqlContext = GqlExecutionContext.create(context);
+      const { req } = gqlContext.getContext();
+      user = req.user;
+
+      const args = gqlContext.getArgs();
+      chatId =
+        args.chatId || args.input?.chatId || args.updateChatTitleInput?.chatId;
+
+      // Allow chat creation mutation which doesn't require a chatId
+      const info = gqlContext.getInfo();
+      if (info.operation.name.value === 'createChat') {
+        return true;
+      }
     }
 
-    // Extract chatId from the request arguments
-    const args = gqlContext.getArgs();
-    const { chatId } = args;
+    // Common validation for both REST and GraphQL
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
 
-    // check if the user is part of the chat
+    // Skip chat validation for operations that don't require a chatId
+    if (!chatId) {
+      return true;
+    }
+
+    // Verify chat ownership for both types of requests
     const chat = await this.chatService.getChatWithUser(chatId);
     if (!chat) {
       throw new UnauthorizedException('Chat not found');
@@ -54,54 +70,6 @@ export class ChatGuard implements CanActivate {
   }
 }
 
-// @Injectable()
-// export class MessageGuard implements CanActivate {
-//   constructor(
-//     private readonly chatService: ChatService, // Inject ChatService to fetch chat details
-//     private readonly jwtService: JwtService, // JWT Service to verify tokens
-//   ) {}
-
-//   async canActivate(context: ExecutionContext): Promise<boolean> {
-//     const gqlContext = GqlExecutionContext.create(context);
-//     const request = gqlContext.getContext().req;
-
-//     // Extract the authorization header
-//     const authHeader = request.headers.authorization;
-//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-//       throw new UnauthorizedException('Authorization token is missing');
-//     }
-
-//     // Decode the token to get user information
-//     const token = authHeader.split(' ')[1];
-//     let user: any;
-//     try {
-//       user = this.jwtService.verify(token);
-//     } catch (error) {
-//       throw new UnauthorizedException('Invalid token');
-//     }
-
-//     // Extract chatId from the request arguments
-//     const args = gqlContext.getArgs();
-//     const { messageId } = args;
-
-//     // Fetch the message and its associated chat
-//     const message = await this.chatService.getMessageById(messageId);
-//     if (!message) {
-//       throw new UnauthorizedException('Message not found');
-//     }
-
-//     // Ensure that the user is part of the chat the message belongs to
-//     const chat = message.chat;
-//     if (chat.user.id !== user.userId) {
-//       throw new UnauthorizedException(
-//         'User is not authorized to access this message',
-//       );
-//     }
-
-//     return true;
-//   }
-// }
-
 @Injectable()
 export class ChatSubscriptionGuard implements CanActivate {
   constructor(
@@ -110,12 +78,9 @@ export class ChatSubscriptionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const gqlContext = GqlExecutionContext.create(context);
-
-    // For WebSocket context: get token from connectionParams
-    const token = gqlContext
-      .getContext()
-      .connectionParams?.authorization?.split(' ')[1];
+    const wsContext = context.switchToWs();
+    const client = wsContext.getClient();
+    const token = client.handshake?.auth?.token?.split(' ')[1];
 
     if (!token) {
       throw new UnauthorizedException('Authorization token is missing');
@@ -128,9 +93,8 @@ export class ChatSubscriptionGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token');
     }
 
-    // Extract chatId from the subscription arguments
-    const args = gqlContext.getArgs();
-    const { chatId } = args;
+    const data = wsContext.getData();
+    const { chatId } = data;
 
     // Check if the user is part of the chat
     const chat = await this.chatService.getChatWithUser(chatId);

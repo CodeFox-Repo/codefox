@@ -3,7 +3,6 @@
 import {
   ApolloClient,
   InMemoryCache,
-  HttpLink,
   ApolloLink,
   from,
   split,
@@ -12,13 +11,15 @@ import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
+import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
 import { LocalStore } from '@/lib/storage';
+import { logger } from '@/app/log/logger';
 
-// HTTP Link
-const httpLink = new HttpLink({
+// Create the upload link as the terminating link
+const uploadLink = createUploadLink({
   uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:8080/graphql',
   headers: {
-    'Content-Type': 'application/json',
+    'Apollo-Require-Preflight': 'true',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Origin': '*',
   },
@@ -42,14 +43,14 @@ if (typeof window !== 'undefined') {
 // Logging Middleware
 const requestLoggingMiddleware = new ApolloLink((operation, forward) => {
   const context = operation.getContext();
-  console.log('GraphQL Request:', {
+  logger.info('GraphQL Request:', {
     operationName: operation.operationName,
     variables: operation.variables,
     query: operation.query.loc?.source.body,
     headers: context.headers,
   });
   return forward(operation).map((response) => {
-    console.log('GraphQL Response:', response.data);
+    logger.info('GraphQL Response:', response.data);
     return response;
   });
 });
@@ -75,17 +76,25 @@ const authMiddleware = new ApolloLink((operation, forward) => {
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors) {
     graphQLErrors.forEach(({ message, locations, path }) => {
-      console.error(
+      logger.error(
         `[GraphQL error]: Message: ${message}, Location: ${JSON.stringify(locations)}, Path: ${path}`
       );
     });
   }
   if (networkError) {
-    console.error(`[Network error]: ${networkError}`);
+    logger.error(`[Network error]: ${networkError}`);
   }
 });
 
-// Split traffic based on operation type
+// Build the HTTP link chain
+const httpLinkWithMiddleware = from([
+  errorLink,
+  requestLoggingMiddleware,
+  authMiddleware,
+  uploadLink as unknown as ApolloLink, // Cast to ApolloLink to satisfy TypeScript
+]);
+
+// Split traffic between WebSocket and HTTP
 const splitLink = wsLink
   ? split(
       ({ query }) => {
@@ -96,9 +105,9 @@ const splitLink = wsLink
         );
       },
       wsLink,
-      from([errorLink, requestLoggingMiddleware, authMiddleware, httpLink])
+      httpLinkWithMiddleware
     )
-  : from([errorLink, requestLoggingMiddleware, authMiddleware, httpLink]);
+  : httpLinkWithMiddleware;
 
 // Create Apollo Client
 export const client = new ApolloClient({

@@ -18,6 +18,15 @@ export class RefreshTokenResponse {
   refreshToken: string;
 }
 
+@ObjectType()
+export class EmailConfirmationResponse {
+  @Field()
+  message: string;
+
+  @Field({ nullable: true })
+  success?: boolean;
+}
+
 @Resolver()
 export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
@@ -32,5 +41,12 @@ export class AuthResolver {
     @Args('refreshToken') refreshToken: string,
   ): Promise<RefreshTokenResponse> {
     return this.authService.refreshToken(refreshToken);
+  }
+
+  @Mutation(() => EmailConfirmationResponse)
+  async confirmEmail(
+    @Args('token') token: string,
+  ): Promise<EmailConfirmationResponse> {
+    return this.authService.confirmEmail(token);
   }
 }

@@ -1,7 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +23,8 @@ import { LOGIN_USER } from '@/graphql/mutations/auth';
 import { toast } from 'sonner';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { AlertCircle, Github } from 'lucide-react';
+import { logger } from '@/app/log/logger';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -25,12 +32,10 @@ interface SignInModalProps {
 }
 
 export function SignInModal({ isOpen, onClose }: SignInModalProps) {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Destructure setIsAuthorized from our AuthContext
+  // Destructure login from our AuthContext
   const { login } = useAuthContext();
 
   // Destructure `loading` so we can disable the button while logging in
@@ -65,16 +70,19 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
         },
       });
     } catch (error) {
-      console.error('Login failed:', error);
+      logger.error('Login failed:', error);
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] fixed top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%]">
-        {/* Invisible but accessible DialogTitle */}
+      <DialogContent className="sm:max-w-[425px] fixed top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%] p-0">
+        {/* Invisible but accessible DialogTitle and Description */}
         <VisuallyHidden>
           <DialogTitle>Sign In</DialogTitle>
+          <DialogDescription>
+            Sign in to your account by entering your credentials
+          </DialogDescription>
         </VisuallyHidden>
 
         <BackgroundGradient className="rounded-[22px] p-4 bg-white dark:bg-zinc-900">
@@ -88,7 +96,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
             <TextureSeparator />
             <TextureCardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
@@ -99,10 +107,10 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                       setErrorMessage(null); // Clear error when user types
                     }}
                     required
-                    className="w-full px-4 py-2 rounded-md border"
+                    className="w-full"
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
@@ -113,14 +121,15 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                       setErrorMessage(null); // Clear error when user types
                     }}
                     required
-                    className="w-full px-4 py-2 rounded-md border"
+                    className="w-full"
                   />
                 </div>
 
                 {/* Show error message if login fails */}
                 {errorMessage && (
-                  <div className="text-red-500 text-sm text-center">
-                    {errorMessage}
+                  <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400 text-sm p-2 rounded-md bg-primary-50 dark:bg-zinc-800 border border-primary-200 dark:border-primary-800">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{errorMessage}</span>
                   </div>
                 )}
 
@@ -157,11 +166,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                     variant="outline"
                     className="flex items-center gap-2 w-full"
                   >
-                    <img
-                      src="/images/github.svg"
-                      alt="GitHub"
-                      className="w-5 h-5"
-                    />
+                    <Github className="w-5 h-5 text-black dark:text-white" />
                     <span>GitHub</span>
                   </Button>
                 </div>

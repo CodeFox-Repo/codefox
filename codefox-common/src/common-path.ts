@@ -44,6 +44,14 @@ export const getModelStatusPath = (): string => {
   return modelStatusPath;
 };
 
+//Media Directory
+export const getMediaDir = (): string =>
+  ensureDir(path.join(getRootDir(), 'media'));
+export const getMediaPath = (modelName: string): string =>
+  path.join(getModelsDir(), modelName);
+export const getMediaAvatarsDir = (): string =>
+  ensureDir(path.join(getMediaDir(), 'avatars'));
+
 // Models Directory
 export const getModelsDir = (): string =>
   ensureDir(path.join(getRootDir(), 'models'));

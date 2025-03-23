@@ -1,15 +1,11 @@
-FROM node:18
+FROM node:20
 
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install --frozen-lockfile
-
 COPY . .
-
-RUN chmod +x /app/node_modules/.bin/vite
 
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD sh -c "npm install --include=dev && npm run dev -- --host 0.0.0.0"

@@ -4,6 +4,7 @@ import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from './ui/button';
 import { ImageIcon } from 'lucide-react';
+import { logger } from '@/app/log/logger';
 
 interface MultiImagePickerProps {
   onImagesPick: (base64Images: string[]) => void;
@@ -31,7 +32,7 @@ const MultiImagePicker: React.FC<MultiImagePickerProps> = ({
         );
         onImagesPick(base64Images);
       } catch (error) {
-        console.error('Error converting images to base64:', error);
+        logger.error('Error converting images to base64:', error);
       }
     },
     [onImagesPick]

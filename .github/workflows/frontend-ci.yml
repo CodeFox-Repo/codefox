@@ -1,24 +1,15 @@
-name: Frontend CI
-
+name: frontend
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'frontend/**'
   pull_request:
     branches: [ main ]
     paths:
       - 'frontend/**'
+      - 'codefox-common/**'
   workflow_dispatch:
-
 jobs:
   build:
-    name: Install and Build Frontend
+    name: build
     runs-on: ubuntu-latest
-    
-    defaults:
-      run:
-        working-directory: ./frontend
     
     steps:
       - name: Checkout repository
@@ -49,9 +40,14 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       
+      - name: Build codefox-common
+        working-directory: ./codefox-common
+        run: pnpm build
+        
       - name: Build frontend
+        working-directory: ./frontend
         run: pnpm build
       
       - name: Cache build artifacts

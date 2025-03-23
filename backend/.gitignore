@@ -56,3 +56,4 @@ log-*/
 
 # Backend
 /backend/package-lock.json
+.env

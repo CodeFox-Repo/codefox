@@ -13,50 +13,184 @@ import { RegisterUserInput } from 'src/user/dto/register-user.input';
 import { User } from 'src/user/user.model';
 import { In, Repository } from 'typeorm';
 import { CheckTokenInput } from './dto/check-token.input';
-import { JwtCacheService } from 'src/auth/jwt-cache.service';
+import { JwtCacheService } from 'src/jwt-cache/jwt-cache.service';
 import { Menu } from './menu/menu.model';
 import { Role } from './role/role.model';
 import { RefreshToken } from './refresh-token/refresh-token.model';
 import { randomUUID } from 'crypto';
 import { compare, hash } from 'bcrypt';
-import { RefreshTokenResponse } from './auth.resolver';
+import {
+  EmailConfirmationResponse,
+  RefreshTokenResponse,
+} from './auth.resolver';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
+  private readonly isMailEnabled: boolean;
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
     private jwtCacheService: JwtCacheService,
     private configService: ConfigService,
+    private mailService: MailService,
     @InjectRepository(Menu)
     private menuRepository: Repository<Menu>,
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
-  ) {}
+  ) {
+    // Read the MAIL_ENABLED environment variable, default to 'true'
+    this.isMailEnabled =
+      this.configService.get<string>('MAIL_ENABLED', 'false').toLowerCase() ===
+      'true';
+  }
+
+  async confirmEmail(token: string): Promise<EmailConfirmationResponse> {
+    try {
+      const payload = await this.jwtService.verifyAsync(token);
+
+      // Check if payload has the required email field
+      if (!payload || !payload.email) {
+        return {
+          message: 'Invalid token format',
+          success: false,
+        };
+      }
+
+      // Find user and update
+      const user = await this.userRepository.findOne({
+        where: { email: payload.email },
+      });
+
+      if (user && !user.isEmailConfirmed) {
+        user.isEmailConfirmed = true;
+        await this.userRepository.save(user);
+
+        return {
+          message: 'Email confirmed successfully!',
+          success: true,
+        };
+      }
+
+      return {
+        message: 'Email already confirmed or user not found.',
+        success: false,
+      };
+    } catch (error) {
+      return {
+        message: 'Invalid or expired token',
+        success: false,
+      };
+    }
+  }
+
+  async sendVerificationEmail(user: User): Promise<EmailConfirmationResponse> {
+    // Generate confirmation token
+    const verifyToken = this.jwtService.sign(
+      { email: user.email },
+      { expiresIn: '30m' },
+    );
+
+    // Send confirmation email
+    await this.mailService.sendConfirmationEmail(user.email, verifyToken);
+
+    // update user last time send email time
+    user.lastEmailSendTime = new Date();
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Verification email sent successfully!',
+      success: true,
+    };
+  }
+
+  async resendVerificationEmail(email: string) {
+    const user = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.isEmailConfirmed) {
+      return { message: 'Email already confirmed!' };
+    }
+
+    // Check if a cooldown period has passed (e.g., 1 minute)
+    const cooldownPeriod = 1 * 60 * 1000; // 1 minute in milliseconds
+    if (
+      user.lastEmailSendTime &&
+      new Date().getTime() - user.lastEmailSendTime.getTime() < cooldownPeriod
+    ) {
+      const timeLeft = Math.ceil(
+        (cooldownPeriod -
+          (new Date().getTime() - user.lastEmailSendTime.getTime())) /
+          1000,
+      );
+      return {
+        message: `Please wait ${timeLeft} seconds before requesting another email`,
+        success: false,
+      };
+    }
+
+    return this.sendVerificationEmail(user);
+  }
 
   async register(registerUserInput: RegisterUserInput): Promise<User> {
-    const { username, email, password } = registerUserInput;
+    const { username, email, password, confirmPassword } = registerUserInput;
 
     // Check for existing email
     const existingUser = await this.userRepository.findOne({
       where: { email },
     });
 
-    if (existingUser) {
-      throw new ConflictException('Email already exists');
+    if (password !== confirmPassword) {
+      throw new ConflictException('Passwords do not match');
     }
 
     const hashedPassword = await hash(password, 10);
-    const newUser = this.userRepository.create({
-      username,
-      email,
-      password: hashedPassword,
-    });
 
-    return this.userRepository.save(newUser);
+    // If the user exists but email is not confirmed and mail is enabled
+    if (existingUser && !existingUser.isEmailConfirmed && this.isMailEnabled) {
+      // Just update the existing user and resend verification email
+      existingUser.username = username;
+      existingUser.password = hashedPassword;
+      await this.userRepository.save(existingUser);
+      await this.sendVerificationEmail(existingUser);
+      return existingUser;
+    } else if (existingUser) {
+      throw new ConflictException('Email already exists');
+    }
+
+    let newUser;
+    if (this.isMailEnabled) {
+      newUser = this.userRepository.create({
+        username,
+        email,
+        password: hashedPassword,
+        isEmailConfirmed: false,
+      });
+    } else {
+      newUser = this.userRepository.create({
+        username,
+        email,
+        password: hashedPassword,
+        isEmailConfirmed: true,
+      });
+    }
+
+    await this.userRepository.save(newUser);
+
+    if (this.isMailEnabled) {
+      await this.sendVerificationEmail(newUser);
+    }
+
+    return newUser;
   }
 
   async login(loginUserInput: LoginUserInput): Promise<RefreshTokenResponse> {
@@ -68,6 +202,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.isEmailConfirmed && this.isMailEnabled) {
+      throw new Error('Email not confirmed. Please check your inbox.');
     }
 
     const isPasswordValid = await compare(password, user.password);
@@ -113,6 +251,7 @@ export class AuthService {
       return false;
     }
   }
+
   async logout(token: string): Promise<boolean> {
     try {
       await this.jwtService.verifyAsync(token);

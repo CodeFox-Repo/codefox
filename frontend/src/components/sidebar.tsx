@@ -1,13 +1,16 @@
 'use client';
+
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { memo, useCallback, useContext, useState } from 'react';
-import { SquarePen } from 'lucide-react';
 import SidebarSkeleton from './sidebar-skeleton';
-import UserSettings from './user-settings';
+import UserSettingsBar from './user-settings-bar';
 import { SideBarItem } from './sidebar-item';
 import { Chat } from '@/graphql/type';
 import { EventEnum } from '../const/EventEnum';
+import { useRouter } from 'next/navigation';
+import { FixedSizeList, ListChildComponentProps } from 'react-window';
+
 import {
   SidebarContent,
   SidebarGroup,
@@ -16,163 +19,226 @@ import {
   Sidebar,
   SidebarRail,
   SidebarFooter,
+  useSidebar,
 } from './ui/sidebar';
-import { cn } from '@/lib/utils';
 import { ProjectContext } from './chat/code-engine/project-context';
+import { motion } from 'framer-motion';
+import { logger } from '@/app/log/logger';
+import { useChatList } from '@/hooks/useChatList';
+import { cn } from '@/lib/utils';
+import { PlusIcon } from 'lucide-react';
+import { HomeIcon } from '@radix-ui/react-icons';
 
 interface SidebarProps {
-  setIsModalOpen: (value: boolean) => void; // Parent setter to update collapse state
+  setIsModalOpen: (value: boolean) => void;
   isCollapsed: boolean;
-  setIsCollapsed: (value: boolean) => void; // Parent setter to update collapse state
+  setIsCollapsed: (value: boolean) => void;
   isMobile: boolean;
   currentChatId?: string;
   chatListUpdated: boolean;
   setChatListUpdated: (value: boolean) => void;
   chats: Chat[];
   loading: boolean;
-  error: any;
+  error: unknown;
   onRefetch: () => void;
 }
 
-export function ChatSideBar({
+interface ChatRowData {
+  chats: Chat[];
+  currentChatId: string;
+  onSelect: (chatId: string) => void;
+  onRefetch: () => void;
+}
+
+interface ChatRowProps extends ListChildComponentProps {
+  data: ChatRowData;
+}
+
+// Row renderer for react-window
+const ChatRow = memo(
+  ({ index, style, data }: ChatRowProps) => {
+    const { onSelect, chats, currentChatId, onRefetch } = data;
+    const chat = chats[index];
+
+    return (
+      <div style={style}>
+        <SideBarItem
+          key={chat.id}
+          id={chat.id}
+          currentChatId={currentChatId}
+          title={chat.title}
+          onSelect={() => onSelect(chat.id)}
+          refetchChats={onRefetch}
+        />
+      </div>
+    );
+  },
+  (prevProps: ChatRowProps, nextProps: ChatRowProps) => {
+    // Only re-render if chatId or currentChatId changes
+    return (
+      prevProps.data.chats[prevProps.index].id ===
+        nextProps.data.chats[nextProps.index].id &&
+      prevProps.data.currentChatId === nextProps.data.currentChatId
+    );
+  }
+);
+
+ChatRow.displayName = 'ChatRow';
+
+function ChatSideBarComponent({
   setIsModalOpen,
   isCollapsed,
   setIsCollapsed,
-  isMobile,
-  chatListUpdated,
-  setChatListUpdated,
   chats,
   loading,
   error,
   onRefetch,
 }: SidebarProps) {
-  // Use a local state only for the currently selected chat.
+  const router = useRouter();
   const [currentChatid, setCurrentChatid] = useState('');
   const { setCurProject, pollChatProject } = useContext(ProjectContext);
-  // Handler for starting a new chat.
-  const handleNewChat = useCallback(() => {
-    window.history.replaceState({}, '', '/');
-    setCurrentChatid('');
-    const event = new Event(EventEnum.NEW_CHAT);
-    window.dispatchEvent(event);
-  }, []);
+
+  const handleChatSelect = useCallback(
+    (chatId: string) => {
+      setCurrentChatid(chatId);
+      router.push(`/chat?id=${chatId}`);
+      setCurProject(null);
+      pollChatProject(chatId).then((p) => {
+        setCurProject(p);
+      });
+      const event = new Event(EventEnum.CHAT);
+      window.dispatchEvent(event);
+    },
+    [router, setCurProject, pollChatProject]
+  );
 
   if (loading) return <SidebarSkeleton />;
   if (error) {
-    console.error('Error loading chats:', error);
+    logger.error('Error loading chats:', error);
     return null;
   }
-
-  console.log(
-    'ChatSideBar state: isCollapsed:',
-    isCollapsed,
-    'currentChatid:',
-    currentChatid
-  );
 
   return (
     <div
       data-collapsed={isCollapsed}
-      className="relative justify-between group lg:bg-accent/0 lg:dark:bg-card/0 flex flex-col h-full"
+      // Unified text & background style:
+      className="relative flex flex-col h-full justify-between bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 font-sans"
     >
-      <Sidebar collapsible="icon" side="left">
-        {/* Toggle button: Clicking this will toggle the collapse state */}
-        <SidebarTrigger
-          className="lg:flex items-center justify-center cursor-pointer p-2 ml-3.5 mt-2"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-        />
-
-        <Button
-          onClick={handleNewChat}
-          size="setting"
-          variant="ghost"
-          className="flex justify-between w-[90%] h-14 text-sm xl:text-lg font-normal items-center ml-[5%]"
+      <Sidebar
+        collapsible="icon"
+        side="left"
+        // Give the sidebar a border on the right to match the rest of the layout
+        className="border-r flex-col  border-gray-200 dark:border-gray-700"
+      >
+        {/* Header Row */}
+        <div
+          className={`flex items-center ${
+            isCollapsed ? 'justify-center w-full px-0' : 'justify-between px-3'
+          } pt-3`}
         >
-          <Image
-            src="/codefox.svg"
-            alt="AI"
-            width={48}
-            height={48}
-            className="flex-shrink-0 dark:invert"
-          />
-          {/* Only show extra text/icons when the sidebar is expanded */}
           {!isCollapsed && (
-            <div
-              className={cn('flex items-center', {
-                'gap-7': !isMobile,
-                'gap-4': isMobile,
-              })}
-            >
-              New chat
-              {(!isCollapsed || isMobile) && (
-                <SquarePen className="shrink-0 m-3" />
-              )}
+            <div className="flex flex-1 items-center justify-between">
+              {/* Logo + Title */}
+              <Button
+                onClick={() => router.push('/')}
+                variant="ghost"
+                className="inline-flex items-center gap-2 pl-0 rounded-md"
+              >
+                <Image
+                  src="/codefox.svg"
+                  alt="CodeFox Logo"
+                  width={36}
+                  height={36}
+                  className="dark:invert"
+                />
+                <span className="text-primary-500 font-semibold text-base">
+                  CodeFox
+                </span>
+              </Button>
+
+              {/* Collapse Trigger */}
+              <SidebarTrigger
+                className="flex items-center justify-center w-10 h-10 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+              />
             </div>
           )}
-        </Button>
 
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          size="setting"
-          variant="ghost"
-          className="flex justify-between w-[90%] h-14 text-sm xl:text-lg font-normal items-center ml-[5%]"
-        >
-          <Image
-            src="/codefox.svg"
-            alt="AI"
-            width={48}
-            height={48}
-            className="flex-shrink-0 dark:invert"
-          />
-          {/* Only show extra text/icons when the sidebar is expanded */}
-          {!isCollapsed && (
-            <div
-              className={cn('flex items-center', {
-                'gap-7': !isMobile,
-                'gap-4': isMobile,
-              })}
-            >
-              New Project
-              {(!isCollapsed || isMobile) && (
-                <SquarePen className="shrink-0 m-3" />
-              )}
-            </div>
+          {isCollapsed && (
+            <SidebarTrigger
+              className="flex items-center justify-center w-full p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+            />
           )}
-        </Button>
+        </div>
 
-        <SidebarContent>
+        {/* Divider Line */}
+        <div className="border-t border-gray-200 dark:border-gray-700 my-2 w-full" />
+
+        {/* New Project Button */}
+        <div
+          className={`flex ${
+            isCollapsed ? 'justify-center items-center w-full px-0' : ''
+          } w-full mt-3`}
+        >
+          <Button
+            onClick={() => {
+              router.push('/');
+              // if (isCollapsed) {
+              //   router.push('/');
+              // } else {
+              //   setIsModalOpen(true);
+              // }
+            }}
+            variant="ghost"
+            className={cn(
+              'h-9 px-5 text-sm font-medium flex justify-start items-center gap-2 rounded-sm transition-colors  w-full',
+              isCollapsed &&
+                'justify-center w-11 h-11 px-0 bg-white border-gray-700/30 border dark:bg-gray-800 dark:border-gray-700'
+            )}
+          >
+            <HomeIcon className="h-4 w-4" />
+            {!isCollapsed && <span>Home</span>}
+          </Button>
+        </div>
+        {/* Chat List with Virtualization */}
+        <SidebarContent className="">
           <SidebarGroup>
             <SidebarGroupContent>
-              {loading
-                ? 'Loading...'
-                : !isCollapsed &&
-                  chats.map((chat) => (
-                    <SideBarItem
-                      key={chat.id}
-                      id={chat.id}
-                      currentChatId={currentChatid}
-                      title={chat.title}
-                      onSelect={() => {
-                        setCurProject(null);
-                        pollChatProject(chat.id).then((p) => {
-                          setCurProject(p);
-                        });
-                        window.history.replaceState({}, '', `/?id=${chat.id}`);
-                        setCurrentChatid(chat.id);
-                      }}
-                      refetchChats={onRefetch}
-                    />
-                  ))}
+              {!isCollapsed && chats.length > 0 && (
+                <FixedSizeList
+                  height={Math.min(
+                    // Adjust the max height for your layout
+                    window.innerHeight - 300,
+                    chats.length * 56
+                  )}
+                  width="100%"
+                  itemCount={chats.length}
+                  itemSize={56}
+                  itemData={{
+                    chats,
+                    currentChatId: currentChatid,
+                    onSelect: handleChatSelect,
+                    onRefetch,
+                  }}
+                >
+                  {ChatRow}
+                </FixedSizeList>
+              )}
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter>
-          <UserSettings isSimple={false} />
+        {/* Footer Settings */}
+        <SidebarFooter
+          className={`mt-auto border-t border-gray-200  dark:border-gray-700 ${
+            isCollapsed ? 'flex justify-center items-center  px-0' : 'px-3'
+          }`}
+        >
+          <UserSettingsBar isSimple={false} />
         </SidebarFooter>
 
         <SidebarRail
-          // Optional: Provide a secondary trigger if needed.
           setIsSimple={() => setIsCollapsed(!isCollapsed)}
           isSimple={false}
         />
@@ -181,13 +247,84 @@ export function ChatSideBar({
   );
 }
 
-export default memo(ChatSideBar, (prevProps, nextProps) => {
-  return (
-    prevProps.isCollapsed === nextProps.isCollapsed &&
-    prevProps.isMobile === nextProps.isMobile &&
-    prevProps.chatListUpdated === nextProps.chatListUpdated &&
-    prevProps.loading === nextProps.loading &&
-    prevProps.error === nextProps.error &&
-    JSON.stringify(prevProps.chats) === JSON.stringify(nextProps.chats)
+export const ChatSideBar = memo(
+  ChatSideBarComponent,
+  (prevProps: SidebarProps, nextProps: SidebarProps) => {
+    if (prevProps.isCollapsed !== nextProps.isCollapsed) return false;
+    if (prevProps.loading !== nextProps.loading) return false;
+    if (prevProps.error !== nextProps.error) return false;
+    if (prevProps.chats.length !== nextProps.chats.length) return false;
+
+    // Compare chat IDs only
+    const prevIds = prevProps.chats.map((chat) => chat.id).join(',');
+    const nextIds = nextProps.chats.map((chat) => chat.id).join(',');
+    return prevIds === nextIds;
+  }
+);
+
+ChatSideBar.displayName = 'ChatSideBar';
+
+export function SidebarWrapper({
+  children,
+  isAuthorized,
+}: {
+  children: React.ReactNode;
+  isAuthorized: boolean;
+}) {
+  const { state, setOpen } = useSidebar();
+  const [isCollapsed, setIsCollapsed] = useState(state === 'collapsed');
+  const {
+    chats,
+    loading,
+    error,
+    chatListUpdated,
+    setChatListUpdated,
+    refetchChats,
+  } = useChatList();
+
+  // Toggle sidebar collapsed
+  const handleCollapsedChange = useCallback(
+    (collapsed: boolean) => {
+      setIsCollapsed(collapsed);
+      setOpen(!collapsed);
+    },
+    [setOpen]
   );
-});
+
+  return (
+    <div className="min-h-screen flex bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 font-sans">
+      {isAuthorized && (
+        <motion.div
+          initial={{ x: isCollapsed ? -55 : -250, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: isCollapsed ? -55 : -250, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 80, damping: 20 }}
+          className="fixed left-0 top-0 h-full z-50"
+          style={{ width: isCollapsed ? '55px' : '250px' }}
+        >
+          <ChatSideBar
+            setIsModalOpen={() => {}}
+            isCollapsed={isCollapsed}
+            setIsCollapsed={handleCollapsedChange}
+            isMobile={false}
+            currentChatId={''}
+            chatListUpdated={chatListUpdated}
+            setChatListUpdated={setChatListUpdated}
+            chats={chats}
+            loading={loading}
+            error={error}
+            onRefetch={refetchChats}
+          />
+        </motion.div>
+      )}
+      <div
+        className="transition-all duration-300 flex justify-center w-full"
+        style={{
+          marginLeft: isAuthorized ? (isCollapsed ? '55px' : '250px') : '0px',
+        }}
+      >
+        <div className="w-full">{children}</div>
+      </div>
+    </div>
+  );
+}

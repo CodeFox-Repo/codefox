@@ -100,6 +100,12 @@ export const prompts = {
                   4. Theme Analysis
                       - Analyze any design theme indicated in the product requirements document.
                       - Include details on color palette, typography, and visual style.
+                      - Color Palette:
+                          - Primary: [Primary color with hex code]
+                          - Secondary: [Secondary color with hex code]
+                          - Accent: [Accent color with hex code]
+                          - Background: [Background color with hex code]
+                          - Text: [Text color with hex code]
                       - Specify exact color codes and font sizes.
                       - you must explain why choices were made base on user's project name and description.
                       - please provide a brief explanation of the theme and how it aligns with the project's goals.

@@ -7,13 +7,18 @@
   "scripts": {
     "build": "turbo build",
     "build:common": "pnpm --filter codefox-common run build",
+    "build:frontend": "turbo build:frontend",
+    "build:backend": "turbo build:backend",
     "dev:turbo": "turbo dev",
     "dev": "tmuxinator start -p .tmuxinator/dev.yml",
     "lint": "eslint . --ext .js,.ts,.tsx",
     "format": "prettier --write .",
     "dev:backend": "turbo dev:backend",
     "test": "turbo test",
-    "fix": "eslint . --ext .js,.ts,.tsx --fix"
+    "fix": "eslint . --ext .js,.ts,.tsx --fix",
+    "start": "turbo start",
+    "start:frontend": "turbo start:frontend",
+    "start:backend": "turbo start:backend"
   },
   "postinstall": "pnpm --filter codefox-common run build",
   "keywords": [],

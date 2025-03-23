@@ -1,0 +1,68 @@
+http:
+  routers:
+    frontend:
+      rule: 'Host(`codefox.net`) && !PathPrefix(`/graphql`)'
+      entrypoints:
+        - websecure
+      tls: {}
+      service: frontend
+      priority: 10
+
+    backend:
+      rule: 'Host(`codefox.net`) && PathPrefix(`/graphql`)'
+      entrypoints:
+        - websecure
+      tls: {}
+      service: backend
+      priority: 20
+
+    subdomain:
+      rule: 'HostRegexp(`{subdomain:.+}.codefox.net`)'
+      entrypoints:
+        - websecure
+      tls: {}
+      service: frontend
+      priority: 30
+
+    redirect-all:
+      rule: 'hostregexp(`{host:.+}`)'
+      entrypoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: noop
+
+  services:
+    frontend:
+      loadBalancer:
+        servers:
+          - url: 'http://host.docker.internal:3000'
+
+    backend:
+      loadBalancer:
+        servers:
+          - url: 'http://host.docker.internal:8080'
+
+    noop:
+      loadBalancer:
+        servers:
+          - url: 'http://localhost:9000'
+
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - '*'
+        accessControlAllowOriginList:
+          - '*'

@@ -1,100 +1,140 @@
 'use client';
+import React, { useState } from 'react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import React from 'react';
-import { CaretSortIcon } from '@radix-ui/react-icons';
 import { Button } from '../ui/button';
-import { useModels } from '@/hooks/useModels';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { HistoryIcon, ArchiveIcon, PlusIcon, FileTextIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 
-export default function ChatTopbar() {
-  const [open, setOpen] = React.useState(false);
-  const {
-    models,
-    loading: modelsLoading,
-    setSelectedModel,
-    selectedModel,
-  } = useModels();
+// Mock data for chat history
+const mockChatHistory = [
+  {
+    id: 'chat-1',
+    title: 'still working on this feature',
+    date: '2 hours ago',
+    isPinned: true,
+  },
+  {
+    id: 'chat-2',
+    title: 'Portfolio website design',
+    date: 'Yesterday',
+    isPinned: false,
+  },
+];
 
-  const handleModelChange = (modelName: string) => {
-    setSelectedModel(modelName);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selectedModel', modelName);
-    }
-    setOpen(false);
-  };
+interface ChatTopbarProps {
+  currentChatId?: string;
+  onChatSelect?: (chatId: string) => void;
+  onNewChat?: () => void;
+}
+
+export default function ChatTopbar({
+  currentChatId,
+  onChatSelect,
+  onNewChat,
+}: ChatTopbarProps) {
+  const [open, setOpen] = useState(false);
+
+  // Get current chat title
+  const currentChat = currentChatId
+    ? mockChatHistory.find((chat) => chat.id === currentChatId)
+    : null;
 
   return (
-    <div className="w-full flex px-4 py-6 items-center justify-center">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            disabled={modelsLoading}
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-[300px] justify-between"
-          >
-            {modelsLoading
-              ? 'Loading models...'
-              : selectedModel || 'Loading models...'}
-            <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-[300px] p-0 overflow-hidden"
-          align="center"
-          side="bottom"
-          sideOffset={4}
-        >
-          <div className="px-3 py-2 border-b">
-            <h4 className="font-medium text-sm">Select Model</h4>
-            <p className="text-xs text-muted-foreground">
-              Choose a model for your chat
-            </p>
-          </div>
-          <ScrollArea className="h-[320px]">
-            {modelsLoading ? (
-              <div className="px-3 py-2">
-                <Button variant="ghost" disabled className="w-full">
-                  Loading models...
-                </Button>
-              </div>
-            ) : models.length > 0 ? (
+    <div className="w-full flex px-4 py-2 items-center justify-between border-b">
+      <div className="flex items-center gap-2">
+        <FileTextIcon className="h-5 w-5 text-primary" />
+        <h1 className="font-medium text-sm">
+          {currentChat ? currentChat.title : 'New Chat'}
+        </h1>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {/* History dropdown */}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
+              <HistoryIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">History</span>
+              <Badge variant="secondary" className="ml-1 text-xs px-1 py-0 h-4">
+                {mockChatHistory.length}
+              </Badge>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[280px] p-0" align="end">
+            <div className="px-3 py-2 border-b">
+              <h4 className="font-medium text-sm">Recent Chats</h4>
+              <p className="text-xs text-muted-foreground">
+                Your conversation history
+              </p>
+            </div>
+            <ScrollArea className="h-[320px]">
               <div className="flex flex-col">
-                {models.map((model, index) => (
-                  <div key={model}>
+                {mockChatHistory.map((chat) => (
+                  <div key={chat.id}>
                     <Button
                       variant="ghost"
                       className={cn(
                         'w-full justify-start font-normal rounded-none px-3 py-2 h-auto',
-                        selectedModel === model && 'bg-accent'
+                        currentChatId === chat.id && 'bg-accent'
                       )}
-                      onClick={() => handleModelChange(model)}
+                      onClick={() => {
+                        if (onChatSelect) onChatSelect(chat.id);
+                        setOpen(false);
+                      }}
                     >
-                      {model}
+                      <div className="flex flex-col items-start text-left w-full">
+                        <div className="flex items-center w-full gap-2">
+                          <span className="truncate flex-1">{chat.title}</span>
+                          {chat.isPinned && <span className="text-xs">📌</span>}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {chat.date}
+                        </span>
+                      </div>
                     </Button>
-                    {index < models.length - 1 && (
-                      <Separator className="mx-3" />
-                    )}
+                    <Separator />
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="px-3 py-2">
-                <Button variant="ghost" disabled className="w-full">
-                  No models available
-                </Button>
-              </div>
-            )}
-          </ScrollArea>
-        </PopoverContent>
-      </Popover>
+            </ScrollArea>
+            <div className="p-2 border-t flex justify-between">
+              <Button variant="ghost" size="sm" className="text-xs h-8 px-2">
+                <ArchiveIcon className="h-3.5 w-3.5 mr-1" />
+                Archived Chats
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-8 px-2"
+                onClick={() => {
+                  if (onNewChat) onNewChat();
+                  setOpen(false);
+                }}
+              >
+                <PlusIcon className="h-3.5 w-3.5 mr-1" />
+                New Chat
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* New chat button */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={onNewChat}
+        >
+          <PlusIcon className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }

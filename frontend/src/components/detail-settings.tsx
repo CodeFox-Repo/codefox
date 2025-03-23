@@ -18,7 +18,7 @@ import {
 
 import { DownloadIcon, GearIcon } from '@radix-ui/react-icons';
 import PullModelForm from './pull-model-form';
-import EditUsernameForm from './edit-username-form';
+import UserSetting from './settings/settings';
 
 export default function DetailSettings() {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -33,7 +33,7 @@ export default function DetailSettings() {
       <DialogContent>
         <DialogHeader className="space-y-4">
           <DialogTitle>Settings</DialogTitle>
-          <EditUsernameForm />
+          <UserSetting />
         </DialogHeader>
       </DialogContent>
     </Dialog>

@@ -1,9 +1,16 @@
+// frontend/src/app/layout.tsx
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { BaseProviders } from '@/providers/BaseProvider';
+import NavLayout from '@/components/root/nav-layout';
+import RootLayout from '@/components/root/root-layout';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+});
 
 export const metadata: Metadata = {
   title: 'Codefox - The best dev project generator',
@@ -16,17 +23,14 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
 };
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+
+export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${playfair.variable}  font-sans`}>
         <BaseProviders>
           <div className="min-h-screen w-full bg-gray-50 dark:bg-gray-900 transition-colors">
-            {children}
+            <RootLayout>{children}</RootLayout>
           </div>
         </BaseProviders>
       </body>

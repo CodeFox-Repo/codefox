@@ -5,9 +5,8 @@ import { useRouter } from 'next/navigation';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { SquarePen } from 'lucide-react';
 import SidebarSkeleton from './sidebar-skeleton';
-import UserSettings from './user-settings';
+import UserSettingsBar from './user-settings-bar';
 import { SideBarItem } from './sidebar-item';
-import { Chat } from '@/graphql/type';
 import { EventEnum } from '../const/EventEnum';
 import {
   SidebarContent,
@@ -19,6 +18,7 @@ import {
   SidebarFooter,
 } from './ui/sidebar';
 import { cn } from '@/lib/utils';
+import { logger } from '@/app/log/logger';
 
 export default function FileSidebar({ isCollapsed, isMobile, loading }) {
   const [isSimple, setIsSimple] = useState(false);
@@ -31,11 +31,8 @@ export default function FileSidebar({ isCollapsed, isMobile, loading }) {
   }, []);
 
   if (loading) return <SidebarSkeleton />;
-  //   if (error) {
-  //     console.error('Error loading chats:', error);
-  //     return null;
-  //   }
-  console.log(`${isCollapsed}, ${isMobile}, ${isSimple}`);
+
+  logger.info(`${isCollapsed}, ${isMobile}, ${isSimple}`);
 
   return (
     <div
@@ -86,7 +83,7 @@ export default function FileSidebar({ isCollapsed, isMobile, loading }) {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <UserSettings isSimple={isSimple} />
+          <UserSettingsBar isSimple={isSimple} />
         </SidebarFooter>
 
         <SidebarRail setIsSimple={setIsSimple} isSimple={isSimple} />

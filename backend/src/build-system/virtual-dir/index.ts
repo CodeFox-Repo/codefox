@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { SHADCN_COMPONENT_PATHS } from '../utils/strings';
 
 export class VirtualDirectory {
   private filePaths: Set<string> = new Set();
@@ -14,7 +15,7 @@ export class VirtualDirectory {
         return false;
       }
 
-      this.filePaths = new Set(structure.Paths);
+      this.filePaths = new Set([...structure.Paths, ...SHADCN_COMPONENT_PATHS]);
       return true;
     } catch (error) {
       this.logger.error('Failed to parse JSON structure:', error);

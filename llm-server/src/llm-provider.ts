@@ -104,13 +104,27 @@ export class LLMProvider {
     return model;
   }
 
-  async chat(input: MessageInput): Promise<string> {
+  async chat(input: MessageInput, timeoutMs: number): Promise<string> {
     try {
       const model = this.getModelInstance(input.model);
-      const completion = await model.chat(input.messages);
-      return completion.choices[0].message.content || '';
+
+      // Set a timeout dynamically based on the provided value
+      const timeoutPromise = new Promise<string>((_, reject) =>
+        setTimeout(
+          () => reject(new Error('Chat request timed out')),
+          timeoutMs,
+        ),
+      );
+
+      // Race between the actual model call and the timeout
+      const completion = await Promise.race([
+        model.chat(input.messages),
+        timeoutPromise,
+      ]);
+
+      return (completion as any).choices[0].message.content || '';
     } catch (error) {
-      this.logger.error('Error in chat:', error);
+      this.logger.error(`Error in chat (Timeout: ${timeoutMs}ms):`, error);
       throw error;
     }
   }

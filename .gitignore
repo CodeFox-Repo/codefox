@@ -17,3 +17,5 @@ models/
 */**/database.sqlite
 ./backend/src/database.sqlite
 .codefox
+
+.env

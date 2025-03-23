@@ -5,6 +5,7 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  RelationId,
 } from 'typeorm';
 import { Message } from 'src/chat/message.model';
 import { SystemBaseModel } from 'src/system-base-model/system-base.model';
@@ -56,6 +57,11 @@ export class Chat extends SystemBaseModel {
   @Field(() => User)
   user: User;
 
+  // Adding relation id to easily access the user id
+  @RelationId((chat: Chat) => chat.user)
+  @Field(() => ID)
+  userId: string;
+
   @ManyToOne(() => Project, (project) => project.chats)
   @Field(() => Project, { nullable: true })
   project: Project;
@@ -69,11 +75,11 @@ class ChatCompletionDelta {
 
 @ObjectType('ChatCompletionChoiceType')
 class ChatCompletionChoice {
-  @Field()
-  index: number;
+  @Field({ nullable: true })
+  index: number | null;
 
-  @Field(() => ChatCompletionDelta)
-  delta: ChatCompletionDelta;
+  @Field(() => ChatCompletionDelta, { nullable: true })
+  delta: ChatCompletionDelta | null;
 
   @Field({ nullable: true })
   finishReason: string | null;
@@ -84,14 +90,14 @@ export class ChatCompletionChunk {
   @Field()
   id: string;
 
-  @Field()
-  object: string;
+  @Field({ nullable: true })
+  object: string | null;
 
-  @Field()
-  created: number;
+  @Field({ nullable: true })
+  created: number | null;
 
-  @Field()
-  model: string;
+  @Field({ nullable: true })
+  model: string | null;
 
   @Field({ nullable: true })
   systemFingerprint: string | null;

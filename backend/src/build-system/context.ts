@@ -404,7 +404,6 @@ export class BuilderContext {
         await new Promise((resolve) => setTimeout(resolve, this.POLL_INTERVAL));
       }
 
-      // Write monitor report at the end of sequence execution
       const projectUUID = this.getGlobalContext('projectUUID');
       await this.monitor.endSequenceExecution(this.sequence.id, projectUUID);
 

@@ -18,11 +18,11 @@ import { DELETE_CHAT } from '@/graphql/request';
 import { cn } from '@/lib/utils';
 import { useMutation } from '@apollo/client';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import { toast } from 'sonner';
 import { EventEnum } from '../const/EventEnum';
+import { logger } from '@/app/log/logger';
 
 interface SideBarItemProps {
   id: string;
@@ -32,7 +32,7 @@ interface SideBarItemProps {
   refetchChats: () => void;
 }
 
-export function SideBarItem({
+function SideBarItemComponent({
   id,
   currentChatId,
   title,
@@ -41,36 +41,23 @@ export function SideBarItem({
 }: SideBarItemProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSelected, setIsSelected] = useState(false);
-  const [variant, setVariant] = useState<
-    'ghost' | 'link' | 'secondary' | 'default' | 'destructive' | 'outline'
-  >('ghost');
+  const router = useRouter();
 
-  useEffect(() => {
-    const selected = currentChatId === id;
-    setIsSelected(selected);
-    if (selected) {
-      setVariant('secondary'); // 类型安全
-    } else {
-      setVariant('ghost'); // 类型安全
-    }
-    refetchChats();
-    console.log(`update sidebar ${currentChatId}`);
-  }, [currentChatId]);
+  const isSelected = currentChatId === id;
+  const variant = isSelected ? 'secondary' : 'ghost';
 
   const [deleteChat] = useMutation(DELETE_CHAT, {
     onCompleted: () => {
       toast.success('Chat deleted successfully');
-      console.log(`${id} ${isSelected}`);
       if (isSelected) {
-        window.history.replaceState({}, '', '/');
+        router.push('/');
         const event = new Event(EventEnum.NEW_CHAT);
         window.dispatchEvent(event);
       }
       refetchChats();
     },
     onError: (error) => {
-      console.error('Error deleting chat:', error);
+      logger.error('Error deleting chat:', error);
       toast.error('Failed to delete chat');
     },
   });
@@ -84,31 +71,28 @@ export function SideBarItem({
       });
       setIsDialogOpen(false);
     } catch (error) {
-      console.error('Error deleting chat:', error);
+      logger.error('Error deleting chat:', error);
       toast.error('Failed to delete chat');
     }
   };
 
   const handleChatClick = (e: React.MouseEvent) => {
     if (!(e.target as HTMLElement).closest('.dropdown-trigger')) {
-      window.history.replaceState({}, '', `/?id=${id}`);
-      const event = new Event(EventEnum.CHAT);
-      window.dispatchEvent(event);
       onSelect(id);
     }
   };
 
   return (
-    <div
+    <button
       className={cn(
         buttonVariants({
           variant,
         }),
-        'flex justify-between w-full h-14 text-base font-normal items-center group'
+        'relative flex w-full h-14 text-base font-normal items-center group px-2'
       )}
       onClick={handleChatClick}
     >
-      <div className="flex-1 flex gap-3 items-center truncate ml-2">
+      <div className="flex-1 flex items-center truncate ml-2 mr-12 min-w-0">
         <div className="flex flex-col">
           <span className="text-xs font-normal">{title || 'New Chat'}</span>
         </div>
@@ -119,7 +103,7 @@ export function SideBarItem({
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="flex justify-end items-center dropdown-trigger mr-2"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-md hover:bg-gray-200 dropdown-trigger"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -175,6 +159,17 @@ export function SideBarItem({
           </DialogHeader>
         </DialogContent>
       </Dialog>
-    </div>
+    </button>
   );
 }
+
+export const SideBarItem = memo(
+  SideBarItemComponent,
+  (prevProps, nextProps) => {
+    return (
+      prevProps.currentChatId === nextProps.currentChatId &&
+      prevProps.id === nextProps.id &&
+      prevProps.title === nextProps.title
+    );
+  }
+);

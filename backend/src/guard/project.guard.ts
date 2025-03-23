@@ -10,6 +10,9 @@ import { JwtService } from '@nestjs/jwt';
 
 import { ProjectService } from '../project/project.service';
 
+/**
+ * This guard checks if the user is authorized to access a project.
+ */
 @Injectable()
 export class ProjectGuard implements CanActivate {
   private readonly logger = new Logger('ProjectGuard');

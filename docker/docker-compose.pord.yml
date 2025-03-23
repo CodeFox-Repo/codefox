@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  reverse-proxy:
+    image: traefik:v3.3
+    command:
+      - '--api.insecure=true'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--providers.file.directory=/etc/traefik/config'
+      - '--providers.file.watch=true'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+    ports:
+      - '80:80'
+      - '443:443'
+      - '9001:8080'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/letsencrypt:/etc/letsencrypt
+      - ./traefik-config:/etc/traefik/config
+    networks:
+      - traefik_network
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+networks:
+  traefik_network:
+    driver: bridge

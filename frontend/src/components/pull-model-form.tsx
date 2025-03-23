@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Loader2Icon } from 'lucide-react';
 import { Input } from './ui/input';
 import { useRouter } from 'next/navigation';
+import { logger } from '@/app/log/logger';
 
 const formSchema = z.object({
   name: z.string().min(1, {
@@ -123,7 +124,7 @@ export default function PullModelForm() {
         })
         .catch((error) => {
           setIsDownloading(false);
-          console.error('Error pulling model:', error);
+          logger.error('Error pulling model:', error);
           toast.error('Error pulling model');
         });
     }
@@ -135,7 +136,7 @@ export default function PullModelForm() {
     setName(e.currentTarget.value);
   };
 
-  console.log('enter model');
+  logger.info('enter model');
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-6">

@@ -1,6 +1,6 @@
 import type { Config } from 'tailwindcss';
 import tailwindAnimate from 'tailwindcss-animate';
-
+import flattenColorPalette from 'tailwindcss/lib/util/flattenColorPalette';
 const config = {
   darkMode: ['class'],
   content: [
@@ -19,6 +19,11 @@ const config = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-playfair)', 'Georgia', 'serif'],
+        mono: ['ui-monospace', 'monospace'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -26,16 +31,16 @@ const config = {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         primary: {
-          '50': '#FFF5F2',
-          '100': '#FFE6E0',
-          '200': '#FFC7BA',
-          '300': '#FFA494',
-          '400': '#FF7A63',
-          '500': '#FF5533',
-          '600': '#EA3E1D',
-          '700': '#C52E10',
-          '800': '#9C230B',
-          '900': '#7A1C09',
+          '50': '#EEF2FF',
+          '100': '#E0E7FF',
+          '200': '#C7D2FE',
+          '300': '#A5B4FC',
+          '400': '#818CF8',
+          '500': '#6366F1',
+          '600': '#4F46E5',
+          '700': '#4338CA',
+          '800': '#3730A3',
+          '900': '#312E81',
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
         },
@@ -43,7 +48,8 @@ const config = {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
         },
-        destructivel: {
+        destructive: {
+          // Fixed typo from "destructivel"
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
@@ -103,7 +109,18 @@ const config = {
       },
     },
   },
-  plugins: [tailwindAnimate],
+  plugins: [tailwindAnimate, addVariablesForColors],
 } satisfies Config;
+
+function addVariablesForColors({ addBase, theme }: any) {
+  const allColors = flattenColorPalette(theme('colors'));
+  const newVars = Object.fromEntries(
+    Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
+  );
+
+  addBase({
+    ':root': newVars,
+  });
+}
 
 export default config;

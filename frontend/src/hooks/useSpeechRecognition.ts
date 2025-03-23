@@ -1,3 +1,4 @@
+import { logger } from '@/app/log/logger';
 import { useState, useRef, useEffect } from 'react';
 
 interface SpeechRecognitionOptions {
@@ -13,7 +14,7 @@ const useSpeechToText = (options: SpeechRecognitionOptions = {}) => {
 
   useEffect(() => {
     if (!('webkitSpeechRecognition' in window)) {
-      console.error('Web Speech API is not supported');
+      logger.error('Web Speech API is not supported');
       return;
     }
 
@@ -44,7 +45,7 @@ const useSpeechToText = (options: SpeechRecognitionOptions = {}) => {
     };
 
     recognition.onerror = (event) => {
-      console.error(event.error);
+      logger.error(event.error);
     };
 
     recognition.onend = () => {

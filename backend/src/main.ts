@@ -3,11 +3,13 @@ import { AppModule } from './app.module';
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import { Logger } from '@nestjs/common';
+import { graphqlUploadExpress } from 'graphql-upload-minimal';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   dotenv.config();
-  const app = await NestFactory.create(AppModule);
+
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.enableCors({
     origin: '*',
@@ -18,9 +20,15 @@ async function bootstrap() {
       'Authorization',
       'Access-Control-Allow-Origin',
       'Access-Control-Allow-Credentials',
+      'Apollo-Require-Preflight',
       'x-refresh-token',
     ],
   });
+
+  app.use(
+    '/graphql',
+    graphqlUploadExpress({ maxFileSize: 50000000, maxFiles: 10 }),
+  );
 
   console.log('process.env.PORT:', process.env.PORT);
   const server = await app.listen(process.env.PORT ?? 8080);

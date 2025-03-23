@@ -37,7 +37,7 @@ export class OpenAIModelProvider implements IModelProvider {
 
     for (const model of chatModels) {
       if (model.default) {
-        this.defaultModel = model.model;
+        this.defaultModel = model.alias || model.model;
       }
       if (!model.endpoint || !model.token) continue;
 
@@ -95,7 +95,7 @@ export class OpenAIModelProvider implements IModelProvider {
       const completion = await queue.add(async () => {
         const result = await this.openai.chat.completions.create({
           messages: input.messages,
-          model: input.model,
+          model: input.model || this.baseModel,
           stream: false,
         });
         if (!result) throw new Error('No completion result received');
@@ -118,7 +118,7 @@ export class OpenAIModelProvider implements IModelProvider {
     let streamIterator: AsyncIterator<OpenAIChatCompletionChunk> | null = null;
     const modelName = model || input.model;
     const queue = this.getQueueForModel(modelName);
-
+    let oldStreamValue: OpenAIChatCompletionChunk | null = null;
     const createStream = async () => {
       if (!stream) {
         const result = await queue.add(async () => {
@@ -145,6 +145,9 @@ export class OpenAIModelProvider implements IModelProvider {
           const currentIterator = await createStream();
           const chunk = await currentIterator.next();
           const chunkValue = chunk.value as OpenAIChatCompletionChunk;
+          console.log('isDone:', chunk.done);
+          console.log('chunk:', chunk);
+          if (!chunk.done) oldStreamValue = chunkValue;
           return {
             done: chunk.done,
             value: {
@@ -159,9 +162,23 @@ export class OpenAIModelProvider implements IModelProvider {
         }
       },
       async return() {
+        console.log(stream);
+        console.log(streamIterator);
+        console.log('return() called');
         stream = null;
         streamIterator = null;
-        return { done: true, value: undefined };
+        return {
+          done: true,
+          value: {
+            ...oldStreamValue,
+            status: StreamStatus.DONE,
+            choices: [
+              {
+                finishReason: 'stop',
+              },
+            ],
+          },
+        };
       },
       async throw(error) {
         stream = null;
@@ -254,5 +271,9 @@ export class OpenAIModelProvider implements IModelProvider {
   getAllActivePromises(): Promise<string>[] {
     // OpenAI SDK handles its own request management
     return [];
+  }
+
+  get baseModel(): string {
+    return this.defaultModel;
   }
 }

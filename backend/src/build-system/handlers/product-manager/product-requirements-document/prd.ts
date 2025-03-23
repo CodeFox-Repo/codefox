@@ -48,6 +48,33 @@ export class PRDHandler implements BuildHandler<string> {
       // Send the prompt to the LLM server and process the response
       const prdContent = await this.generatePRDFromLLM(context, prompt);
 
+      // Extract the "Project Overview" section
+      const projectOverview = this.extractProjectOverviewSection(prdContent);
+
+      // Extract the "Features" section
+      const features = this.extractFeaturesSection(prdContent);
+
+      // Set the extracted overview to a global context variable
+      if (projectOverview) {
+        context.setGlobalContext('projectOverview', projectOverview);
+        this.logger.log(
+          'Project Overview extracted and set to global context',
+          projectOverview,
+        );
+      } else {
+        this.logger.warn('Could not extract Project Overview section');
+      }
+
+      if (features) {
+        context.setGlobalContext('projectFeatures', features);
+        this.logger.log(
+          'Features section extracted and set to global context',
+          features,
+        );
+      } else {
+        this.logger.warn('Could not extract Features section');
+      }
+
       if (!prdContent || prdContent.trim() === '') {
         throw new ResponseParsingError('Generated PRD content is empty.');
       }
@@ -86,5 +113,66 @@ export class PRDHandler implements BuildHandler<string> {
     } catch (error) {
       throw new ModelUnavailableError('Model is unavailable: ' + error);
     }
+  }
+
+  /**
+   * Extracts a specific section from the PRD content by section title
+   * @param prdContent The full PRD content
+   * @param sectionNumber The section number (e.g., "1" for "#### 1. Project Overview")
+   * @param sectionTitle The section title (e.g., "Project Overview")
+   * @returns The extracted section content or null if not found
+   */
+  private extractSection(
+    prdContent: string,
+    sectionNumber: string,
+    sectionTitle: string,
+  ): string | null {
+    try {
+      // Define regex pattern to match the specified section
+      // This pattern matches from "#### [sectionNumber]. [sectionTitle]" until the next "####" heading
+      const pattern = new RegExp(
+        `#### ${sectionNumber}\\.\\s*${sectionTitle}([\\s\\S]*?)(?=####|$)`,
+      );
+      const match = prdContent.match(pattern);
+
+      if (match && match[1]) {
+        // Trim the extracted content to remove leading/trailing whitespace
+        return match[1].trim();
+      }
+
+      // If no match found, try an alternative approach with just the title
+      const simplifiedPattern = new RegExp(
+        `#### (?:${sectionNumber}\\.)?\\s*${sectionTitle}([\\s\\S]*?)(?=####|$)`,
+      );
+      const simplifiedMatch = prdContent.match(simplifiedPattern);
+
+      if (simplifiedMatch && simplifiedMatch[1]) {
+        return simplifiedMatch[1].trim();
+      }
+
+      this.logger.warn(`Could not find ${sectionTitle} section in PRD content`);
+      return null;
+    } catch (error) {
+      this.logger.error(`Error extracting ${sectionTitle} section:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Extracts the "Project Overview" section from the PRD content
+   * @param prdContent The full PRD content
+   * @returns The extracted project overview section or null if not found
+   */
+  private extractProjectOverviewSection(prdContent: string): string | null {
+    return this.extractSection(prdContent, '1', 'Project Overview');
+  }
+
+  /**
+   * Extracts the "Features" section from the PRD content
+   * @param prdContent The full PRD content
+   * @returns The extracted features section or null if not found
+   */
+  private extractFeaturesSection(prdContent: string): string | null {
+    return this.extractSection(prdContent, '5', 'Features');
   }
 }

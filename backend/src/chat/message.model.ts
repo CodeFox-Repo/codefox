@@ -1,6 +1,4 @@
 import { Field, ObjectType, ID, registerEnumType } from '@nestjs/graphql';
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
-import { SystemBaseModel } from 'src/system-base-model/system-base.model';
 
 /**
  * Represents the different roles in a chat conversation
@@ -30,22 +28,29 @@ registerEnumType(MessageRole, {
   name: 'Role',
 });
 
-@Entity()
 @ObjectType()
-export class Message extends SystemBaseModel {
-  @PrimaryGeneratedColumn('uuid')
+export class Message {
   @Field(() => ID)
   id: string;
 
   @Field()
-  @Column()
   content: string;
 
   @Field(() => MessageRole)
-  @Column({ type: 'text' })
   role: MessageRole;
 
+  @Field(() => Date)
+  createdAt: Date;
+
+  @Field(() => Date)
+  updatedAt: Date;
+
+  @Field()
+  isActive: boolean;
+
+  @Field()
+  isDeleted: boolean;
+
   @Field({ nullable: true })
-  @Column({ nullable: true })
   modelId?: string;
 }

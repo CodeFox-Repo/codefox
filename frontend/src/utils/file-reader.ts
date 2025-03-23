@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { getProjectsDir } from 'codefox-common';
+import { logger } from '@/app/log/logger';
 
 export class FileReader {
   private static instance: FileReader;
@@ -33,7 +34,7 @@ export class FileReader {
     try {
       return await fs.readFile(fullPath, 'utf-8');
     } catch (err) {
-      console.error(`Error reading file: ${fullPath}`, err);
+      logger.error(`Error reading file: ${fullPath}`, err);
       throw new Error(`Failed to read file: ${fullPath}`);
     }
   }
@@ -43,8 +44,8 @@ export class FileReader {
 
     try {
       const items = await fs.readdir(dir, { withFileTypes: true });
-
       for (const item of items) {
+        if (item.name.includes('node_modules')) continue;
         const fullPath = path.join(dir, item.name);
         const relativePath = path.relative(this.basePath, fullPath);
 
@@ -55,7 +56,7 @@ export class FileReader {
         }
       }
     } catch (err) {
-      console.error(`Error reading directory: ${dir}`, err);
+      logger.error(`Error reading directory: ${dir}`, err);
     }
     return filePaths;
   }
@@ -71,27 +72,27 @@ export class FileReader {
         filePaths.push(path.relative(this.basePath, fullPath));
       }
     } catch (err) {
-      console.error(`Error reading directory: ${dir}`, err);
+      logger.error(`Error reading directory: ${dir}`, err);
     }
     return filePaths;
   }
 
   public async updateFile(filePath: string, newContent: string): Promise<void> {
     if (filePath.includes('..')) {
-      console.error('[FileReader] Invalid file path detected:', filePath);
+      logger.error('[FileReader] Invalid file path detected:', filePath);
       throw new Error('Invalid file path');
     }
 
     const fullPath = path.join(this.basePath, filePath);
-    console.log(`📝 [FileReader] Updating file: ${fullPath}`);
+    logger.info(`📝 [FileReader] Updating file: ${fullPath}`);
 
     try {
-      const content = JSON.parse(newContent);
+      const content = newContent.trim();
       await fs.writeFile(fullPath, content, 'utf-8');
 
-      console.log('[FileReader] File updated successfully');
+      logger.info('[FileReader] File updated successfully');
     } catch (err) {
-      console.error(`[FileReader] Error updating file: ${fullPath}`, err);
+      logger.error(`[FileReader] Error updating file: ${fullPath}`, err);
       throw new Error(`Failed to update file: ${fullPath}`);
     }
   }

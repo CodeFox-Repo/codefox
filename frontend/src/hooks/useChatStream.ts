@@ -1,161 +1,119 @@
-import { useState, useCallback } from 'react';
-import { useMutation, useSubscription } from '@apollo/client';
-import { CHAT_STREAM, CREATE_CHAT, TRIGGER_CHAT } from '@/graphql/request';
+import { useState, useCallback, useEffect, useContext } from 'react';
+import { useMutation } from '@apollo/client';
+import { CREATE_CHAT, SAVE_MESSAGE } from '@/graphql/request';
 import { Message } from '@/const/MessageType';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
-enum StreamStatus {
-  IDLE = 'IDLE',
-  STREAMING = 'STREAMING',
-  DONE = 'DONE',
-}
+import { logger } from '@/app/log/logger';
+import { useAuthContext } from '@/providers/AuthProvider';
+import { startChatStream } from '@/api/ChatStreamAPI';
+import { ProjectContext } from '@/components/chat/code-engine/project-context';
+import { ChatInputType } from '@/graphql/type';
+import { managerAgent } from './multi-agent/managerAgent';
 
-interface ChatInput {
-  chatId: string;
-  message: string;
-  model: string;
-}
-
-interface SubscriptionState {
-  enabled: boolean;
-  variables: {
-    input: ChatInput;
-  } | null;
-}
-
-interface UseChatStreamProps {
+export interface UseChatStreamProps {
   chatId: string;
   input: string;
   setInput: (input: string) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  setThinkingProcess: React.Dispatch<React.SetStateAction<Message[]>>;
   selectedModel: string;
+  setIsTPUpdating: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export function useChatStream({
+export const useChatStream = ({
   chatId,
   input,
   setInput,
   setMessages,
+  setThinkingProcess,
   selectedModel,
-}: UseChatStreamProps) {
+  setIsTPUpdating,
+}: UseChatStreamProps) => {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
-  const [streamStatus, setStreamStatus] = useState<StreamStatus>(
-    StreamStatus.IDLE
-  );
   const [currentChatId, setCurrentChatId] = useState<string>(chatId);
+  const { token } = useAuthContext();
+  const { curProject, refreshProjects, setFilePath, editorRef } =
+    useContext(ProjectContext);
+  const [curProjectPath, setCurProjectPath] = useState('');
 
-  const [subscription, setSubscription] = useState<SubscriptionState>({
-    enabled: false,
-    variables: null,
-  });
+  useEffect(() => {
+    if (curProject) {
+      setCurProjectPath(curProject.projectPath);
+    }
+  }, [curProject]);
 
-  const updateChatId = () => {
-    setCurrentChatId('');
-  };
+  useEffect(() => {
+    const updateChatId = () => {
+      setCurrentChatId('');
+      setMessages([]); // Clear messages for new chat
+    };
 
-  window.addEventListener('newchat', updateChatId);
+    // Only add event listener when we want to create a new chat
+    if (!chatId) {
+      window.addEventListener('newchat', updateChatId);
+    }
 
-  const [triggerChat] = useMutation(TRIGGER_CHAT, {
-    onCompleted: () => {
-      setStreamStatus(StreamStatus.STREAMING);
-    },
-    onError: () => {
-      setStreamStatus(StreamStatus.IDLE);
-      finishChatResponse();
-    },
-  });
+    // Cleanup
+    return () => {
+      window.removeEventListener('newchat', updateChatId);
+    };
+  }, [chatId, setMessages]);
+
+  // Update currentChatId when chatId prop changes
+  useEffect(() => {
+    setCurrentChatId(chatId);
+  }, [chatId]);
+
+  const [saveMessage] = useMutation(SAVE_MESSAGE);
 
   const [createChat] = useMutation(CREATE_CHAT, {
     onCompleted: async (data) => {
       const newChatId = data.createChat.id;
       setCurrentChatId(newChatId);
-      await startChatStream(newChatId, input);
-      window.history.pushState({}, '', `/?id=${newChatId}`);
-      console.log(`new chat: ${newChatId}`);
+      await handleChatResponse(newChatId, input);
+      window.history.pushState({}, '', `/chat?id=${newChatId}`);
+      logger.info(`new chat: ${newChatId}`);
     },
     onError: () => {
       toast.error('Failed to create chat');
-      setStreamStatus(StreamStatus.IDLE);
       setLoadingSubmit(false);
     },
   });
 
-  useSubscription(CHAT_STREAM, {
-    skip: !subscription.enabled || !subscription.variables,
-    variables: subscription.variables,
-    onSubscriptionData: ({ subscriptionData }) => {
-      const chatStream = subscriptionData?.data?.chatStream;
-      if (!chatStream) return;
-
-      if (streamStatus === StreamStatus.STREAMING && loadingSubmit) {
-        setLoadingSubmit(false);
-      }
-
-      if (chatStream.status === StreamStatus.DONE) {
-        setStreamStatus(StreamStatus.DONE);
-        finishChatResponse();
-        return;
-      }
-
-      const content = chatStream.choices?.[0]?.delta?.content;
-
-      if (content) {
-        setMessages((prev) => {
-          const lastMsg = prev[prev.length - 1];
-          if (lastMsg?.role === 'assistant') {
-            return [
-              ...prev.slice(0, -1),
-              { ...lastMsg, content: lastMsg.content + content },
-            ];
-          } else {
-            return [
-              ...prev,
-              {
-                id: chatStream.id,
-                role: 'assistant',
-                content,
-                createdAt: new Date(chatStream.created * 1000).toISOString(),
-              },
-            ];
-          }
-        });
-      }
-
-      if (chatStream.choices?.[0]?.finishReason === 'stop') {
-        setStreamStatus(StreamStatus.DONE);
-        finishChatResponse();
-      }
-    },
-    onError: (error) => {
-      console.log(error);
-      toast.error('Connection error. Please try again.');
-      setStreamStatus(StreamStatus.IDLE);
-      finishChatResponse();
-    },
-  });
-
-  const startChatStream = async (targetChatId: string, message: string) => {
+  const handleChatResponse = async (targetChatId: string, message: string) => {
     try {
-      const input: ChatInput = {
+      setInput('');
+      const userInput: ChatInputType = {
         chatId: targetChatId,
         message,
         model: selectedModel,
+        role: 'user',
       };
-      console.log(input);
-
-      setInput('');
-      setStreamStatus(StreamStatus.STREAMING);
-      setSubscription({
-        enabled: true,
-        variables: { input },
+      saveMessage({
+        variables: {
+          input: userInput as ChatInputType,
+        },
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      await triggerChat({ variables: { input } });
+      const tempId = `${targetChatId}-${Date.now()}`;
+
+      await managerAgent(
+        tempId,
+        userInput,
+        setMessages,
+        curProjectPath,
+        saveMessage,
+        token,
+        refreshProjects,
+        setFilePath,
+        editorRef,
+        setThinkingProcess,
+        setIsTPUpdating,
+        setLoadingSubmit
+      );
     } catch (err) {
-      toast.error('Failed to start chat');
-      setStreamStatus(StreamStatus.IDLE);
-      finishChatResponse();
+      toast.error('Failed to get chat response' + err);
+      setLoadingSubmit(false);
     }
   };
 
@@ -191,20 +149,9 @@ export function useChatStream({
         return;
       }
     } else {
-      await startChatStream(currentChatId, content);
+      await handleChatResponse(currentChatId, content);
     }
   };
-
-  const finishChatResponse = useCallback(() => {
-    setLoadingSubmit(false);
-    setSubscription({
-      enabled: false,
-      variables: null,
-    });
-    if (streamStatus === StreamStatus.DONE) {
-      setStreamStatus(StreamStatus.IDLE);
-    }
-  }, [streamStatus]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -214,23 +161,19 @@ export function useChatStream({
   );
 
   const stop = useCallback(() => {
-    if (streamStatus === StreamStatus.STREAMING) {
-      setSubscription({
-        enabled: false,
-        variables: null,
-      });
-      setStreamStatus(StreamStatus.IDLE);
+    if (loadingSubmit) {
       setLoadingSubmit(false);
       toast.info('Message generation stopped');
     }
-  }, [streamStatus]);
+  }, [loadingSubmit]);
 
   return {
     loadingSubmit,
     handleSubmit,
     handleInputChange,
     stop,
-    isStreaming: streamStatus === StreamStatus.STREAMING,
+    isStreaming: loadingSubmit,
     currentChatId,
+    startChatStream,
   };
-}
+};

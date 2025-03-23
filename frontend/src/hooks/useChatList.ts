@@ -2,10 +2,11 @@ import { useQuery } from '@apollo/client';
 import { GET_USER_CHATS } from '@/graphql/request';
 import { Chat } from '@/graphql/type';
 import { useState, useCallback, useMemo } from 'react';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 export function useChatList() {
   const [chatListUpdated, setChatListUpdated] = useState(false);
-
+  const { isAuthorized } = useAuthContext();
   const {
     data: chatData,
     loading,
@@ -13,6 +14,7 @@ export function useChatList() {
     refetch,
   } = useQuery<{ getUserChats: Chat[] }>(GET_USER_CHATS, {
     fetchPolicy: chatListUpdated ? 'network-only' : 'cache-first',
+    skip: !isAuthorized,
   });
 
   const handleRefetch = useCallback(() => {

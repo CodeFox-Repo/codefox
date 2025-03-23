@@ -1,3 +1,4 @@
+//frontend/src/app/chat/layout.tsx
 import ChatLayout from '../../components/chat/chat-layout';
 
 export default function Layout({

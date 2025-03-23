@@ -30,7 +30,6 @@ export class RemoteOpenAIModelEngine implements ModelInstance {
       interval: 1000, // per 1000ms (1 second)
       carryoverConcurrencyCount: true, // Carry over pending tasks
       // FIXME: hack way to set up timeout
-      timeout: 120000, // 120 second timeout to accommodate longer streams
     });
 
     // Log queue events for monitoring
