@@ -58,13 +58,22 @@ export const SHADCN_COMPONENT_PATHS: string[] = [
  * and write the result to a new JSON file.
  */
 export function mergePaths(input: string) {
+  const INDEX_PATH = 'src/index.tsx';
   try {
     // Parse the input string into a JSON object
     const parsedData = JSON.parse(input) as { Paths: string[] };
 
-    // Merge the existing paths with the SHADCN components
+    // Create a Set to avoid duplicates
+    const pathSet = new Set([...parsedData.Paths, ...SHADCN_COMPONENT_PATHS]);
+
+    // Check if src/index.tsx exists, if not, add it
+    if (!pathSet.has(INDEX_PATH)) {
+      pathSet.add(INDEX_PATH);
+    }
+
+    // Convert Set back to array
     const updatedPaths = {
-      Paths: [...parsedData.Paths, ...SHADCN_COMPONENT_PATHS],
+      Paths: Array.from(pathSet),
     };
 
     // Convert back to JSON string with formatting
