@@ -514,6 +514,7 @@ export class FileStructureAndArchitectureHandler
       };
     }
 
+    // add shadcn and check if missing must have path like "src/index.tsx"
     let added_structure = '';
     try {
       added_structure = mergePaths(fileStructureJsonContent);
