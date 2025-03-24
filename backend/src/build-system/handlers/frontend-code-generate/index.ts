@@ -17,8 +17,8 @@ import { removeCodeBlockFences } from 'src/build-system/utils/strings';
 import { writeFileSync } from 'fs';
 import { MessageInterface } from 'src/common/model-provider/types';
 
-import { FrontendCodeValidator } from './CodeValidator';
-import { FrontendQueueProcessor, CodeTaskQueue } from './CodeReview';
+import { CodeValidator } from './CodeValidator';
+import { CodeQueueProcessor, CodeTaskQueue } from './CodeReview';
 // import { FileFAHandler } from '../file-manager/file-arch';
 import { FileStructureAndArchitectureHandler } from '../file-manager/file-struct';
 import { PRDHandler } from '../product-manager/product-requirements-document/prd';
@@ -102,7 +102,7 @@ export class FrontendCodeHandler implements BuildHandler<string> {
     //   this.logger.debug(`Depends On: ${info.dependsOn.join(', ')}`);
     // });
 
-    const validator = new FrontendCodeValidator(frontendPath);
+    const validator = new CodeValidator(frontendPath);
     // validator.installDependencies();
 
     // 4. Process each "layer" in sequence; files in a layer in parallel
@@ -177,6 +177,7 @@ export class FrontendCodeHandler implements BuildHandler<string> {
                 dependenciesText,
                 directDepsPathString,
                 uiUXLayoutHandler,
+                backendRequirementDoc,
                 prdHandler,
                 failedFiles,
               );
@@ -214,10 +215,11 @@ export class FrontendCodeHandler implements BuildHandler<string> {
       }
       // Now process the entire queue for this layer:
       // This writes each file, runs build, fixes if needed, etc.
-      const queueProcessor = new FrontendQueueProcessor(
+      const queueProcessor = new CodeQueueProcessor(
         validator,
         queue,
         context,
+        'frontend',
         frontendPath,
         renameMap,
       );
@@ -278,6 +280,7 @@ export class FrontendCodeHandler implements BuildHandler<string> {
     dependenciesText: string,
     directDepsPathString: string,
     uiUXLayoutHandler: string,
+    backendRequirementDoc: string,
     productRe: string,
     failedFiles: any[],
   ): Promise<string> {
@@ -320,21 +323,16 @@ export class FrontendCodeHandler implements BuildHandler<string> {
 
               `,
         },
-        // To DO need to dynamically add the UX Datamap Documentation and Backend Requirement Documentation based on the file generate
-        // {
-        //   role: 'user' as const,
-        //   content: `This is the UX Datamap Documentation:
-        // ${uxDataMapDoc}
-
-        // Next will provide UX Datamap Documentation.`,
-        // },
-        // {
-        //   role: 'user' as const,
-        //   content: `This is the Backend Requirement Documentation:
-        // ${backendRequirementDoc}
-
-        // Next will provide Backend Requirement Documentation.`,
-        // },
+        {
+          role: 'assistant',
+          content:
+            "Good, now provider your API Documentation, it's okay API Documentation are empty, which means I don't need use API",
+        },
+        {
+          role: 'user' as const,
+          content: `This is the API Documentation:
+          ${backendRequirementDoc}`,
+        },
         {
           role: 'assistant',
           content:

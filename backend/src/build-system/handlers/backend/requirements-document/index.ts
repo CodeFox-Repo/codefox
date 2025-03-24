@@ -11,7 +11,8 @@ import { chatSyncWithClocker } from 'src/build-system/utils/handler-helper';
 import { BuildNode, BuildNodeRequire } from 'src/build-system/hanlder-manager';
 import { DBRequirementHandler } from '../../database/requirements-document';
 import { UXDMDHandler } from '../../ux/datamap';
-import { UXSMDHandler } from '../../ux/sitemap-document';
+import { DBSchemaHandler } from '../../database/schemas/schemas';
+import { MessageInterface } from 'src/common/model-provider/types';
 
 type BackendRequirementResult = {
   overview: string;
@@ -29,15 +30,11 @@ type BackendRequirementResult = {
  */
 
 @BuildNode()
-@BuildNodeRequire([DBRequirementHandler, UXDMDHandler, UXSMDHandler])
-export class BackendRequirementHandler
-  implements BuildHandler<BackendRequirementResult>
-{
+@BuildNodeRequire([DBRequirementHandler, UXDMDHandler, DBSchemaHandler])
+export class BackendRequirementHandler implements BuildHandler<string> {
   private readonly logger: Logger = new Logger('BackendRequirementHandler');
 
-  async run(
-    context: BuilderContext,
-  ): Promise<BuildResult<BackendRequirementResult>> {
+  async run(context: BuilderContext): Promise<BuildResult<string>> {
     this.logger.log('Generating Backend Requirements Document...');
 
     const language = context.getGlobalContext('language') || 'javascript';
@@ -48,26 +45,51 @@ export class BackendRequirementHandler
 
     const dbRequirements = context.getNodeData(DBRequirementHandler);
     const datamapDoc = context.getNodeData(UXDMDHandler);
-    const sitemapDoc = context.getNodeData(UXSMDHandler);
+    const dbSchema = context.getNodeData(DBSchemaHandler);
 
-    if (!dbRequirements || !datamapDoc || !sitemapDoc) {
+    if (!dbRequirements || !datamapDoc || !dbSchema) {
       this.logger.error(
-        'Missing required parameters: dbRequirements, datamapDoc, or sitemapDoc',
+        'Missing required parameters: dbRequirements, datamapDoc, or dbSchema',
       );
       throw new MissingConfigurationError(
-        'Missing required parameters: dbRequirements, datamapDoc, or sitemapDoc.',
+        'Missing required parameters: dbRequirements, datamapDoc, or dbSchema.',
       );
     }
 
     const overviewPrompt = generateBackendOverviewPrompt(
       projectName,
-      dbRequirements,
-      datamapDoc,
-      sitemapDoc,
       language,
       framework,
       packages,
     );
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content: overviewPrompt,
+      },
+      {
+        role: 'user' as const,
+        content: `## Database Requirements:
+            ${dbRequirements}
+                              `,
+      },
+      {
+        role: 'user' as const,
+        content: `## DataBase Schema:
+            ${dbSchema}
+                              `,
+      },
+      {
+        role: 'user' as const,
+        content: `## Frontend Data Requirements:
+            ${datamapDoc} `,
+      },
+      {
+        role: 'user',
+        content: `Now you can provide the code, don't forget the <GENERATE></GENERATE> tags. Do not be lazy.`,
+      },
+    ] as MessageInterface[];
 
     let backendOverview: string;
 
@@ -76,7 +98,7 @@ export class BackendRequirementHandler
         context,
         {
           model: 'gpt-4o-mini',
-          messages: [{ content: overviewPrompt, role: 'system' }],
+          messages: messages,
         },
         'generateBackendOverviewPrompt',
         BackendRequirementHandler.name,
@@ -88,15 +110,7 @@ export class BackendRequirementHandler
     // Return generated data
     return {
       success: true,
-      data: {
-        overview: removeCodeBlockFences(backendOverview),
-        implementation: '', // Implementation generation skipped
-        config: {
-          language,
-          framework,
-          packages,
-        },
-      },
+      data: removeCodeBlockFences(backendOverview),
     };
   }
 }
