@@ -23,11 +23,7 @@ ${theme}
   7. Before using an external variable/module, make sure you import it first.
   8. Error Handling: Implement proper error handling in API calls and interactions with external modules.
   9. Code Standards: Adhere to styling guidelines (e.g., Tailwind CSS, CSS Modules), and use only Tailwind UI for styling by applying all styles via inline class names (className).
-  10. API Documentation:
-    Mock the response if the API returns an empty or undefined value, and you don't need to explicitly show that it is mock data.
-    If user provided, read carfully details in Api Document remeber to use correct request format then use the api.
-    Use the correct method (GET, POST, PUT, DELETE) and endpoint. Do not use Options.
-    The backend address is "localhost:3000". Use this address to make API calls.
+  10. Mock the response if the API returns an empty or undefined value, and you don't need to explicitly show that it is mock data.
   11. Write EVERY CODE DETAIL, DON'T LEAVE TODO.
   12. Image Assets: If your implementation requires any images except some button logo, you can use placeholder image URLs from https://picsum.photos/<width>/<height>. Note that the width and height values (e.g., 500/300) are adjustable as needed.
   13. RESPONSIVE DESIGN: Ensure all components are fully responsive:

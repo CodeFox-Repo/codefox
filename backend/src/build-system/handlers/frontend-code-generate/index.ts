@@ -326,16 +326,6 @@ export class FrontendCodeHandler implements BuildHandler<string> {
         {
           role: 'assistant',
           content:
-            "Good, now provider your API Documentation, it's okay API Documentation are empty, which means I don't need use API",
-        },
-        {
-          role: 'user' as const,
-          content: `This is the API Documentation:
-          ${backendRequirementDoc}`,
-        },
-        {
-          role: 'assistant',
-          content:
             "Good, now provider your dependencies, it's okay dependencies are empty, which means you don't have any dependencies",
         },
         {

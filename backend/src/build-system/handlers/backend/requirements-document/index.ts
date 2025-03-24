@@ -30,7 +30,7 @@ type BackendRequirementResult = {
  */
 
 @BuildNode()
-@BuildNodeRequire([DBRequirementHandler, UXDMDHandler, DBSchemaHandler])
+@BuildNodeRequire([DBRequirementHandler, DBSchemaHandler])
 export class BackendRequirementHandler implements BuildHandler<string> {
   private readonly logger: Logger = new Logger('BackendRequirementHandler');
 

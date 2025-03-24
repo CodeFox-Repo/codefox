@@ -145,7 +145,7 @@ export class DBSchemaHandler implements BuildHandler {
           const validationResponse = await chatSyncWithClocker(
             context,
             {
-              model: 'o3-mini-high',
+              model: 'gpt-4o-mini',
               messages: [
                 { content: validationPrompt, role: 'system' },
                 {
