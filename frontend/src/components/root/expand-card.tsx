@@ -139,7 +139,7 @@ export function ExpandableCard({ projects }) {
                   alt={project.name}
                   width={600}
                   height={200}
-                  className="w-full h-48 object-cover transition duration-300 group-hover:scale-105"
+                  className="w-full h-48 object-cover object-top transition duration-300 group-hover:scale-105"
                 />
               </motion.div>
 
