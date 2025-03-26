@@ -46,7 +46,15 @@ export function CodeEngine({
   const [isCompleting, setIsCompleting] = useState(false);
   // 添加一个ref来持久跟踪项目状态，避免重新渲染时丢失
   const isProjectLoadedRef = useRef(false);
+  const context = useContext(ProjectContext);
+  if (!context) throw new Error('Must be used inside ProjectProvider');
+  const { setRecentlyCompletedProjectId } = context;
 
+  useEffect(() => {
+    if (projectCompleted) {
+      setRecentlyCompletedProjectId(curProject?.id || localProject?.id);
+    }
+  }, [projectCompleted]);
   // 在组件挂载时从localStorage检查项目是否已完成
   useEffect(() => {
     try {

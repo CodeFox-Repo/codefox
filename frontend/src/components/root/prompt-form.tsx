@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, forwardRef, useImperativeHandle, useEffect } from 'react';
+import {
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+  useContext,
+  useCallback,
+} from 'react';
 import { SendIcon, Sparkles, Globe, Lock, Loader2, Cpu } from 'lucide-react';
 import Typewriter from 'typewriter-effect';
 import {
@@ -22,6 +29,10 @@ import { useModels } from '@/hooks/useModels';
 import { gql, useMutation } from '@apollo/client';
 import { logger } from '@/app/log/logger';
 
+import { useRouter } from 'next/navigation';
+import { ProjectContext } from '../chat/code-engine/project-context';
+import { redirectChatPage } from '../chat-page-navigation';
+
 export interface PromptFormRef {
   getPromptData: () => {
     message: string;
@@ -33,7 +44,8 @@ export interface PromptFormRef {
 
 interface PromptFormProps {
   isAuthorized: boolean;
-  onSubmit: () => void;
+  onSubmit: () => Promise<string>;
+  // onChatCreated: (chatId: string) => void;
   onAuthRequired: () => void;
   isLoading?: boolean;
 }
@@ -54,9 +66,12 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
       'public'
     );
     const [isEnhanced, setIsEnhanced] = useState(false);
-    const [isFocused, setIsFocused] = useState(false); // 追踪 textarea focus
+    const [isFocused, setIsFocused] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
-
+    const router = useRouter();
+    const [currentChatid, setCurrentChatid] = useState('');
+    const { setChatId, setRecentlyCompletedProjectId } =
+      useContext(ProjectContext);
     const {
       selectedModel,
       setSelectedModel,
@@ -79,14 +94,26 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
       }
     );
 
-    const handleSubmit = () => {
+    const handleSubmit = useCallback(async () => {
       if (isLoading || isRegenerating) return;
       if (!isAuthorized) {
         onAuthRequired();
       } else {
-        onSubmit();
+        const chatId = await onSubmit();
+        if (chatId) {
+          setRecentlyCompletedProjectId(chatId);
+          redirectChatPage(chatId, setCurrentChatid, setChatId, router);
+        }
       }
-    };
+    }, [
+      isAuthorized,
+      isLoading,
+      isRegenerating,
+      onAuthRequired,
+      onSubmit,
+      setChatId,
+      router,
+    ]);
 
     const handleMagicEnhance = () => {
       if (isLoading || isRegenerating) return;
