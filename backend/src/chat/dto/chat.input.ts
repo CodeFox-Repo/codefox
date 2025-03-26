@@ -1,5 +1,6 @@
 // DTOs for Project APIs
 import { InputType, Field } from '@nestjs/graphql';
+import { MessageRole } from '../message.model';
 
 @InputType()
 export class NewChatInput {
@@ -26,4 +27,6 @@ export class ChatInput {
 
   @Field()
   model: string;
+  @Field()
+  role: MessageRole;
 }

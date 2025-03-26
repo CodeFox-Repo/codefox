@@ -91,6 +91,34 @@ export class Project extends SystemBaseModel {
   photoUrl: string;
 
   /**
+   * The name of the repo in GitHub (e.g. "my-cool-project").
+   */
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  githubRepoName?: string;
+
+  /**
+   * The GitHub HTML URL for this repo (e.g. "https://github.com/username/my-cool-project").
+   */
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  githubRepoUrl?: string;
+
+  /**
+   * The GitHub username or organization name that owns the repo.
+   */
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  githubOwner?: string;
+
+  /**
+   * Whether this project has been synced/pushed to GitHub.
+   */
+  @Field()
+  @Column({ default: false })
+  isSyncedWithGitHub: boolean;
+
+  /**
    * Unique identifier for tracking project lineage
    * Used to track which projects are copies of others
    */

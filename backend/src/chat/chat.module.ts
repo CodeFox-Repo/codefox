@@ -11,6 +11,7 @@ import { UserService } from 'src/user/user.service';
 import { PubSub } from 'graphql-subscriptions';
 import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { UploadModule } from 'src/upload/upload.module';
+import { GitHubModule } from 'src/github/github.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UploadModule } from 'src/upload/upload.module';
     AuthModule,
     JwtCacheModule,
     UploadModule,
+    GitHubModule,
   ],
   controllers: [ChatController],
   providers: [

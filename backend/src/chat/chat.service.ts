@@ -11,6 +11,7 @@ import {
 } from 'src/chat/dto/chat.input';
 import { CustomAsyncIterableIterator } from 'src/common/model-provider/types';
 import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
+import { Project } from 'src/project/project.model';
 
 @Injectable()
 export class ChatProxyService {
@@ -96,6 +97,15 @@ export class ChatService {
     }
 
     return chat;
+  }
+
+  async getProjectByChatId(chatId: string): Promise<Project> {
+    const chat = await this.chatRepository.findOne({
+      where: { id: chatId, isDeleted: false },
+      relations: ['project'],
+    });
+
+    return chat ? chat.project : null;
   }
 
   async createChat(userId: string, newChatInput: NewChatInput): Promise<Chat> {

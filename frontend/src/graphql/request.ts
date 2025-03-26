@@ -102,6 +102,7 @@ export const GET_USER_INFO = gql`
       username
       email
       avatarUrl
+      githubInstallationId
     }
   }
 `;
@@ -173,7 +174,20 @@ export const GET_CHAT_DETAILS = gql`
     }
   }
 `;
-
+export const GET_CUR_PROJECT = gql`
+  query GetCurProject($chatId: String!) {
+    getCurProject(chatId: $chatId) {
+      id
+      projectName
+      projectPath
+    }
+  }
+`;
+export const SAVE_MESSAGE = gql`
+  mutation SaveMessage($input: ChatInputType!) {
+    saveMessage(input: $input)
+  }
+`;
 // Mutation to create a new project
 export const CREATE_PROJECT = gql`
   mutation CreateProject($createProjectInput: CreateProjectInput!) {
@@ -221,7 +235,11 @@ export const UPDATE_PROJECT_PUBLIC_STATUS = gql`
     updateProjectPublicStatus(projectId: $projectId, isPublic: $isPublic) {
       id
       projectName
-      isPublic
+      path
+      projectPackages {
+        id
+        content
+      }
     }
   }
 `;
@@ -266,5 +284,29 @@ export const UPLOAD_AVATAR = gql`
 export const GET_USER_AVATAR = gql`
   query GetUserAvatar($userId: String!) {
     getUserAvatar(userId: $userId)
+  }
+`;
+
+// sync project with github
+export const SYNC_PROJECT_TO_GITHUB = gql`
+  mutation SyncProjectToGitHub($projectId: String!) {
+    syncProjectToGitHub(projectId: $projectId) {
+      id
+      projectName
+      isSyncedWithGitHub
+      githubOwner
+      githubRepoName
+      githubRepoUrl
+    }
+  }
+`;
+
+export const GET_PROJECT = gql`
+  query GetProject($projectId: String!) {
+    getProject(projectId: $projectId) {
+      id
+      isSyncedWithGitHub
+      githubRepoUrl
+    }
   }
 `;

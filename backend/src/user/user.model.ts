@@ -11,8 +11,8 @@ import {
   ManyToMany,
   JoinTable,
   OneToMany,
-  UpdateDateColumn,
 } from 'typeorm';
+import { UniversalCreateDateColumn } from 'src/common/decorators/universal-date-column';
 
 @Entity()
 @ObjectType()
@@ -45,7 +45,7 @@ export class User extends SystemBaseModel {
   isEmailConfirmed: boolean;
 
   @Field()
-  @UpdateDateColumn({ type: 'datetime' })
+  @UniversalCreateDateColumn()
   lastEmailSendTime: Date;
 
   @Field(() => [Chat])
@@ -77,6 +77,16 @@ export class User extends SystemBaseModel {
     },
   })
   roles: Role[];
+
+  /**
+   * The GitHub App installation ID for this user (if they have installed the app).
+   */
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  githubInstallationId?: string;
+
+  @Column({ nullable: true })
+  githubAccessToken?: string;
 
   /**
    * This field is maintained for API compatibility but is no longer actively used.

@@ -3,27 +3,28 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Menu } from './menu/menu.model';
 import { JwtModule } from '@nestjs/jwt';
 import { Role } from './role/role.model';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { User } from 'src/user/user.model';
+import { AppConfigService } from 'src/config/config.service';
 import { AuthResolver } from './auth.resolver';
 import { RefreshToken } from './refresh-token/refresh-token.model';
 import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { MailModule } from 'src/mail/mail.module';
 import { GoogleStrategy } from './oauth/GoogleStrategy';
 import { GoogleController } from './google.controller';
+import { AppConfigModule } from 'src/config/config.module';
 
 @Module({
   imports: [
-    ConfigModule,
+    AppConfigModule,
     TypeOrmModule.forFeature([Role, Menu, User, RefreshToken]),
     JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
+      imports: [AppConfigModule],
+      useFactory: async (config: AppConfigService) => ({
+        secret: config.jwtSecret,
         signOptions: { expiresIn: '24h' },
       }),
-      inject: [ConfigService],
+      inject: [AppConfigService],
     }),
     JwtCacheModule,
     MailModule,

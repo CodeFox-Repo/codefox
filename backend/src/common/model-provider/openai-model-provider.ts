@@ -118,7 +118,7 @@ export class OpenAIModelProvider implements IModelProvider {
     let streamIterator: AsyncIterator<OpenAIChatCompletionChunk> | null = null;
     const modelName = model || input.model;
     const queue = this.getQueueForModel(modelName);
-
+    let oldStreamValue: OpenAIChatCompletionChunk | null = null;
     const createStream = async () => {
       if (!stream) {
         const result = await queue.add(async () => {
@@ -145,6 +145,9 @@ export class OpenAIModelProvider implements IModelProvider {
           const currentIterator = await createStream();
           const chunk = await currentIterator.next();
           const chunkValue = chunk.value as OpenAIChatCompletionChunk;
+          console.log('isDone:', chunk.done);
+          console.log('chunk:', chunk);
+          if (!chunk.done) oldStreamValue = chunkValue;
           return {
             done: chunk.done,
             value: {
@@ -159,9 +162,23 @@ export class OpenAIModelProvider implements IModelProvider {
         }
       },
       async return() {
+        console.log(stream);
+        console.log(streamIterator);
+        console.log('return() called');
         stream = null;
         streamIterator = null;
-        return { done: true, value: undefined };
+        return {
+          done: true,
+          value: {
+            ...oldStreamValue,
+            status: StreamStatus.DONE,
+            choices: [
+              {
+                finishReason: 'stop',
+              },
+            ],
+          },
+        };
       },
       async throw(error) {
         stream = null;

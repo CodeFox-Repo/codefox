@@ -8,7 +8,8 @@ import { graphqlUploadExpress } from 'graphql-upload-minimal';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   dotenv.config();
-  const app = await NestFactory.create(AppModule);
+
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.enableCors({
     origin: '*',

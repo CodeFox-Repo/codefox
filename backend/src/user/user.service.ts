@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { User } from './user.model';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FileUpload } from 'graphql-upload-minimal';
 import { UploadService } from '../upload/upload.service';
 import { validateAndBufferFile } from 'src/common/security/file_check';
+import { GitHubService } from 'src/github/github.service';
 
 @Injectable()
 export class UserService {
@@ -12,6 +17,7 @@ export class UserService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private readonly uploadService: UploadService,
+    private readonly gitHubService: GitHubService,
   ) {}
 
   // Method to get all chats of a user
@@ -59,5 +65,46 @@ export class UserService {
     // Update the user's avatar URL
     user.avatarUrl = result.url;
     return this.userRepository.save(user);
+  }
+
+  async bindUserIdAndInstallId(
+    userId: string,
+    installationId: string,
+    githubCode: string,
+  ): Promise<boolean> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.githubInstallationId) {
+      throw new BadRequestException(
+        'User already linked to a GitHub installation.',
+      );
+    }
+
+    if (!githubCode) {
+      throw new BadRequestException('Missing GitHub OAuth code');
+    }
+
+    console.log(
+      `Binding GitHub installation ID ${installationId} to user code ${githubCode}`,
+    );
+
+    //First request to GitHub to exchange the code for an access token (Wont expire)
+    const accessToken =
+      await this.gitHubService.exchangeOAuthCodeForToken(githubCode);
+
+    user.githubInstallationId = installationId;
+    user.githubAccessToken = accessToken;
+
+    try {
+      await this.userRepository.save(user);
+    } catch (error) {
+      console.error('Error saving user:', error);
+      throw new Error('Failed to save user with installation ID');
+    }
+
+    return true;
   }
 }

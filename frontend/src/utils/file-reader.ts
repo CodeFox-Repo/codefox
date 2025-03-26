@@ -44,7 +44,6 @@ export class FileReader {
 
     try {
       const items = await fs.readdir(dir, { withFileTypes: true });
-
       for (const item of items) {
         if (item.name.includes('node_modules')) continue;
         const fullPath = path.join(dir, item.name);
@@ -88,7 +87,7 @@ export class FileReader {
     logger.info(`📝 [FileReader] Updating file: ${fullPath}`);
 
     try {
-      const content = JSON.parse(newContent);
+      const content = newContent.trim();
       await fs.writeFile(fullPath, content, 'utf-8');
 
       logger.info('[FileReader] File updated successfully');

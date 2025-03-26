@@ -22,13 +22,6 @@ export class ChatController {
     @GetAuthToken() userId: string,
   ) {
     try {
-      // Save user's message first
-      await this.chatService.saveMessage(
-        chatDto.chatId,
-        chatDto.message,
-        MessageRole.User,
-      );
-
       if (chatDto.stream) {
         // Streaming response
         res.setHeader('Content-Type', 'text/event-stream');
@@ -39,6 +32,7 @@ export class ChatController {
           chatId: chatDto.chatId,
           message: chatDto.message,
           model: chatDto.model,
+          role: MessageRole.User,
         });
 
         let fullResponse = '';
@@ -51,13 +45,6 @@ export class ChatController {
           }
         }
 
-        // Save the complete message
-        await this.chatService.saveMessage(
-          chatDto.chatId,
-          fullResponse,
-          MessageRole.Assistant,
-        );
-
         res.write('data: [DONE]\n\n');
         res.end();
       } else {
@@ -66,15 +53,8 @@ export class ChatController {
           chatId: chatDto.chatId,
           message: chatDto.message,
           model: chatDto.model,
+          role: MessageRole.User,
         });
-
-        // Save the complete message
-        await this.chatService.saveMessage(
-          chatDto.chatId,
-          response,
-          MessageRole.Assistant,
-        );
-
         res.json({ content: response });
       }
     } catch (error) {

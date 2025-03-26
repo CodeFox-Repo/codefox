@@ -11,6 +11,7 @@ export interface ChatProps {
   chatId?: string;
   setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
   messages: Message[];
+  thinkingProcess: Message[];
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmit: (
@@ -23,6 +24,8 @@ export interface ChatProps {
   isMobile?: boolean;
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   setMessages: (messages: Message[]) => void;
+  setThinkingProcess: React.Dispatch<React.SetStateAction<string[]>>;
+  isTPUpdating: boolean;
 }
 
 export default function ChatContent({
@@ -38,13 +41,16 @@ export default function ChatContent({
   isMobile,
   setInput,
   setMessages,
+  thinkingProcess,
+  setThinkingProcess,
+  isTPUpdating,
 }: ChatProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="flex flex-col justify-between w-full h-full p-2 rounded-lg shadow-sm  border"
+      className="flex flex-col justify-between w-full h-full p-2 rounded-lg shadow-sm border"
     >
       <div className="sticky top-0 z-10">
         <ChatTopbar />
@@ -60,12 +66,13 @@ export default function ChatContent({
             );
             setMessages(updatedMessages);
           }}
+          thinkingProcess={thinkingProcess}
+          isTPUpdating={isTPUpdating}
         />
       </div>
 
       <div className="sticky bottom-0 z-10 bg-gradient-to-t from-background to-transparent pt-2">
         <ChatBottombar
-          setSelectedModel={setSelectedModel}
           messages={messages}
           input={input}
           handleInputChange={handleInputChange}
@@ -74,6 +81,7 @@ export default function ChatContent({
           formRef={formRef}
           setInput={setInput}
           setMessages={setMessages}
+          setSelectedModel={setSelectedModel}
         />
       </div>
     </motion.div>

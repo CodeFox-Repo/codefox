@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, Not, Repository } from 'typeorm';
+import { Between, In, IsNull, Not, Repository } from 'typeorm';
 import { Project } from './project.model';
 import { ProjectPackages } from './project-packages.model';
 import {
@@ -31,6 +31,13 @@ import {
   PROJECT_DAILY_LIMIT,
   ProjectRateLimitException,
 } from './project-limits';
+import * as fs from 'fs';
+import * as path from 'path';
+import archiver from 'archiver';
+import { getProjectPath, getTempDir } from 'codefox-common';
+import { GitHubService } from 'src/github/github.service';
+import { UserService } from 'src/user/user.service';
+
 @Injectable()
 export class ProjectService {
   private readonly model: OpenAIModelProvider =
@@ -46,6 +53,8 @@ export class ProjectService {
     private projectPackagesRepository: Repository<ProjectPackages>,
     private chatService: ChatService,
     private uploadService: UploadService,
+    private readonly gitHubService: GitHubService,
+    private userService: UserService,
   ) {}
 
   async getProjectsByUser(userId: string): Promise<Project[]> {
@@ -637,6 +646,7 @@ export class ProjectService {
     const whereCondition = {
       isPublic: true,
       isDeleted: false,
+      photoUrl: Not(IsNull()),
     };
 
     if (input.strategy === 'latest') {
@@ -684,5 +694,168 @@ export class ProjectService {
     });
 
     return Math.max(0, PROJECT_DAILY_LIMIT - todayProjectCount);
+  }
+
+  /**
+   * Creates a ZIP file from a project's directory
+   * @param userId The user ID making the request
+   * @param projectId The project ID to download
+   * @returns The path to the created ZIP file and the suggested filename
+   */
+  async createProjectZip(
+    userId: string,
+    projectId: string,
+  ): Promise<{ zipPath: string; fileName: string }> {
+    // Get the project
+    const project = await this.getProjectById(projectId);
+
+    // Check ownership or if project is public
+    if (project.userId !== userId && !project.isPublic) {
+      throw new ForbiddenException(
+        'You do not have permission to download this project',
+      );
+    }
+
+    // Ensure the project path exists
+    const projectPath = getProjectPath(project.projectPath);
+    this.logger.debug(`Project path: ${projectPath}`);
+
+    if (!fs.existsSync(projectPath)) {
+      throw new NotFoundException(
+        `Project directory not found at ${projectPath}`,
+      );
+    }
+
+    // Create a temporary directory for the zip file if it doesn't exist
+    const tempDir = getTempDir();
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    // Generate a filename for the zip
+    const fileName = `${project.projectName.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.zip`;
+    const zipPath = path.join(tempDir, fileName);
+
+    // Create a write stream for the zip file
+    const output = fs.createWriteStream(zipPath);
+    const archive = archiver('zip', {
+      zlib: { level: 9 }, // Set the compression level
+    });
+
+    // Listen for errors
+    output.on('error', (err) => {
+      throw new InternalServerErrorException(
+        `Error creating zip file: ${err.message}`,
+      );
+    });
+
+    // Pipe the archive to the output file
+    archive.pipe(output);
+
+    // Filter unwanted files/folders
+    const ignored = ['node_modules', '.git', '.gitignore', '.env'];
+
+    // Add the project directory to the archive
+    archive.glob(
+      '**/*',
+      {
+        cwd: projectPath,
+        ignore: ignored.map((pattern) => `**/${pattern}/**`).concat(ignored),
+        dot: true,
+      },
+      {},
+    );
+
+    // Finalize the archive
+    await archive.finalize();
+
+    // Wait for the output stream to finish
+    await new Promise<void>((resolve, reject) => {
+      output.on('close', () => {
+        this.logger.debug(
+          `Created zip file: ${zipPath}, size: ${archive.pointer()} bytes`,
+        );
+        resolve();
+      });
+      output.on('error', (err) => {
+        reject(err);
+      });
+    });
+
+    return { zipPath, fileName };
+  }
+
+  /**
+   * Sync a project to GitHub:
+   * 1) Create a GitHub repo if needed.
+   * 2) Recursively push the entire local project folder to the new repo.
+   */
+  async syncProjectToGitHub(
+    userId: string,
+    projectId: string,
+    isPublic: boolean, // the user decides if the new repo is public or private
+  ): Promise<Project> {
+    const user = await this.userService.getUser(userId);
+
+    // 1) Find the project
+    const project = await this.projectsRepository.findOne({
+      where: { id: projectId },
+    });
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    this.logger.log(
+      'check if the github project exist: ' + project.isSyncedWithGitHub,
+    );
+    // 2) Check user’s GitHub installation
+    if (!user.githubInstallationId) {
+      throw new Error('GitHub App not installed for this user');
+    }
+
+    // 3) Get the installation and OAUTH token
+    const installationToken = await this.gitHubService.getInstallationToken(
+      user.githubInstallationId,
+    );
+    const userOAuthToken = user.githubAccessToken;
+
+    // 4) Create the repo if the project doesn’t have it yet
+    if (!project.githubRepoName || !project.githubOwner) {
+      // Use project.projectName or generate a safe name
+
+      // TODO: WHEN REPO NAME EXIST
+      const repoName =
+        project.projectName.replace(/\s+/g, '-').toLowerCase() + // e.g. "my-project"
+        '-' +
+        'ChangeME'; // to make it unique if needed
+
+      const { owner, repo, htmlUrl } = await this.gitHubService.createUserRepo(
+        repoName,
+        isPublic,
+        userOAuthToken,
+      );
+
+      project.githubRepoName = repo;
+      project.githubRepoUrl = htmlUrl;
+      project.githubOwner = owner;
+    }
+
+    // 5) Recursively push the entire local project folder
+    //    If your projectPath is something like "/path/to/myProject",
+    //    we'll just push everything inside it, ignoring .git, node_modules, etc.
+    const projectPath = getProjectPath(project.projectPath);
+
+    // delete await for now, To make it background running
+    await this.gitHubService.pushFolderContent(
+      installationToken,
+      project.githubOwner,
+      project.githubRepoName,
+      projectPath,
+      '', // basePathInRepo (empty => push at repo root)
+    );
+
+    // 6) Mark as synced and update DB
+    project.isSyncedWithGitHub = true;
+    return this.projectsRepository.save(project);
   }
 }

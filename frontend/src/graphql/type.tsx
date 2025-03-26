@@ -62,18 +62,18 @@ export type Chat = {
 
 export type ChatCompletionChoiceType = {
   __typename: 'ChatCompletionChoiceType';
-  delta: ChatCompletionDeltaType;
+  delta?: Maybe<ChatCompletionDeltaType>;
   finishReason?: Maybe<Scalars['String']['output']>;
-  index: Scalars['Float']['output'];
+  index?: Maybe<Scalars['Float']['output']>;
 };
 
 export type ChatCompletionChunkType = {
   __typename: 'ChatCompletionChunkType';
   choices: Array<ChatCompletionChoiceType>;
-  created: Scalars['Float']['output'];
+  created?: Maybe<Scalars['Float']['output']>;
   id: Scalars['String']['output'];
-  model: Scalars['String']['output'];
-  object: Scalars['String']['output'];
+  model?: Maybe<Scalars['String']['output']>;
+  object?: Maybe<Scalars['String']['output']>;
   status: StreamStatus;
   systemFingerprint?: Maybe<Scalars['String']['output']>;
 };
@@ -87,6 +87,7 @@ export type ChatInputType = {
   chatId: Scalars['String']['input'];
   message: Scalars['String']['input'];
   model: Scalars['String']['input'];
+  role: Scalars['String']['input'];
 };
 
 export type CheckTokenInput = {
@@ -167,7 +168,9 @@ export type Mutation = {
   regenerateDescription: Scalars['String']['output'];
   registerUser: User;
   resendConfirmationEmail: EmailConfirmationResponse;
+  saveMessage: Scalars['Boolean']['output'];
   subscribeToProject: Project;
+  syncProjectToGitHub: Project;
   triggerChatStream: Scalars['Boolean']['output'];
   updateChatTitle?: Maybe<Chat>;
   updateProjectPhoto: Project;
@@ -223,8 +226,16 @@ export type MutationResendConfirmationEmailArgs = {
   input: ResendEmailInput;
 };
 
+export type MutationSaveMessageArgs = {
+  input: ChatInputType;
+};
+
 export type MutationSubscribeToProjectArgs = {
   projectId: Scalars['ID']['input'];
+};
+
+export type MutationSyncProjectToGitHubArgs = {
+  projectId: Scalars['String']['input'];
 };
 
 export type MutationTriggerChatStreamArgs = {
@@ -259,10 +270,14 @@ export type Project = {
   forkedFrom?: Maybe<Project>;
   forkedFromId?: Maybe<Scalars['String']['output']>;
   forks?: Maybe<Array<Project>>;
+  githubOwner?: Maybe<Scalars['String']['output']>;
+  githubRepoName?: Maybe<Scalars['String']['output']>;
+  githubRepoUrl?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActive: Scalars['Boolean']['output'];
   isDeleted: Scalars['Boolean']['output'];
   isPublic: Scalars['Boolean']['output'];
+  isSyncedWithGitHub: Scalars['Boolean']['output'];
   photoUrl?: Maybe<Scalars['String']['output']>;
   projectName: Scalars['String']['output'];
   projectPackages?: Maybe<Array<ProjectPackages>>;
@@ -300,6 +315,7 @@ export type Query = {
   getAvailableModelTags?: Maybe<Array<Scalars['String']['output']>>;
   getChatDetails?: Maybe<Chat>;
   getChatHistory: Array<Message>;
+  getCurProject?: Maybe<Project>;
   getHello: Scalars['String']['output'];
   getProject: Project;
   getRemainingProjectLimit: Scalars['Int']['output'];
@@ -328,6 +344,10 @@ export type QueryGetChatHistoryArgs = {
   chatId: Scalars['String']['input'];
 };
 
+export type QueryGetCurProjectArgs = {
+  chatId: Scalars['String']['input'];
+};
+
 export type QueryGetProjectArgs = {
   projectId: Scalars['String']['input'];
 };
@@ -347,6 +367,7 @@ export type RefreshTokenResponse = {
 };
 
 export type RegisterUserInput = {
+  confirmPassword: Scalars['String']['input'];
   email: Scalars['String']['input'];
   password: Scalars['String']['input'];
   username: Scalars['String']['input'];
@@ -385,6 +406,8 @@ export type User = {
   chats: Array<Chat>;
   createdAt: Scalars['Date']['output'];
   email: Scalars['String']['output'];
+  githubCode?: Maybe<Scalars['String']['output']>;
+  githubInstallationId?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActive: Scalars['Boolean']['output'];
   isDeleted: Scalars['Boolean']['output'];
@@ -623,7 +646,7 @@ export type ChatCompletionChoiceTypeResolvers<
     ResolversParentTypes['ChatCompletionChoiceType'] = ResolversParentTypes['ChatCompletionChoiceType'],
 > = ResolversObject<{
   delta?: Resolver<
-    ResolversTypes['ChatCompletionDeltaType'],
+    Maybe<ResolversTypes['ChatCompletionDeltaType']>,
     ParentType,
     ContextType
   >;
@@ -632,7 +655,7 @@ export type ChatCompletionChoiceTypeResolvers<
     ParentType,
     ContextType
   >;
-  index?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  index?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -646,10 +669,10 @@ export type ChatCompletionChunkTypeResolvers<
     ParentType,
     ContextType
   >;
-  created?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  model?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  object?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  model?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  object?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['StreamStatus'], ParentType, ContextType>;
   systemFingerprint?: Resolver<
     Maybe<ResolversTypes['String']>,
@@ -802,11 +825,23 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationResendConfirmationEmailArgs, 'input'>
   >;
+  saveMessage?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationSaveMessageArgs, 'input'>
+  >;
   subscribeToProject?: Resolver<
     ResolversTypes['Project'],
     ParentType,
     ContextType,
     RequireFields<MutationSubscribeToProjectArgs, 'projectId'>
+  >;
+  syncProjectToGitHub?: Resolver<
+    ResolversTypes['Project'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationSyncProjectToGitHubArgs, 'projectId'>
   >;
   triggerChatStream?: Resolver<
     ResolversTypes['Boolean'],
@@ -865,10 +900,30 @@ export type ProjectResolvers<
     ParentType,
     ContextType
   >;
+  githubOwner?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  githubRepoName?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  githubRepoUrl?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   isActive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isDeleted?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isPublic?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  isSyncedWithGitHub?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType
+  >;
   photoUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   projectName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   projectPackages?: Resolver<
@@ -939,6 +994,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryGetChatHistoryArgs, 'chatId'>
+  >;
+  getCurProject?: Resolver<
+    Maybe<ResolversTypes['Project']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryGetCurProjectArgs, 'chatId'>
   >;
   getHello?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   getProject?: Resolver<
@@ -1025,6 +1086,16 @@ export type UserResolvers<
   chats?: Resolver<Array<ResolversTypes['Chat']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  githubCode?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  githubInstallationId?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   isActive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isDeleted?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
