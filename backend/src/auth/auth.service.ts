@@ -217,7 +217,7 @@ export class AuthService {
     );
 
     const refreshTokenEntity = await this.createRefreshToken(user);
-    this.jwtCacheService.storeAccessToken(refreshTokenEntity.token);
+    this.jwtCacheService.storeAccessToken(accessToken);
 
     return {
       accessToken,
