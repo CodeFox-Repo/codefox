@@ -276,6 +276,12 @@ export function SignUpModal({
                     variant="outline"
                     className="flex items-center justify-center gap-2 w-full"
                     type="button"
+                    onClick={() => {
+                      // Redirect to your NestJS backend's Google OAuth endpoint
+                      window.location.href =
+                        process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
+                        'http://localhost:8080/auth/google';
+                    }}
                   >
                     <img
                       src="/images/google.svg"

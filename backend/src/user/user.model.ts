@@ -21,11 +21,14 @@ export class User extends SystemBaseModel {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ nullable: true })
+  googleId: string;
+
   @Field()
   @Column()
   username: string;
 
-  @Column()
+  @Column({ nullable: true }) // Made nullable for OAuth users
   password: string;
 
   @Field({ nullable: true })
