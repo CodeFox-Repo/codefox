@@ -1,4 +1,5 @@
 import { ChatInputType } from '@/graphql/type';
+import authenticatedFetch from '@/lib/authenticatedFetch';
 
 export const startChatStream = async (
   input: ChatInputType,
@@ -9,7 +10,7 @@ export const startChatStream = async (
     throw new Error('Not authenticated');
   }
   const { chatId, message, model } = input;
-  const response = await fetch('/api/chat', {
+  const response = await authenticatedFetch('/api/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

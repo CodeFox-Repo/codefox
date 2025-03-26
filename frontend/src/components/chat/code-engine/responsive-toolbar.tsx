@@ -17,6 +17,7 @@ import { logger } from '@/app/log/logger';
 import { useMutation, useQuery, gql } from '@apollo/client';
 import { toast } from 'sonner';
 import { SYNC_PROJECT_TO_GITHUB, GET_PROJECT } from '../../../graphql/request';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 interface ResponsiveToolbarProps {
   isLoading: boolean;
@@ -222,9 +223,14 @@ const ResponsiveToolbar = ({
         }
 
         // Fetch with credentials to ensure auth is included
-        const response = await fetch(downloadUrl, {
+        // const response = await fetch(downloadUrl, {
+        //   method: 'GET',
+        //   headers: headers,
+        // });
+
+        // Use authenticatedFetch which handles token refresh
+        const response = await authenticatedFetch(downloadUrl, {
           method: 'GET',
-          headers: headers,
         });
 
         if (!response.ok) {

@@ -14,6 +14,7 @@ import { LocalStore } from '@/lib/storage';
 import { LoadingPage } from '@/components/global-loading';
 import { User } from '@/graphql/type';
 import { logger } from '@/app/log/logger';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextValue {
   isAuthorized: boolean;
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
 
   const [checkToken] = useLazyQuery<{ checkToken: boolean }>(CHECK_TOKEN_QUERY);
   const [refreshTokenMutation] = useMutation(REFRESH_TOKEN_MUTATION);
@@ -142,7 +144,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     localStorage.removeItem(LocalStore.accessToken);
     localStorage.removeItem(LocalStore.refreshToken);
-  }, []);
+
+    // Redirect to home page after logout
+    if (typeof window !== 'undefined') {
+      router.push('/');
+    }
+  }, [router]);
 
   useEffect(() => {
     async function initAuth() {
@@ -159,12 +166,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       let isValid = await validateToken();
 
-      // 如果验证失败，再试图刷新
+      // If validation fails, try to refresh
       if (!isValid) {
         isValid = (await refreshAccessToken()) ? true : false;
       }
 
-      // 最终判断
+      // Final decision
       if (isValid) {
         setIsAuthorized(true);
         await fetchUserInfo();

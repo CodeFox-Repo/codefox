@@ -6,6 +6,8 @@ import {
   ApolloLink,
   from,
   split,
+  Observable,
+  FetchResult,
 } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -14,6 +16,7 @@ import { getMainDefinition } from '@apollo/client/utilities';
 import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
 import { LocalStore } from '@/lib/storage';
 import { logger } from '@/app/log/logger';
+import { REFRESH_TOKEN_MUTATION } from '@/graphql/mutations/auth';
 
 // Create the upload link as the terminating link
 const uploadLink = createUploadLink({
@@ -72,6 +75,142 @@ const authMiddleware = new ApolloLink((operation, forward) => {
   return forward(operation);
 });
 
+// Refresh Token Handling
+const refreshToken = async (): Promise<string | null> => {
+  try {
+    const refreshToken = localStorage.getItem(LocalStore.refreshToken);
+    if (!refreshToken) {
+      return null;
+    }
+
+    console.debug('start refreshToken mutate');
+
+    // Use the main client for the refresh token request
+    // The tokenRefreshLink will skip refresh attempts for this operation
+    const result = await client.mutate({
+      mutation: REFRESH_TOKEN_MUTATION,
+      variables: { refreshToken },
+    });
+
+    if (result.data?.refreshToken?.accessToken) {
+      const newAccessToken = result.data.refreshToken.accessToken;
+      const newRefreshToken =
+        result.data.refreshToken.refreshToken || refreshToken;
+
+      localStorage.setItem(LocalStore.accessToken, newAccessToken);
+      localStorage.setItem(LocalStore.refreshToken, newRefreshToken);
+
+      logger.info('Token refreshed successfully');
+      return newAccessToken;
+    }
+
+    return null;
+  } catch (error) {
+    logger.error('Error refreshing token:', error);
+    return null;
+  }
+};
+
+// Handle token expiration and refresh
+const tokenRefreshLink = onError(
+  ({ graphQLErrors, networkError, operation, forward }) => {
+    if (graphQLErrors) {
+      for (const err of graphQLErrors) {
+        // Check for auth errors (adjust this check based on your API's error structure)
+        const isAuthError =
+          err.extensions?.code === 'UNAUTHENTICATED' ||
+          err.message.includes('Unauthorized') ||
+          err.message.includes('token expired');
+
+        // Don't try to refresh if this operation is the refresh token mutation
+        // This prevents infinite refresh loops
+        const operationName = operation.operationName;
+        const path = err.path;
+        const isRefreshTokenOperation =
+          operationName === 'RefreshToken' ||
+          (path && path.includes('refreshToken'));
+
+        if (isAuthError && !isRefreshTokenOperation) {
+          logger.info('Auth error detected, attempting token refresh');
+
+          // Return a new observable to handle the token refresh
+          return new Observable<FetchResult>((observer) => {
+            // Attempt to refresh the token
+            (async () => {
+              try {
+                const newToken = await refreshToken();
+
+                if (!newToken) {
+                  // If refresh fails, clear tokens and redirect
+                  localStorage.removeItem(LocalStore.accessToken);
+                  localStorage.removeItem(LocalStore.refreshToken);
+
+                  // Redirect to home/login page when running in browser
+                  if (typeof window !== 'undefined') {
+                    logger.warn(
+                      'Token refresh failed, redirecting to home page'
+                    );
+                    window.location.href = '/';
+                  }
+
+                  // Complete the observer with the original error
+                  observer.error(err);
+                  observer.complete();
+                  return;
+                }
+
+                // Retry the operation with the new token
+                // Clone the operation with the new token
+                const oldHeaders = operation.getContext().headers;
+                operation.setContext({
+                  headers: {
+                    ...oldHeaders,
+                    Authorization: `Bearer ${newToken}`,
+                  },
+                });
+
+                // Retry the request
+                forward(operation).subscribe({
+                  next: observer.next.bind(observer),
+                  error: observer.error.bind(observer),
+                  complete: observer.complete.bind(observer),
+                });
+              } catch (error) {
+                logger.error('Error in token refresh flow:', error);
+                observer.error(error);
+                observer.complete();
+              }
+            })();
+          });
+        }
+      }
+    }
+
+    if (networkError) {
+      logger.error(`[Network error]: ${networkError}`);
+
+      // For network errors related to authentication endpoints, handle logout
+      const networkErrorOperation = operation.operationName;
+      if (
+        networkErrorOperation === 'RefreshToken' ||
+        networkErrorOperation === 'Login' ||
+        networkErrorOperation === 'ValidateToken'
+      ) {
+        // Only redirect for auth-related network errors
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(LocalStore.accessToken);
+          localStorage.removeItem(LocalStore.refreshToken);
+
+          logger.warn(
+            'Network error during authentication, redirecting to home'
+          );
+          window.location.href = '/';
+        }
+      }
+    }
+  }
+);
+
 // Error Link
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors) {
@@ -88,6 +227,7 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
 // Build the HTTP link chain
 const httpLinkWithMiddleware = from([
+  tokenRefreshLink, // Add token refresh link first
   errorLink,
   requestLoggingMiddleware,
   authMiddleware,
