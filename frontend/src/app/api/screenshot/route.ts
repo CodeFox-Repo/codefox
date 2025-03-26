@@ -49,7 +49,7 @@ export async function GET(req: Request) {
       timeout: 60000, // Increased timeout to 60 seconds
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Waits for 1 seconds
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // Waits for 2 seconds
 
     // Take screenshot
     const screenshot = await page.screenshot({
