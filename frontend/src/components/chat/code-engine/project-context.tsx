@@ -36,7 +36,7 @@ export interface ProjectContextType {
     prompt: string,
     isPublic: boolean,
     model?: string
-  ) => Promise<boolean>;
+  ) => Promise<string | false>;
   forkProject: (projectId: string) => Promise<void>;
   setProjectPublicStatus: (
     projectId: string,
@@ -109,10 +109,25 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const editorRef = useRef<any>(null);
-  const [recentlyCompletedProjectId, setRecentlyCompletedProjectId] = useState<
-    string | null
-  >(null);
+  const [recentlyCompletedProjectIdRaw, setRecentlyCompletedProjectIdRaw] =
+    useState<string | null>(() =>
+      typeof window !== 'undefined'
+        ? localStorage.getItem('pendingChatId')
+        : null
+    );
+
+  // setter：更新 state + localStorage
+  const setRecentlyCompletedProjectId = (id: string | null) => {
+    if (id) {
+      localStorage.setItem('pendingChatId', id);
+    } else {
+      localStorage.removeItem('pendingChatId');
+    }
+    setRecentlyCompletedProjectIdRaw(id);
+  };
   const [chatId, setChatId] = useState<string | null>(null);
+  const [pollTime, setPollTime] = useState(Date.now());
+  const [isCreateButtonClicked, setIsCreateButtonClicked] = useState(false);
   interface ChatProjectCacheEntry {
     project: Project | null;
     timestamp: number;
@@ -149,24 +164,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       pendingOperations.current.clear();
     };
   }, []);
-  // Poll project data every 5 seconds
-  useEffect(() => {
-    if (!chatId) return;
-    let stopped = false;
-
-    const interval = setInterval(async () => {
-      const project = await pollChatProject(chatId);
-      if (project?.projectPath) {
-        setCurProject(project);
-        clearInterval(interval);
-        stopped = true;
-      }
-    }, 5000);
-
-    return () => {
-      if (!stopped) clearInterval(interval);
-    };
-  }, [chatId]);
 
   // Function to clean expired cache entries
   const cleanCache = useCallback(() => {
@@ -709,12 +706,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       prompt: string,
       isPublic: boolean,
       model = 'gpt-4o-mini'
-    ): Promise<boolean> => {
+    ): Promise<string> => {
       if (!prompt.trim()) {
         if (isMounted.current) {
           toast.error('Please enter a project description');
         }
-        return false;
+        throw new Error('Invalid prompt');
       }
 
       try {
@@ -739,21 +736,28 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             },
           },
         });
-
-        return result.data.createProject.id;
+        const createdChat = result.data?.createProject;
+        if (createdChat?.id) {
+          setChatId(createdChat.id);
+          setIsCreateButtonClicked(true);
+          localStorage.setItem('pendingChatId', createdChat.id);
+          return createdChat.id;
+        } else {
+          throw new Error('Project creation failed: no chatId');
+        }
       } catch (error) {
         logger.error('Error creating project:', error);
         if (isMounted.current) {
           toast.error('Failed to create project from prompt');
         }
-        return false;
+        throw error;
       } finally {
         if (isMounted.current) {
           setIsLoading(false);
         }
       }
     },
-    [createProject]
+    [createProject, setChatId]
   );
 
   // New function to fork a project
@@ -918,6 +922,28 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     ]
   );
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPollTime(Date.now()); // 每6秒更新时间，触发下面的 useEffect
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll project data every 5 seconds
+  useEffect(() => {
+    if (!chatId) return;
+
+    const fetch = async () => {
+      try {
+        await pollChatProject(chatId);
+      } catch (error) {
+        logger.error('Polling error:', error);
+      }
+    };
+
+    fetch();
+  }, [pollTime, chatId, isCreateButtonClicked, pollChatProject]);
   const contextValue = useMemo(
     () => ({
       projects,
@@ -939,6 +965,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       editorRef,
       chatId,
       setChatId,
+      recentlyCompletedProjectId: recentlyCompletedProjectIdRaw,
+      setRecentlyCompletedProjectId,
     }),
     [
       projects,
@@ -957,17 +985,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       editorRef,
       chatId,
       setChatId,
+      recentlyCompletedProjectIdRaw,
     ]
   );
 
   return (
-    <ProjectContext.Provider
-      value={{
-        ...contextValue,
-        recentlyCompletedProjectId,
-        setRecentlyCompletedProjectId,
-      }}
-    >
+    <ProjectContext.Provider value={contextValue}>
       {children}
     </ProjectContext.Provider>
   );

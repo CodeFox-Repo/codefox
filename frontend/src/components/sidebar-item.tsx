@@ -19,10 +19,11 @@ import { cn } from '@/lib/utils';
 import { useMutation } from '@apollo/client';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { memo, useState } from 'react';
+import { memo, useContext, useState } from 'react';
 import { toast } from 'sonner';
 import { EventEnum } from '../const/EventEnum';
 import { logger } from '@/app/log/logger';
+import { ProjectContext } from './chat/code-engine/project-context';
 
 interface SideBarItemProps {
   id: string;
@@ -42,7 +43,8 @@ function SideBarItemComponent({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
-
+  const { recentlyCompletedProjectId } = useContext(ProjectContext);
+  const isGenerating = id === recentlyCompletedProjectId;
   const isSelected = currentChatId === id;
   const variant = isSelected ? 'secondary' : 'ghost';
 
@@ -93,8 +95,16 @@ function SideBarItemComponent({
       onClick={handleChatClick}
     >
       <div className="flex-1 flex items-center truncate ml-2 mr-12 min-w-0">
-        <div className="flex flex-col">
-          <span className="text-xs font-normal">{title || 'New Chat'}</span>
+        <div className="flex items-center gap-2">
+          <div
+            className={cn(
+              'w-2 h-2 rounded-full',
+              isGenerating ? 'bg-yellow-400' : 'bg-green-500'
+            )}
+          />
+          <span className="text-xs font-normal truncate">
+            {title || 'New Chat'}
+          </span>
         </div>
       </div>
 
