@@ -39,8 +39,8 @@ export async function GET(req: Request) {
 
     // Set viewport to a reasonable size
     await page.setViewport({
-      width: 1920,
-      height: 1080,
+      width: 1600,
+      height: 900,
     });
 
     // Navigate to URL with increased timeout and more reliable wait condition
