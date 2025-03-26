@@ -26,9 +26,8 @@ import { motion } from 'framer-motion';
 import { logger } from '@/app/log/logger';
 import { useChatList } from '@/hooks/useChatList';
 import { cn } from '@/lib/utils';
-import { PlusIcon } from 'lucide-react';
 import { HomeIcon } from '@radix-ui/react-icons';
-
+import { redirectChatPage } from './chat-page-navigation';
 interface SidebarProps {
   setIsModalOpen: (value: boolean) => void;
   isCollapsed: boolean;
@@ -100,13 +99,9 @@ function ChatSideBarComponent({
 
   const handleChatSelect = useCallback(
     (chatId: string) => {
-      setCurrentChatid(chatId);
-      router.push(`/chat?id=${chatId}`);
-      setChatId(chatId);
-      const event = new Event(EventEnum.CHAT);
-      window.dispatchEvent(event);
+      redirectChatPage(chatId, setCurrentChatid, setChatId, router);
     },
-    [router]
+    [router, setChatId]
   );
 
   if (loading) return <SidebarSkeleton />;
