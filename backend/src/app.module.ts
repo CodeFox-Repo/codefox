@@ -20,6 +20,7 @@ import { MailModule } from './mail/mail.module';
 import { GitHubModule } from './github/github.module';
 import { AppConfigService } from './config/config.service';
 import { getDatabaseConfig } from './database.config';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { getDatabaseConfig } from './database.config';
     MailModule,
     TypeOrmModule.forFeature([User]),
     GitHubModule,
+    DashboardModule,
   ],
   providers: [
     AppResolver,
