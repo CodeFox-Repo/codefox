@@ -544,16 +544,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const blob = new Blob([arrayBuffer], { type: 'image/png' });
         const file = new File([blob], 'screenshot.png', { type: 'image/png' });
 
-        if (isMounted.current) {
-          await updateProjectPhotoMutation({
-            variables: {
-              input: {
-                projectId,
-                file,
-              },
+        await updateProjectPhotoMutation({
+          variables: {
+            input: {
+              projectId,
+              file,
             },
-          });
-        }
+          },
+        });
       } catch (error) {
         logger.error('Error taking screenshot:', error);
       } finally {
