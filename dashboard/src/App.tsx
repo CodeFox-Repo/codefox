@@ -6,17 +6,21 @@ import LocalizationProvider from '@mui/lab/LocalizationProvider';
 
 import { CssBaseline } from '@mui/material';
 import ThemeProvider from './theme/ThemeProvider';
+import { ApolloProvider } from '@apollo/client';
+import { client } from './graphql/client';
 
 function App() {
   const content = useRoutes(router);
 
   return (
-    <ThemeProvider>
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <CssBaseline />
-        {content}
-      </LocalizationProvider>
-    </ThemeProvider>
+    <ApolloProvider client={client}>
+      <ThemeProvider>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <CssBaseline />
+          {content}
+        </LocalizationProvider>
+      </ThemeProvider>
+    </ApolloProvider>
   );
 }
 export default App;
