@@ -2,6 +2,7 @@ import React from 'react';
 
 import { Theme } from '@mui/material';
 import { PureLightTheme } from './schemes/PureLightTheme';
+import type * as CSS from 'csstype';
 
 export function themeCreator(theme: string): Theme {
   return themeMap[theme];
@@ -99,31 +100,31 @@ declare module '@mui/material/styles' {
       };
     };
     general: {
-      reactFrameworkColor: React.CSSProperties['color'];
+      reactFrameworkColor: CSS.Properties['color'];
       borderRadiusSm: string;
       borderRadius: string;
       borderRadiusLg: string;
       borderRadiusXl: string;
     };
     sidebar: {
-      background: React.CSSProperties['color'];
-      boxShadow: React.CSSProperties['color'];
+      background: CSS.Properties['color'];
+      boxShadow: CSS.Properties['color'];
       width: string;
-      textColor: React.CSSProperties['color'];
-      dividerBg: React.CSSProperties['color'];
-      menuItemColor: React.CSSProperties['color'];
-      menuItemColorActive: React.CSSProperties['color'];
-      menuItemBg: React.CSSProperties['color'];
-      menuItemBgActive: React.CSSProperties['color'];
-      menuItemIconColor: React.CSSProperties['color'];
-      menuItemIconColorActive: React.CSSProperties['color'];
-      menuItemHeadingColor: React.CSSProperties['color'];
+      textColor: CSS.Properties['color'];
+      dividerBg: CSS.Properties['color'];
+      menuItemColor: CSS.Properties['color'];
+      menuItemColorActive: CSS.Properties['color'];
+      menuItemBg: CSS.Properties['color'];
+      menuItemBgActive: CSS.Properties['color'];
+      menuItemIconColor: CSS.Properties['color'];
+      menuItemIconColorActive: CSS.Properties['color'];
+      menuItemHeadingColor: CSS.Properties['color'];
     };
     header: {
       height: string;
-      background: React.CSSProperties['color'];
-      boxShadow: React.CSSProperties['color'];
-      textColor: React.CSSProperties['color'];
+      background: CSS.Properties['color'];
+      boxShadow: CSS.Properties['color'];
+      textColor: CSS.Properties['color'];
     };
   }
 
@@ -219,31 +220,31 @@ declare module '@mui/material/styles' {
     };
 
     general: {
-      reactFrameworkColor: React.CSSProperties['color'];
+      reactFrameworkColor: CSS.Properties['color'];
       borderRadiusSm: string;
       borderRadius: string;
       borderRadiusLg: string;
       borderRadiusXl: string;
     };
     sidebar: {
-      background: React.CSSProperties['color'];
-      boxShadow: React.CSSProperties['color'];
+      background: CSS.Properties['color'];
+      boxShadow: CSS.Properties['color'];
       width: string;
-      textColor: React.CSSProperties['color'];
-      dividerBg: React.CSSProperties['color'];
-      menuItemColor: React.CSSProperties['color'];
-      menuItemColorActive: React.CSSProperties['color'];
-      menuItemBg: React.CSSProperties['color'];
-      menuItemBgActive: React.CSSProperties['color'];
-      menuItemIconColor: React.CSSProperties['color'];
-      menuItemIconColorActive: React.CSSProperties['color'];
-      menuItemHeadingColor: React.CSSProperties['color'];
+      textColor: CSS.Properties['color'];
+      dividerBg: CSS.Properties['color'];
+      menuItemColor: CSS.Properties['color'];
+      menuItemColorActive: CSS.Properties['color'];
+      menuItemBg: CSS.Properties['color'];
+      menuItemBgActive: CSS.Properties['color'];
+      menuItemIconColor: CSS.Properties['color'];
+      menuItemIconColorActive: CSS.Properties['color'];
+      menuItemHeadingColor: CSS.Properties['color'];
     };
     header: {
       height: string;
-      background: React.CSSProperties['color'];
-      boxShadow: React.CSSProperties['color'];
-      textColor: React.CSSProperties['color'];
+      background: CSS.Properties['color'];
+      boxShadow: CSS.Properties['color'];
+      textColor: CSS.Properties['color'];
     };
   }
 }
