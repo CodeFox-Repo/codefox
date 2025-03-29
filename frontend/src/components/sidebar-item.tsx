@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { EventEnum } from '../const/EventEnum';
 import { logger } from '@/app/log/logger';
 import { ProjectContext } from './chat/code-engine/project-context';
+import { motion } from 'framer-motion';
 
 interface SideBarItemProps {
   id: string;
@@ -85,91 +86,105 @@ function SideBarItemComponent({
   };
 
   return (
-    <button
-      className={cn(
-        buttonVariants({
-          variant,
-        }),
-        'relative flex w-full h-14 text-base font-normal items-center group px-2'
-      )}
-      onClick={handleChatClick}
+    <motion.div
+      initial={false}
+      animate={{
+        backgroundColor: isGenerating
+          ? 'rgba(237, 233, 254, 0.5)' // violet-100 with transparency
+          : 'transparent',
+      }}
+      transition={{ duration: 0.3 }}
+      className="relative"
     >
-      <div className="flex-1 flex items-center truncate ml-2 mr-12 min-w-0">
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              'w-2 h-2 rounded-full',
-              isGenerating ? 'bg-yellow-400' : 'bg-green-500'
-            )}
+      <button
+        className={cn(
+          buttonVariants({ variant }),
+          'relative flex w-full h-14 text-base font-normal items-center group px-2'
+        )}
+        onClick={handleChatClick}
+      >
+        {/* 左侧高亮条 */}
+        {isGenerating && (
+          <motion.span
+            layoutId="highlight-bar"
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-violet-500 rounded-r-md"
           />
-          <span className="text-xs font-normal truncate">
-            {title || 'New Chat'}
-          </span>
-        </div>
-      </div>
+        )}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-md hover:bg-gray-200 dropdown-trigger"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-            >
-              <MoreHorizontal size={15} className="shrink-0" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DialogTrigger
-              asChild
-              onClick={() => {
-                setIsDropdownOpen(false);
-                setIsDialogOpen(true);
-              }}
-            >
+        <div className="flex-1 flex items-center truncate ml-2 mr-12 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-normal truncate">
+              {title || 'New Chat'}
+            </span>
+          </div>
+        </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="w-full flex hover:text-red-500 text-red-500 justify-start items-center"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-md hover:bg-gray-200 dropdown-trigger"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                 }}
               >
-                <Trash2 className="shrink-0 w-4 h-4" />
-                Delete chat
+                <MoreHorizontal size={15} className="shrink-0" />
               </Button>
-            </DialogTrigger>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DialogContent>
-          <DialogHeader className="space-y-4">
-            <DialogTitle>Delete chat?</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this chat? This action cannot be
-              undone.
-            </DialogDescription>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleDeleteChat();
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DialogTrigger
+                asChild
+                onClick={() => {
+                  setIsDropdownOpen(false);
+                  setIsDialogOpen(true);
                 }}
               >
-                Delete
-              </Button>
-            </div>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
-    </button>
+                <Button
+                  variant="ghost"
+                  className="w-full flex hover:text-red-500 text-red-500 justify-start items-center"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
+                  <Trash2 className="shrink-0 w-4 h-4" />
+                  Delete chat
+                </Button>
+              </DialogTrigger>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DialogContent>
+            <DialogHeader className="space-y-4">
+              <DialogTitle>Delete chat?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this chat? This action cannot be
+                undone.
+              </DialogDescription>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDeleteChat();
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      </button>
+    </motion.div>
   );
 }
 

@@ -6,6 +6,28 @@ import { ProjectContext } from './chat/code-engine/project-context';
 import { logger } from '@/app/log/logger';
 import { ProjectReadyToast } from './project-ready-toast';
 
+const COMPLETED_CACHE_KEY = 'completedChatIds';
+
+const getCompletedFromLocalStorage = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(COMPLETED_CACHE_KEY);
+    if (raw) {
+      return new Set(JSON.parse(raw));
+    }
+  } catch (e) {
+    logger.warn('Failed to read completedChatIds from localStorage');
+  }
+  return new Set();
+};
+
+const saveCompletedToLocalStorage = (set: Set<string>) => {
+  try {
+    localStorage.setItem(COMPLETED_CACHE_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    logger.warn('Failed to save completedChatIds to localStorage');
+  }
+};
+
 const GlobalToastListener = () => {
   const {
     recentlyCompletedProjectId,
@@ -15,32 +37,35 @@ const GlobalToastListener = () => {
   } = useContext(ProjectContext);
   const router = useRouter();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const completedIdsRef = useRef<Set<string>>(getCompletedFromLocalStorage());
 
-  // optional: if you use this in your logic
-  const setCurrentChatid = (id: string) => {}; // or import your actual setter
+  const setCurrentChatid = (id: string) => {};
 
   useEffect(() => {
-    if (!recentlyCompletedProjectId) return;
+    const chatId = recentlyCompletedProjectId;
 
-    const checkProjectReady = async () => {
+    if (!chatId || completedIdsRef.current.has(chatId)) return;
+
+    intervalRef.current = setInterval(async () => {
       try {
-        const project = await pollChatProject(recentlyCompletedProjectId);
+        const project = await pollChatProject(chatId);
 
         if (project?.projectPath) {
           toast.custom(
             (t) => (
               <ProjectReadyToast
-                chatId={recentlyCompletedProjectId}
+                chatId={chatId}
                 close={() => toast.dismiss(t)}
                 router={router}
                 setCurrentChatid={setCurrentChatid}
                 setChatId={setChatId}
               />
             ),
-            {
-              duration: 30000,
-            }
+            { duration: 10000 }
           );
+
+          completedIdsRef.current.add(chatId);
+          saveCompletedToLocalStorage(completedIdsRef.current);
 
           setRecentlyCompletedProjectId(null);
 
@@ -49,19 +74,15 @@ const GlobalToastListener = () => {
             intervalRef.current = null;
           }
         } else {
-          logger.debug('Project not ready yet, will retry...');
+          logger.debug(`Chat ${chatId} not ready yet...`);
         }
-      } catch (err) {
-        logger.error('Error polling project status:', err);
+      } catch (e) {
+        logger.error('pollChatProject error:', e);
       }
-    };
-
-    intervalRef.current = setInterval(checkProjectReady, 5000);
+    }, 6000);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [recentlyCompletedProjectId]);
 

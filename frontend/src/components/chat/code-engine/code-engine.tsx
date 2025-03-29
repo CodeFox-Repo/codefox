@@ -71,39 +71,27 @@ export function CodeEngine({
     }
   }, [chatId]);
 
-  // Poll for project if needed using chatId
   useEffect(() => {
-    // 如果项目已经完成，跳过轮询
-    if (projectCompleted || isProjectLoadedRef.current) {
-      return;
+    // 如果全局轮询完毕，projectPath 可用了，就完成 loading bar
+    if (
+      curProject?.id === chatId &&
+      curProject?.projectPath &&
+      !projectCompleted &&
+      !isProjectLoadedRef.current
+    ) {
+      setProgress(100);
+      setTimerActive(false);
+      setIsCompleting(false);
+      setProjectCompleted(true);
+      isProjectLoadedRef.current = true;
+
+      try {
+        localStorage.setItem(`project-completed-${chatId}`, 'true');
+      } catch (e) {
+        logger.error('Failed to save project completion status:', e);
+      }
     }
-
-    if (!curProject && chatId && !projectLoading) {
-      const loadProjectFromChat = async () => {
-        try {
-          setIsLoading(true);
-          const project = await pollChatProject(chatId);
-          if (project) {
-            setLocalProject(project);
-            // 如果成功加载项目，将状态设置为已完成
-            if (project.projectPath) {
-              setProjectCompleted(true);
-              isProjectLoadedRef.current = true;
-            }
-          }
-        } catch (error) {
-          logger.error('Failed to load project from chat:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      loadProjectFromChat();
-    } else {
-      setIsLoading(projectLoading);
-    }
-  }, [chatId, curProject, projectLoading, pollChatProject, projectCompleted]);
-
+  }, [curProject?.projectPath, chatId, projectCompleted]);
   // Use either curProject from context or locally polled project
   const activeProject = curProject || localProject;
 
@@ -148,6 +136,9 @@ export function CodeEngine({
       !isFileStructureLoading;
 
     if (shouldFetchFiles) {
+      setIsLoading(false);
+      setProjectCompleted(true);
+      isProjectLoadedRef.current = true;
       fetchFiles();
     }
   }, [
@@ -451,12 +442,22 @@ export function CodeEngine({
               )}
 
               <div className="w-64 flex flex-col items-center">
-                <p className="text-sm text-muted-foreground mb-2">
-                  {progress === 100
-                    ? 'Project ready!'
-                    : projectLoading
-                      ? 'Loading project...'
-                      : `Initializing project (${progress}%)`}
+                <p className="text-sm text-muted-foreground mb-2 text-center flex flex-col items-center">
+                  {progress === 100 ? (
+                    <span>Project ready!</span>
+                  ) : (
+                    <>
+                      {estimateTime > 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          Preparing your project (about 5-6 minutes)…
+                        </span>
+                      ) : (
+                        <span className="text-xs text-orange-500">
+                          Still working on it... thanks for your patience 🙏
+                        </span>
+                      )}
+                    </>
+                  )}
                 </p>
 
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-1">
