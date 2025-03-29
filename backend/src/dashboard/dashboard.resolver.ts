@@ -8,10 +8,10 @@ import {
 } from './dto/user-input';
 import { RequireRoles } from '../decorator/auth.decorator';
 import { UseGuards } from '@nestjs/common';
-import { GqlAuthGuard } from '../guard/gql-auth.guard';
+import { JWTAuthGuard } from 'src/guard/jwt-auth.guard';
 
 @Resolver(() => User)
-@UseGuards(GqlAuthGuard)
+@UseGuards(JWTAuthGuard)
 export class DashboardResolver {
   constructor(private readonly dashboardService: DashboardService) {}
 
