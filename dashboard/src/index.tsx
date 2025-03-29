@@ -7,6 +7,8 @@ import App from 'src/App';
 import { SidebarProvider } from 'src/contexts/SidebarContext';
 import * as serviceWorker from 'src/serviceWorker';
 
+// @eslint-plugin-react 这个是因为根目录 package 太新了 version issue
+// eslint-disable-next-line react/no-deprecated
 ReactDOM.render(
   <HelmetProvider>
     <SidebarProvider>

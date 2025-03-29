@@ -4,7 +4,8 @@
     "target": "es6",
     "lib": ["dom", "dom.iterable", "esnext"],
     "paths": {
-      "src/*": ["./src/*"]
+      "src/*": ["./src/*"],
+      "react": ["./node_modules/@types/react"]
     },
     "allowJs": true,
     "skipLibCheck": true,
