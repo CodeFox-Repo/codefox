@@ -1,6 +1,7 @@
 packages:
   - 'backend'
   - 'frontend'
+  - 'dashboard'
   - 'llm-server'
   - 'codefox-docs'
   - 'codefox-common'
