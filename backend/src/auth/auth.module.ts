@@ -10,6 +10,8 @@ import { AuthResolver } from './auth.resolver';
 import { RefreshToken } from './refresh-token/refresh-token.model';
 import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { MailModule } from 'src/mail/mail.module';
+import { GoogleStrategy } from './oauth/GoogleStrategy';
+import { GoogleController } from './google.controller';
 import { AppConfigModule } from 'src/config/config.module';
 
 @Module({
@@ -27,7 +29,8 @@ import { AppConfigModule } from 'src/config/config.module';
     JwtCacheModule,
     MailModule,
   ],
-  providers: [AuthService, AuthResolver],
+  controllers: [GoogleController],
+  providers: [AuthService, AuthResolver, GoogleStrategy],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
