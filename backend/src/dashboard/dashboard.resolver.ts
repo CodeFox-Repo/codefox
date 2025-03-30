@@ -8,12 +8,34 @@ import {
 } from './dto/user-input';
 import { RequireRoles } from '../decorator/auth.decorator';
 import { UseGuards } from '@nestjs/common';
-import { JWTAuthGuard } from 'src/guard/jwt-auth.guard';
+import { AuthService } from '../auth/auth.service';
+import { LoginUserInput } from 'src/user/dto/login-user.input';
+import { RefreshTokenResponse } from '../auth/auth.resolver';
 
 @Resolver(() => User)
-@UseGuards(JWTAuthGuard)
 export class DashboardResolver {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly authService: AuthService,
+  ) {}
+
+  @Mutation(() => RefreshTokenResponse)
+  @UseGuards()
+  async adminLogin(
+    @Args('input') input: LoginUserInput,
+  ): Promise<RefreshTokenResponse> {
+    const user = await this.dashboardService.findUserByEmailWithRoles(
+      input.email,
+    );
+
+    console.log('user', user);
+
+    if (!user || !user.roles?.some((role) => role.name === 'Admin')) {
+      throw new Error('Unauthorized: Invalid credentials or not an admin');
+    }
+
+    return this.authService.login(input);
+  }
 
   @Query(() => [User])
   @RequireRoles('Admin')

@@ -8,12 +8,15 @@ import {
   UserFilterInput,
 } from './dto/user-input';
 import { hash } from 'bcrypt';
+import { Role } from '../auth/role/role.model';
 
 @Injectable()
 export class DashboardService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
   ) {}
 
   async findUsers(filter?: UserFilterInput): Promise<User[]> {
@@ -42,12 +45,31 @@ export class DashboardService {
     return user;
   }
 
+  async findUserByEmailWithRoles(email: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { email },
+      relations: ['roles'],
+    });
+    return user;
+  }
+
   async createUser(input: CreateUserInput): Promise<User> {
     const hashedPassword = await hash(input.password, 10);
+
+    let roles = [];
+    if (input.roleIds?.length > 0) {
+      roles = await this.roleRepository.findByIds(input.roleIds);
+      if (roles.length !== input.roleIds.length) {
+        throw new NotFoundException('One or more roles not found');
+      }
+    }
+
     const user = this.userRepository.create({
       ...input,
       password: hashedPassword,
+      roles,
     });
+
     return this.userRepository.save(user);
   }
 
