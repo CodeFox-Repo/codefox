@@ -1,93 +1,109 @@
-import { Box, Button, Container, Grid, Typography } from '@mui/material';
-
-import { Link as RouterLink } from 'react-router-dom';
-
+import {
+  Box,
+  Button,
+  Container,
+  Grid,
+  TextField,
+  Typography,
+  Paper,
+  Alert
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { useState } from 'react';
+import { useMutation } from '@apollo/client';
+import { ADMIN_LOGIN } from '../../../graphql/request';
+import { useNavigate } from 'react-router-dom';
+import { LocalStore } from 'src/lib/storage';
 
-const TypographyH1 = styled(Typography)(
+const LoginPaper = styled(Paper)(
   ({ theme }) => `
-    font-size: ${theme.typography.pxToRem(50)};
+    padding: ${theme.spacing(4)};
+    max-width: 400px;
+    margin: 0 auto;
 `
 );
 
-const TypographyH2 = styled(Typography)(
+const FormTextField = styled(TextField)(
   ({ theme }) => `
-    font-size: ${theme.typography.pxToRem(17)};
-`
-);
-
-const LabelWrapper = styled(Box)(
-  ({ theme }) => `
-    background-color: ${theme.colors.success.main};
-    color: ${theme.palette.success.contrastText};
-    font-weight: bold;
-    border-radius: 30px;
-    text-transform: uppercase;
-    display: inline-block;
-    font-size: ${theme.typography.pxToRem(11)};
-    padding: ${theme.spacing(0.5)} ${theme.spacing(1.5)};
     margin-bottom: ${theme.spacing(2)};
 `
 );
 
-const MuiAvatar = styled(Box)(
-  ({ theme }) => `
-    width: ${theme.spacing(8)};
-    height: ${theme.spacing(8)};
-    border-radius: ${theme.general.borderRadius};
-    background-color: #e5f7ff;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto ${theme.spacing(2)};
-
-    img {
-      width: 60%;
-      height: 60%;
-      display: block;
-    }
-`
-);
-
-const TsAvatar = styled(Box)(
-  ({ theme }) => `
-    width: ${theme.spacing(8)};
-    height: ${theme.spacing(8)};
-    border-radius: ${theme.general.borderRadius};
-    background-color: #dfebf6;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto ${theme.spacing(2)};
-
-    img {
-      width: 60%;
-      height: 60%;
-      display: block;
-    }
-`
-);
-
 function Hero() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const [adminLogin, { loading }] = useMutation(ADMIN_LOGIN, {
+    onCompleted: (data) => {
+      const { accessToken, refreshToken } = data.adminLogin;
+      localStorage.setItem(LocalStore.accessToken, accessToken);
+      localStorage.setItem(LocalStore.refreshToken, refreshToken);
+      navigate('/dashboards/crypto');
+    },
+    onError: (error) => {
+      setError(error.message);
+    }
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    console.log('Logging in with:', { email, password });
+    try {
+      await adminLogin({
+        variables: {
+          input: {
+            email,
+            password
+          }
+        }
+      });
+    } catch (err) {
+      // Error is handled by onError above
+    }
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ textAlign: 'center' }}>
-      <Grid
-        spacing={{ xs: 6, md: 10 }}
-        justifyContent="center"
-        alignItems="center"
-        container
-      >
-        <Button
-          component={RouterLink}
-          to="/dashboards/crypto"
-          size="large"
-          variant="contained"
-        >
-          Browse Live Preview
-        </Button>
-      </Grid>
+    <Container maxWidth="lg" sx={{ textAlign: 'center', mt: 8 }}>
+      <LoginPaper elevation={3}>
+        <Typography variant="h4" gutterBottom>
+          Admin Login
+        </Typography>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        <form onSubmit={handleSubmit}>
+          <FormTextField
+            fullWidth
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <FormTextField
+            fullWidth
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            fullWidth
+            disabled={loading}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </Button>
+        </form>
+      </LoginPaper>
     </Container>
   );
 }
