@@ -9,17 +9,19 @@ import { AuthModule } from 'src/auth/auth.module';
 import { MailModule } from 'src/mail/mail.module';
 import { UploadModule } from 'src/upload/upload.module';
 import { GitHubModule } from 'src/github/github.module';
+import { Role } from 'src/auth/role/role.model';
+import { UserInitService } from './user.init.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Role]),
     JwtModule,
     AuthModule,
     MailModule,
     UploadModule,
     forwardRef(() => GitHubModule),
   ],
-  providers: [UserResolver, UserService, DateScalar],
+  providers: [UserResolver, UserService, DateScalar, UserInitService],
   exports: [UserService],
 })
 export class UserModule {}
