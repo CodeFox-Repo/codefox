@@ -60,6 +60,13 @@ input CreateProjectInput {
   public: Boolean
 }
 
+input CreateUserInput {
+  email: String!
+  password: String!
+  roleIds: [String!]! = []
+  username: String!
+}
+
 """Date custom scalar type"""
 scalar Date
 
@@ -111,11 +118,14 @@ type Message {
 }
 
 type Mutation {
+  adminLogin(input: LoginUserInput!): RefreshTokenResponse!
   clearChatHistory(chatId: String!): Boolean!
   confirmEmail(token: String!): EmailConfirmationResponse!
   createChat(newChatInput: NewChatInput!): Chat!
+  createDashboardUser(input: CreateUserInput!): User!
   createProject(createProjectInput: CreateProjectInput!): Chat!
   deleteChat(chatId: String!): Boolean!
+  deleteDashboardUser(id: String!): Boolean!
   deleteProject(projectId: String!): Boolean!
   forkProject(projectId: ID!): Chat!
   login(input: LoginUserInput!): LoginResponse!
@@ -128,6 +138,7 @@ type Mutation {
   syncProjectToGitHub(projectId: String!): Project!
   triggerChatStream(input: ChatInputType!): Boolean!
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
+  updateDashboardUser(id: String!, input: UpdateUserInput!): User!
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
   updateProjectPublicStatus(isPublic: Boolean!, projectId: ID!): Project!
   uploadAvatar(file: Upload!): AvatarUploadResponse!
@@ -183,6 +194,8 @@ type ProjectPackages {
 
 type Query {
   checkToken(input: CheckTokenInput!): Boolean!
+  dashboardUser(id: String!): User!
+  dashboardUsers(filter: UserFilterInput): [User!]!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
   getAvailableModelTags: [String!]
   getChatDetails(chatId: String!): Chat
@@ -241,6 +254,12 @@ input UpdateProjectPhotoInput {
   projectId: ID!
 }
 
+input UpdateUserInput {
+  email: String
+  password: String
+  username: String
+}
+
 """The `Upload` scalar type represents a file upload."""
 scalar Upload
 
@@ -259,4 +278,9 @@ type User {
   subscribedProjects: [Project!] @deprecated(reason: "Use projects with forkedFromId instead")
   updatedAt: Date!
   username: String!
+}
+
+input UserFilterInput {
+  isActive: Boolean
+  search: String
 }

@@ -103,6 +103,13 @@ export type CreateProjectInput = {
   public?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+export type CreateUserInput = {
+  email: Scalars['String']['input'];
+  password: Scalars['String']['input'];
+  roleIds?: Array<Scalars['String']['input']>;
+  username: Scalars['String']['input'];
+};
+
 export type EmailConfirmationResponse = {
   __typename: 'EmailConfirmationResponse';
   message: Scalars['String']['output'];
@@ -156,11 +163,14 @@ export type Message = {
 
 export type Mutation = {
   __typename: 'Mutation';
+  adminLogin: RefreshTokenResponse;
   clearChatHistory: Scalars['Boolean']['output'];
   confirmEmail: EmailConfirmationResponse;
   createChat: Chat;
+  createDashboardUser: User;
   createProject: Chat;
   deleteChat: Scalars['Boolean']['output'];
+  deleteDashboardUser: Scalars['Boolean']['output'];
   deleteProject: Scalars['Boolean']['output'];
   forkProject: Chat;
   login: LoginResponse;
@@ -173,9 +183,14 @@ export type Mutation = {
   syncProjectToGitHub: Project;
   triggerChatStream: Scalars['Boolean']['output'];
   updateChatTitle?: Maybe<Chat>;
+  updateDashboardUser: User;
   updateProjectPhoto: Project;
   updateProjectPublicStatus: Project;
   uploadAvatar: AvatarUploadResponse;
+};
+
+export type MutationAdminLoginArgs = {
+  input: LoginUserInput;
 };
 
 export type MutationClearChatHistoryArgs = {
@@ -190,12 +205,20 @@ export type MutationCreateChatArgs = {
   newChatInput: NewChatInput;
 };
 
+export type MutationCreateDashboardUserArgs = {
+  input: CreateUserInput;
+};
+
 export type MutationCreateProjectArgs = {
   createProjectInput: CreateProjectInput;
 };
 
 export type MutationDeleteChatArgs = {
   chatId: Scalars['String']['input'];
+};
+
+export type MutationDeleteDashboardUserArgs = {
+  id: Scalars['String']['input'];
 };
 
 export type MutationDeleteProjectArgs = {
@@ -244,6 +267,11 @@ export type MutationTriggerChatStreamArgs = {
 
 export type MutationUpdateChatTitleArgs = {
   updateChatTitleInput: UpdateChatTitleInput;
+};
+
+export type MutationUpdateDashboardUserArgs = {
+  id: Scalars['String']['input'];
+  input: UpdateUserInput;
 };
 
 export type MutationUpdateProjectPhotoArgs = {
@@ -311,6 +339,8 @@ export type ProjectPackages = {
 export type Query = {
   __typename: 'Query';
   checkToken: Scalars['Boolean']['output'];
+  dashboardUser: User;
+  dashboardUsers: Array<User>;
   fetchPublicProjects: Array<Project>;
   getAvailableModelTags?: Maybe<Array<Scalars['String']['output']>>;
   getChatDetails?: Maybe<Chat>;
@@ -330,6 +360,14 @@ export type Query = {
 
 export type QueryCheckTokenArgs = {
   input: CheckTokenInput;
+};
+
+export type QueryDashboardUserArgs = {
+  id: Scalars['String']['input'];
+};
+
+export type QueryDashboardUsersArgs = {
+  filter?: InputMaybe<UserFilterInput>;
 };
 
 export type QueryFetchPublicProjectsArgs = {
@@ -400,13 +438,18 @@ export type UpdateProjectPhotoInput = {
   projectId: Scalars['ID']['input'];
 };
 
+export type UpdateUserInput = {
+  email?: InputMaybe<Scalars['String']['input']>;
+  password?: InputMaybe<Scalars['String']['input']>;
+  username?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type User = {
   __typename: 'User';
   avatarUrl?: Maybe<Scalars['String']['output']>;
   chats: Array<Chat>;
   createdAt: Scalars['Date']['output'];
   email: Scalars['String']['output'];
-  githubCode?: Maybe<Scalars['String']['output']>;
   githubInstallationId?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActive: Scalars['Boolean']['output'];
@@ -418,6 +461,11 @@ export type User = {
   subscribedProjects?: Maybe<Array<Project>>;
   updatedAt: Scalars['Date']['output'];
   username: Scalars['String']['output'];
+};
+
+export type UserFilterInput = {
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -539,6 +587,7 @@ export type ResolversTypes = ResolversObject<{
   ChatInputType: ChatInputType;
   CheckTokenInput: CheckTokenInput;
   CreateProjectInput: CreateProjectInput;
+  CreateUserInput: CreateUserInput;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
   EmailConfirmationResponse: ResolverTypeWrapper<EmailConfirmationResponse>;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -565,8 +614,10 @@ export type ResolversTypes = ResolversObject<{
   Subscription: ResolverTypeWrapper<{}>;
   UpdateChatTitleInput: UpdateChatTitleInput;
   UpdateProjectPhotoInput: UpdateProjectPhotoInput;
+  UpdateUserInput: UpdateUserInput;
   Upload: ResolverTypeWrapper<Scalars['Upload']['output']>;
   User: ResolverTypeWrapper<User>;
+  UserFilterInput: UserFilterInput;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -580,6 +631,7 @@ export type ResolversParentTypes = ResolversObject<{
   ChatInputType: ChatInputType;
   CheckTokenInput: CheckTokenInput;
   CreateProjectInput: CreateProjectInput;
+  CreateUserInput: CreateUserInput;
   Date: Scalars['Date']['output'];
   EmailConfirmationResponse: EmailConfirmationResponse;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -604,8 +656,10 @@ export type ResolversParentTypes = ResolversObject<{
   Subscription: {};
   UpdateChatTitleInput: UpdateChatTitleInput;
   UpdateProjectPhotoInput: UpdateProjectPhotoInput;
+  UpdateUserInput: UpdateUserInput;
   Upload: Scalars['Upload']['output'];
   User: User;
+  UserFilterInput: UserFilterInput;
 }>;
 
 export type AvatarUploadResponseResolvers<
@@ -753,6 +807,12 @@ export type MutationResolvers<
   ParentType extends
     ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
+  adminLogin?: Resolver<
+    ResolversTypes['RefreshTokenResponse'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationAdminLoginArgs, 'input'>
+  >;
   clearChatHistory?: Resolver<
     ResolversTypes['Boolean'],
     ParentType,
@@ -771,6 +831,12 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreateChatArgs, 'newChatInput'>
   >;
+  createDashboardUser?: Resolver<
+    ResolversTypes['User'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateDashboardUserArgs, 'input'>
+  >;
   createProject?: Resolver<
     ResolversTypes['Chat'],
     ParentType,
@@ -782,6 +848,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationDeleteChatArgs, 'chatId'>
+  >;
+  deleteDashboardUser?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeleteDashboardUserArgs, 'id'>
   >;
   deleteProject?: Resolver<
     ResolversTypes['Boolean'],
@@ -854,6 +926,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationUpdateChatTitleArgs, 'updateChatTitleInput'>
+  >;
+  updateDashboardUser?: Resolver<
+    ResolversTypes['User'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationUpdateDashboardUserArgs, 'id' | 'input'>
   >;
   updateProjectPhoto?: Resolver<
     ResolversTypes['Project'],
@@ -972,6 +1050,18 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryCheckTokenArgs, 'input'>
   >;
+  dashboardUser?: Resolver<
+    ResolversTypes['User'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDashboardUserArgs, 'id'>
+  >;
+  dashboardUsers?: Resolver<
+    Array<ResolversTypes['User']>,
+    ParentType,
+    ContextType,
+    Partial<QueryDashboardUsersArgs>
+  >;
   fetchPublicProjects?: Resolver<
     Array<ResolversTypes['Project']>,
     ParentType,
@@ -1086,11 +1176,6 @@ export type UserResolvers<
   chats?: Resolver<Array<ResolversTypes['Chat']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  githubCode?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
   githubInstallationId?: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,
