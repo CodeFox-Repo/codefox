@@ -3,52 +3,120 @@
 import { useQuery } from '@apollo/client';
 import { FETCH_PUBLIC_PROJECTS } from '@/graphql/request';
 import { ExpandableCard } from './expand-card';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState, useMemo } from 'react';
 import { ProjectContext } from '../chat/code-engine/project-context';
 import { redirectChatPage } from '../chat-page-navigation';
 import { Button } from '@/components/ui/button';
-import { RotateCwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { Project } from '../chat/project-modal';
 
 export function ProjectsSection() {
   const [view, setView] = useState<'my' | 'community'>('my');
-
   const { user } = useAuthContext();
-  const username = user?.username || '';
-  const { setChatId } = useContext(ProjectContext);
+  const {
+    setChatId,
+    pendingProjects,
+    setPendingProjects,
+    setRefetchPublicProjects,
+  } = useContext(ProjectContext);
   const [currentChatid, setCurrentChatid] = useState('');
+  const [publicRefreshCounter, setPublicRefreshCounter] = useState(0); // ✅ NEW
   const router = useRouter();
 
-  const { data, loading, error } = useQuery(FETCH_PUBLIC_PROJECTS, {
+  const { data, loading, error, refetch } = useQuery(FETCH_PUBLIC_PROJECTS, {
     variables: { input: { size: 100, strategy: 'latest' } },
+    fetchPolicy: 'network-only',
   });
+  const { tempLoadingProjectId } = useContext(ProjectContext);
+
+  useEffect(() => {
+    setRefetchPublicProjects(() => async () => {
+      setPublicRefreshCounter((prev) => prev + 1);
+      return await refetch();
+    });
+  }, [refetch, setRefetchPublicProjects]);
+
+  useEffect(() => {
+    refetch();
+  }, [publicRefreshCounter]);
 
   const allProjects = data?.fetchPublicProjects || [];
 
-  // 筛选我的项目 vs 社区项目
-  const filteredProjects = allProjects.filter((project) => {
-    const projectUsername = project.user?.username || '';
-    return view === 'my'
-      ? projectUsername === username
-      : projectUsername !== username;
-  });
+  useEffect(() => {
+    const realProjectMap = new Map<string, Project>(
+      allProjects.map((p) => [p.id, p])
+    );
+
+    setPendingProjects((prev) => {
+      const newPending = prev.filter((p) => {
+        const real = realProjectMap.get(p.id);
+        console.log('[Check Pending]', {
+          pendingId: p.id,
+          pendingName: p.projectName,
+          real: real ?? '❌ not found',
+          projectPath: real?.projectPath ?? 'N/A',
+        });
+        return !real || !real.projectPath;
+      });
+
+      return newPending.length === prev.length ? prev : newPending;
+    });
+  }, [allProjects, pendingProjects, setPendingProjects]);
+
+  useEffect(() => {
+    console.log(
+      '[Effect] All realProjects updated:',
+      allProjects.map((p) => ({ id: p.id, path: p.projectPath }))
+    );
+  }, [allProjects]);
+
+  const mergedProjects = useMemo(() => {
+    const map = new Map<string, any>();
+
+    pendingProjects.forEach((p) => {
+      map.set(p.id, {
+        ...p,
+        isReady: Boolean(p.projectPath),
+        _source: 'pending',
+      });
+    });
+
+    allProjects.forEach((p) => {
+      map.set(p.id, {
+        ...p,
+        isReady: Boolean(p.projectPath),
+        _source: 'real',
+      });
+    });
+
+    return Array.from(map.values());
+  }, [pendingProjects, allProjects]);
+
+  const filteredProjects = useMemo(() => {
+    if (!user?.id) return view === 'my' ? [] : mergedProjects;
+
+    return mergedProjects.filter(
+      (project) =>
+        view === 'my' ? project.userId === user.id : project.userId !== user.id // community 只要不是自己即可
+    );
+  }, [mergedProjects, user?.id, view]);
 
   const transformedProjects = filteredProjects.map((project) => {
-    const isReady = Boolean(project.projectPath);
     return {
       id: project.id,
       name: project.projectName,
       path: project.projectPath,
-      isReady,
+      isReady: project.isReady,
       createDate: project.createdAt
         ? new Date(project.createdAt).toISOString().split('T')[0]
         : '2025-01-01',
       author: project.user?.username || 'Unknown',
       forkNum: project.subNumber || 0,
-      image:
-        project.photoUrl ||
-        `https://picsum.photos/500/250?random=${project.id}`,
+      image: project.isReady
+        ? project.photoUrl ||
+          `https://picsum.photos/500/250?random=${project.id}`
+        : '/placeholder-black.png',
     };
   });
 
@@ -59,7 +127,6 @@ export function ProjectsSection() {
   return (
     <section className="w-full max-w-7xl mx-auto px-4">
       <div className="mb-8">
-        {/* Header with View Toggle */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-semibold dark:text-white">
             {view === 'my' ? 'My Projects' : 'Community Projects'}
@@ -80,7 +147,6 @@ export function ProjectsSection() {
           </div>
         </div>
 
-        {/* Content */}
         {loading ? (
           <div className="text-center py-10">Loading...</div>
         ) : error ? (
@@ -89,30 +155,43 @@ export function ProjectsSection() {
           </div>
         ) : (
           <>
+            {view === 'my' && tempLoadingProjectId && (
+              <ExpandableCard
+                key={`loading-${tempLoadingProjectId}`}
+                projects={[
+                  {
+                    id: tempLoadingProjectId,
+                    name: 'Generating Project...',
+                    image: '/placeholder-black.png', // 或者 '/loading.gif' 如果你有
+                    isReady: false,
+                    createDate: new Date().toISOString().split('T')[0],
+                    author: user?.username || 'Unknown',
+                    forkNum: 0,
+                    path: '',
+                  },
+                ]}
+                isGenerating={true}
+                onOpenChat={() =>
+                  redirectChatPage(
+                    tempLoadingProjectId,
+                    setCurrentChatid,
+                    setChatId,
+                    router
+                  )
+                }
+              />
+            )}
+
             {transformedProjects.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {transformedProjects.map((project) =>
-                  view === 'my' && !project.isReady ? (
-                    <div
-                      key={project.id}
-                      className="border border-gray-200 dark:border-zinc-700 rounded-lg p-6 flex flex-col justify-center items-center bg-gray-50 dark:bg-zinc-800 text-center"
-                    >
-                      <RotateCwIcon className="animate-spin h-6 w-6 text-gray-500 mb-3" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        Generating project...
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenChat(project.id)}
-                      >
-                        Open Chat
-                      </Button>
-                    </div>
-                  ) : (
-                    <ExpandableCard key={project.id} projects={[project]} />
-                  )
-                )}
+                {transformedProjects.map((project) => (
+                  <ExpandableCard
+                    key={project.id}
+                    projects={[project]}
+                    isGenerating={!project.isReady}
+                    onOpenChat={() => handleOpenChat(project.id)}
+                  />
+                ))}
               </div>
             ) : (
               <div className="text-center py-10 text-gray-500 dark:text-gray-400">

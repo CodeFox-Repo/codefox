@@ -1,4 +1,5 @@
 'use client';
+
 import { useContext, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -34,6 +35,9 @@ const GlobalToastListener = () => {
     setRecentlyCompletedProjectId,
     pollChatProject,
     setChatId,
+    refreshProjects,
+    refetchPublicProjects,
+    setTempLoadingProjectId,
   } = useContext(ProjectContext);
   const router = useRouter();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -43,14 +47,15 @@ const GlobalToastListener = () => {
 
   useEffect(() => {
     const chatId = recentlyCompletedProjectId;
-
     if (!chatId || completedIdsRef.current.has(chatId)) return;
 
     intervalRef.current = setInterval(async () => {
       try {
         const project = await pollChatProject(chatId);
-
         if (project?.projectPath) {
+          await refreshProjects();
+          await refetchPublicProjects(); // 🚀 确保刷新公共项目视图
+          setTempLoadingProjectId(null);
           toast.custom(
             (t) => (
               <ProjectReadyToast
@@ -66,7 +71,6 @@ const GlobalToastListener = () => {
 
           completedIdsRef.current.add(chatId);
           saveCompletedToLocalStorage(completedIdsRef.current);
-
           setRecentlyCompletedProjectId(null);
 
           if (intervalRef.current) {

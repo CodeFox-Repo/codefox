@@ -24,6 +24,7 @@ export const FETCH_PUBLIC_PROJECTS = gql`
       projectName
       projectPath
       createdAt
+      userId
       user {
         username
       }
@@ -99,6 +100,7 @@ export const DELETE_CHAT = gql`
 export const GET_USER_INFO = gql`
   query me {
     me {
+      id,
       username
       email
       avatarUrl

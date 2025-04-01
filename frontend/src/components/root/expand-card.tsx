@@ -1,4 +1,5 @@
 'use client';
+
 import Image from 'next/image';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -6,12 +7,13 @@ import { X } from 'lucide-react';
 import { ProjectContext } from '../chat/code-engine/project-context';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
+import { Button } from '@/components/ui/button';
 
-export function ExpandableCard({ projects }) {
+export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
   const [active, setActive] = useState(null);
   const [iframeUrl, setIframeUrl] = useState('');
   const ref = useRef<HTMLDivElement>(null);
-  const { getWebUrl, takeProjectScreenshot } = useContext(ProjectContext);
+  const { getWebUrl } = useContext(ProjectContext);
   const cachedUrls = useRef(new Map());
 
   useEffect(() => {
@@ -29,7 +31,13 @@ export function ExpandableCard({ projects }) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [active]);
+
   const handleCardClick = async (project) => {
+    if (isGenerating && onOpenChat) {
+      onOpenChat();
+      return;
+    }
+
     setActive(project);
     setIframeUrl('');
     if (cachedUrls.current.has(project.id)) {
@@ -46,6 +54,7 @@ export function ExpandableCard({ projects }) {
       logger.error('Error fetching project URL:', error);
     }
   };
+
   return (
     <>
       <AnimatePresence mode="wait">
@@ -55,10 +64,7 @@ export function ExpandableCard({ projects }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{
-              duration: 0.3,
-              ease: [0.4, 0, 0.2, 1],
-            }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             className="fixed inset-0 backdrop-blur-[2px] bg-black/20 h-full w-full z-50"
             style={{ willChange: 'opacity' }}
           />
@@ -118,15 +124,7 @@ export function ExpandableCard({ projects }) {
           <motion.div
             key={project.id}
             layoutId={`card-${project.id}`}
-            onClick={async () => {
-              const data = await getWebUrl(project.path);
-
-              logger.info(project.image);
-              const url = `${URL_PROTOCOL_PREFIX}://${data.domain}`;
-              setIframeUrl(url);
-              handleCardClick(project);
-              setActive(project);
-            }}
+            onClick={() => handleCardClick(project)}
             className="group cursor-pointer"
           >
             <motion.div
@@ -135,7 +133,7 @@ export function ExpandableCard({ projects }) {
             >
               <motion.div layoutId={`image-${project.id}`}>
                 <Image
-                  src={project.image}
+                  src={isGenerating ? '/placeholder-black.png' : project.image}
                   alt={project.name}
                   width={600}
                   height={200}
@@ -150,7 +148,7 @@ export function ExpandableCard({ projects }) {
                 className="absolute inset-0 bg-black/40 flex items-center justify-center"
               >
                 <span className="text-white font-medium px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                  View Project
+                  {isGenerating ? 'Generating...' : 'View Project'}
                 </span>
               </motion.div>
             </motion.div>
@@ -168,6 +166,20 @@ export function ExpandableCard({ projects }) {
               >
                 {project.author}
               </motion.div>
+              {isGenerating && onOpenChat && (
+                <div className="mt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenChat();
+                    }}
+                  >
+                    Open Chat
+                  </Button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         ))}
