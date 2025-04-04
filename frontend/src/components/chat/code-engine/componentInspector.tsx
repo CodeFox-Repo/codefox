@@ -305,7 +305,7 @@ export function ComponentInspector() {
 
           {/* Styles Tab */}
           <TabsContent value="styles" className="p-4 m-0">
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h4 className="text-sm font-medium">Edit Styles</h4>
                 {isStyleEdited && (
@@ -319,19 +319,19 @@ export function ComponentInspector() {
                 )}
               </div>
               
-              <form onSubmit={applyStyles}>
+              <form onSubmit={applyStyles} className="space-y-6">
                 {/* Colors Section */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold border-b pb-1">Colors</h4>
-                  <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <h4 className="text-xs font-semibold border-b pb-1 mb-3">Colors</h4>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="text-color" className="text-xs">Text Color</Label>
+                      <Label htmlFor="text-color" className="text-xs mb-1.5 block">Text Color</Label>
                       <div className="flex gap-2">
                         <input 
                           type="color"
                           id="text-color-picker" 
                           name="text-color-picker"
-                          className="w-8 h-8 rounded"
+                          className="w-8 h-8 rounded cursor-pointer"
                           value={customStyles.color || computedStyles?.color || '#000000'}
                           onChange={(e) => handleStyleChange('color', e.target.value)}
                         />
@@ -345,13 +345,13 @@ export function ComponentInspector() {
                       </div>
                     </div>
                     <div>
-                      <Label htmlFor="bg-color" className="text-xs">Background</Label>
+                      <Label htmlFor="bg-color" className="text-xs mb-1.5 block">Background</Label>
                       <div className="flex gap-2">
                         <input 
                           type="color"
                           id="bg-color-picker"
                           name="bg-color-picker"
-                          className="w-8 h-8 rounded"
+                          className="w-8 h-8 rounded cursor-pointer"
                           value={customStyles.backgroundColor || computedStyles?.backgroundColor || '#ffffff'}
                           onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
                         />
@@ -368,11 +368,11 @@ export function ComponentInspector() {
                 </div>
                 
                 {/* Typography Section */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold border-b pb-1">Typography</h4>
-                  <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <h4 className="text-xs font-semibold border-b pb-1 mb-3">Typography</h4>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
                     <div>
-                      <Label htmlFor="font-size" className="text-xs">Font Size</Label>
+                      <Label htmlFor="font-size" className="text-xs mb-1.5 block">Font Size</Label>
                       <Input
                         id="font-size"
                         name="font-size"
@@ -383,7 +383,7 @@ export function ComponentInspector() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="font-weight" className="text-xs">Font Weight</Label>
+                      <Label htmlFor="font-weight" className="text-xs mb-1.5 block">Font Weight</Label>
                       <Input
                         id="font-weight"
                         name="font-weight"
@@ -395,8 +395,8 @@ export function ComponentInspector() {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="text-align" className="text-xs">Text Align</Label>
-                    <div className="flex gap-2 mt-1">
+                    <Label htmlFor="text-align" className="text-xs mb-1.5 block">Text Align</Label>
+                    <div className="flex gap-2">
                       {['left', 'center', 'right', 'justify'].map(align => (
                         <Button
                           key={align}
@@ -416,163 +416,237 @@ export function ComponentInspector() {
                 </div>
                 
                 {/* Spacing Section */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold border-b pb-1">Spacing</h4>
-                  <h5 className="text-xs font-medium">Padding</h5>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label htmlFor="padding-x" className="text-xs">Horizontal</Label>
-                      <Input
-                        id="padding-x"
-                        name="padding-x"
-                        className="h-8 text-xs"
-                        placeholder={`${computedStyles?.paddingLeft || '0'} ${computedStyles?.paddingRight || '0'}`}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          handleStyleChange('paddingLeft', value);
-                          handleStyleChange('paddingRight', value);
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="padding-y" className="text-xs">Vertical</Label>
-                      <Input
-                        id="padding-y"
-                        name="padding-y"
-                        className="h-8 text-xs"
-                        placeholder={`${computedStyles?.paddingTop || '0'} ${computedStyles?.paddingBottom || '0'}`}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          handleStyleChange('paddingTop', value);
-                          handleStyleChange('paddingBottom', value);
-                        }}
-                      />
-                    </div>
-                  </div>
+                <div>
+                  <h4 className="text-xs font-semibold border-b pb-1 mb-3">Spacing</h4>
                   
-                  <h5 className="text-xs font-medium mt-3">Margin</h5>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label htmlFor="margin-x" className="text-xs">Horizontal</Label>
-                      <Input
-                        id="margin-x"
-                        name="margin-x"
-                        className="h-8 text-xs"
-                        placeholder={`${computedStyles?.marginLeft || '0'} ${computedStyles?.marginRight || '0'}`}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          handleStyleChange('marginLeft', value);
-                          handleStyleChange('marginRight', value);
-                        }}
-                      />
+                  {/* Padding controls */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-xs font-medium">Padding</h5>
                     </div>
-                    <div>
-                      <Label htmlFor="margin-y" className="text-xs">Vertical</Label>
-                      <Input
-                        id="margin-y"
-                        name="margin-y"
-                        className="h-8 text-xs"
-                        placeholder={`${computedStyles?.marginTop || '0'} ${computedStyles?.marginBottom || '0'}`}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          handleStyleChange('marginTop', value);
-                          handleStyleChange('marginBottom', value);
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Size Section */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold border-b pb-1">Size</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label htmlFor="width-input" className="text-xs">Width</Label>
-                      <Input
-                        id="width-input"
-                        name="width-input"
-                        value={customStyles.width || ''}
-                        onChange={(e) => handleStyleChange('width', e.target.value)}
-                        className="h-8 text-xs"
-                        placeholder={computedStyles?.width || 'auto'}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="height-input" className="text-xs">Height</Label>
-                      <Input
-                        id="height-input"
-                        name="height-input"
-                        value={customStyles.height || ''}
-                        onChange={(e) => handleStyleChange('height', e.target.value)}
-                        className="h-8 text-xs"
-                        placeholder={computedStyles?.height || 'auto'}
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Border Section */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold border-b pb-1">Border</h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <Label htmlFor="border-width" className="text-xs">Width</Label>
-                      <Input
-                        id="border-width"
-                        name="border-width"
-                        value={customStyles.borderWidth || ''}
-                        onChange={(e) => handleStyleChange('borderWidth', e.target.value)}
-                        className="h-8 text-xs"
-                        placeholder={computedStyles?.borderWidth || '0px'}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="border-style" className="text-xs">Style</Label>
-                      <select 
-                        id="border-style"
-                        name="border-style"
-                        value={customStyles.borderStyle || computedStyles?.borderStyle || 'none'}
-                        onChange={(e) => handleStyleChange('borderStyle', e.target.value)}
-                        className="h-8 text-xs w-full rounded-md border border-input bg-background px-3 py-1"
-                      >
-                        {['none', 'solid', 'dashed', 'dotted', 'double'].map(style => (
-                          <option key={style} value={style}>{style}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label htmlFor="border-color" className="text-xs">Color</Label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="color"
-                          id="border-color-picker"
-                          name="border-color-picker"
-                          className="w-8 h-8 rounded"
-                          value={customStyles.borderColor || computedStyles?.borderColor || '#000000'}
-                          onChange={(e) => handleStyleChange('borderColor', e.target.value)}
-                        />
-                        <Input
-                          id="border-color"
-                          name="border-color"
-                          value={customStyles.borderColor || ''}
-                          onChange={(e) => handleStyleChange('borderColor', e.target.value)}
-                          className="h-8 text-xs flex-1"
-                          placeholder={computedStyles?.borderColor || '#000000'}
-                        />
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Horizontal padding */}
+                      <div>
+                        <div className="flex justify-between mb-1.5">
+                          <Label htmlFor="padding-x" className="text-xs">Horizontal</Label>
+                          <div className="flex space-x-2">
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4" 
+                              onClick={() => {
+                                const currentVal = parseInt(customStyles.paddingLeft || "0");
+                                if (currentVal > 0) {
+                                  const newVal = `${currentVal - 1}px`;
+                                  handleStyleChange('paddingLeft', newVal);
+                                  handleStyleChange('paddingRight', newVal);
+                                }
+                              }}
+                            >
+                              <span className="text-xs">-</span>
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4" 
+                              onClick={() => {
+                                const currentVal = parseInt(customStyles.paddingLeft || "0");
+                                const newVal = `${currentVal + 1}px`;
+                                handleStyleChange('paddingLeft', newVal);
+                                handleStyleChange('paddingRight', newVal);
+                              }}
+                            >
+                              <span className="text-xs">+</span>
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="padding-x"
+                            name="padding-x"
+                            type="text"
+                            value={customStyles.paddingLeft || computedStyles?.paddingLeft || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.includes('px') ? e.target.value : `${e.target.value}px`;
+                              handleStyleChange('paddingLeft', value);
+                              handleStyleChange('paddingRight', value);
+                            }}
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Vertical padding */}
+                      <div>
+                        <div className="flex justify-between mb-1.5">
+                          <Label htmlFor="padding-y" className="text-xs">Vertical</Label>
+                          <div className="flex space-x-2">
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4" 
+                              onClick={() => {
+                                const currentVal = parseInt(customStyles.paddingTop || "0");
+                                if (currentVal > 0) {
+                                  const newVal = `${currentVal - 1}px`;
+                                  handleStyleChange('paddingTop', newVal);
+                                  handleStyleChange('paddingBottom', newVal);
+                                }
+                              }}
+                            >
+                              <span className="text-xs">-</span>
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4" 
+                              onClick={() => {
+                                const currentVal = parseInt(customStyles.paddingTop || "0");
+                                const newVal = `${currentVal + 1}px`;
+                                handleStyleChange('paddingTop', newVal);
+                                handleStyleChange('paddingBottom', newVal);
+                              }}
+                            >
+                              <span className="text-xs">+</span>
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="padding-y"
+                            name="padding-y"
+                            type="text"
+                            value={customStyles.paddingTop || computedStyles?.paddingTop || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.includes('px') ? e.target.value : `${e.target.value}px`;
+                              handleStyleChange('paddingTop', value);
+                              handleStyleChange('paddingBottom', value);
+                            }}
+                            className="h-7 text-xs"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Margin controls */}
                   <div>
-                    <Label htmlFor="border-radius" className="text-xs">Border Radius</Label>
-                    <Input
-                      id="border-radius"
-                      name="border-radius"
-                      value={customStyles.borderRadius || ''}
-                      onChange={(e) => handleStyleChange('borderRadius', e.target.value)}
-                      className="h-8 text-xs mt-1"
-                      placeholder={computedStyles?.borderRadius || '0px'}
-                    />
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-xs font-medium">Margin</h5>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Horizontal margin */}
+                      <div>
+                        <div className="flex justify-between mb-1.5">
+                          <Label htmlFor="margin-x" className="text-xs">Horizontal</Label>
+                          <div className="flex space-x-2">
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4" 
+                              onClick={() => {
+                                const currentVal = parseInt(customStyles.marginLeft || "0");
+                                if (currentVal > 0) {
+                                  const newVal = `${currentVal - 1}px`;
+                                  handleStyleChange('marginLeft', newVal);
+                                  handleStyleChange('marginRight', newVal);
+                                }
+                              }}
+                            >
+                              <span className="text-xs">-</span>
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4" 
+                              onClick={() => {
+                                const currentVal = parseInt(customStyles.marginLeft || "0");
+                                const newVal = `${currentVal + 1}px`;
+                                handleStyleChange('marginLeft', newVal);
+                                handleStyleChange('marginRight', newVal);
+                              }}
+                            >
+                              <span className="text-xs">+</span>
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="margin-x"
+                            name="margin-x"
+                            type="text"
+                            value={customStyles.marginLeft || computedStyles?.marginLeft || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.includes('px') ? e.target.value : `${e.target.value}px`;
+                              handleStyleChange('marginLeft', value);
+                              handleStyleChange('marginRight', value);
+                            }}
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Vertical margin */}
+                      <div>
+                        <div className="flex justify-between mb-1.5">
+                          <Label htmlFor="margin-y" className="text-xs">Vertical</Label>
+                          <div className="flex space-x-2">
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4" 
+                              onClick={() => {
+                                const currentVal = parseInt(customStyles.marginTop || "0");
+                                if (currentVal > 0) {
+                                  const newVal = `${currentVal - 1}px`;
+                                  handleStyleChange('marginTop', newVal);
+                                  handleStyleChange('marginBottom', newVal);
+                                }
+                              }}
+                            >
+                              <span className="text-xs">-</span>
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4" 
+                              onClick={() => {
+                                const currentVal = parseInt(customStyles.marginTop || "0");
+                                const newVal = `${currentVal + 1}px`;
+                                handleStyleChange('marginTop', newVal);
+                                handleStyleChange('marginBottom', newVal);
+                              }}
+                            >
+                              <span className="text-xs">+</span>
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="margin-y"
+                            name="margin-y"
+                            type="text"
+                            value={customStyles.marginTop || computedStyles?.marginTop || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.includes('px') ? e.target.value : `${e.target.value}px`;
+                              handleStyleChange('marginTop', value);
+                              handleStyleChange('marginBottom', value);
+                            }}
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
