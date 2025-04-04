@@ -10,9 +10,13 @@ import {
   RefreshCcw,
   ZoomIn,
   ZoomOut,
+  Code,
+  X,
 } from 'lucide-react';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
+import { ComponentInspector } from './componentInspector';
+import { setupIframeComm, toggleInspectMode as sendToggleInspectMode } from './iframe-click-handler';
 
 function PreviewContent({
   curProject,
@@ -29,21 +33,29 @@ function PreviewContent({
   const [isServiceReady, setIsServiceReady] = useState(false);
   const [serviceCheckAttempts, setServiceCheckAttempts] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('Loading preview...');
-  const [isLoading, setIsLoading] = useState(true);
-  const iframeRef = useRef(null);
+  const [isInspectMode, setIsInspectMode] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<{ projectPath: string; domain: string } | null>(
     null
   );
   const lastProjectPathRef = useRef<string | null>(null);
   const serviceCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const MAX_CHECK_ATTEMPTS = 15; // Reduced max attempts since we have progressive intervals
+  const MAX_CHECK_ATTEMPTS = 15;
+
+  // Check if inspect mode was previously enabled
+  useEffect(() => {
+    const savedInspectMode = localStorage.getItem('inspectModeEnabled') === 'true';
+    if (savedInspectMode) {
+      setIsInspectMode(true);
+    }
+  }, []);
 
   // Function to check if the frontend service is ready
   const checkServiceReady = async (url: string) => {
     try {
       // Create a new AbortController instance
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500); // Reduced timeout to 1.5 seconds
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
 
       const response = await fetch(url, {
         method: 'HEAD',
@@ -212,10 +224,23 @@ function PreviewContent({
 
   useEffect(() => {
     if (iframeRef.current && baseUrl && isServiceReady) {
+      // Update the iframe src to the target URL
       const fullUrl = `${baseUrl}${displayPath}`;
       iframeRef.current.src = fullUrl;
+      
+      // Setup communication with the iframe using our custom inspector
+      if (iframeRef.current) {
+        setupIframeComm(iframeRef.current);
+      }
     }
   }, [baseUrl, displayPath, isServiceReady]);
+
+  // Re-enable inspector mode when inspector is toggled on
+  useEffect(() => {
+    if (isInspectMode && iframeRef.current && isServiceReady) {
+      sendToggleInspectMode(iframeRef.current, true);
+    }
+  }, [isInspectMode, isServiceReady]);
 
   const enterFullScreen = () => {
     if (iframeRef.current) {
@@ -262,23 +287,34 @@ function PreviewContent({
       startServiceReadyCheck(baseUrl);
     }
 
-    const iframe = document.getElementById('myIframe') as HTMLIFrameElement;
-    if (iframe) {
-      const src = iframe.src;
-      iframe.src = 'about:blank';
+    if (iframeRef.current) {
+      const src = iframeRef.current.src;
+      iframeRef.current.src = 'about:blank';
       setTimeout(() => {
-        iframe.src = src;
-        setScale(0.7);
+        if (iframeRef.current) {
+          iframeRef.current.src = src;
+          setScale(0.7);
+        }
       }, 50);
     }
   };
 
   const zoomIn = () => {
-    setScale((prevScale) => Math.min(prevScale + 0.1, 2)); // 最大缩放比例为 2
+    setScale((prevScale) => Math.min(prevScale + 0.1, 2)); // Max zoom 2x
   };
 
   const zoomOut = () => {
-    setScale((prevScale) => Math.max(prevScale - 0.1, 0.5)); // 最小缩放比例为 0.5
+    setScale((prevScale) => Math.max(prevScale - 0.1, 0.5)); // Min zoom 0.5x
+  };
+
+  const toggleInspectMode = () => {
+    const newInspectMode = !isInspectMode;
+    setIsInspectMode(newInspectMode);
+    
+    // Use custom inspector mode
+    if (iframeRef.current) {
+      sendToggleInspectMode(iframeRef.current, newInspectMode);
+    }
   };
 
   return (
@@ -314,7 +350,7 @@ function PreviewContent({
             onClick={reloadIframe}
             disabled={!baseUrl}
           >
-            <RefreshCcw />
+            <RefreshCcw className="h-4 w-4" />
           </Button>
         </div>
 
@@ -332,6 +368,16 @@ function PreviewContent({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
+          <Button
+            variant={isInspectMode ? "default" : "ghost"}
+            size="icon"
+            onClick={toggleInspectMode}
+            className="h-8 w-8"
+            disabled={!baseUrl || !isServiceReady}
+            title="Toggle Component Inspector"
+          >
+            <Code className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -372,44 +418,54 @@ function PreviewContent({
       </div>
 
       {/* Preview Container */}
-      <div className="relative flex-1 w-full h-full">
-        {baseUrl && isServiceReady ? (
-          <iframe
-            id="myIframe"
-            ref={iframeRef}
-            src={`${baseUrl}${displayPath}`}
-            className="absolute inset-0 w-full h-80% border-none bg-background"
-            style={{
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-              width: `calc(100% / ${scale})`,
-              height: `calc(100% / ${scale})`,
-              border: 'none',
-            }}
-          />
-        ) : (
-          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                <p className="text-sm text-muted-foreground">
-                  {loadingMessage}
-                </p>
+      <div className="relative flex-1 w-full h-full flex">
+        {/* Preview Area */}
+        <div className={`relative ${isInspectMode ? "w-2/3" : "w-full"} h-full transition-all duration-200`}>
+          {baseUrl && isServiceReady ? (
+            <iframe
+              id="myIframe"
+              ref={iframeRef}
+              src={`${baseUrl}${displayPath}`}
+              className="absolute inset-0 w-full h-full border-none bg-background"
+              style={{
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                width: `calc(100% / ${scale})`,
+                height: `calc(100% / ${scale})`,
+                border: 'none',
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-background">
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                  <p className="text-sm text-muted-foreground">
+                    {loadingMessage}
+                  </p>
+                </div>
+                {serviceCheckAttempts > 5 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (baseUrl) {
+                        startServiceReadyCheck(baseUrl);
+                      }
+                    }}
+                  >
+                    <RefreshCcw className="h-3 w-3 mr-1" /> Retry Check
+                  </Button>
+                )}
               </div>
-              {serviceCheckAttempts > 5 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (baseUrl) {
-                      startServiceReadyCheck(baseUrl);
-                    }
-                  }}
-                >
-                  <RefreshCcw className="h-3 w-3 mr-1" /> Retry Check
-                </Button>
-              )}
             </div>
+          )}
+        </div>
+
+        {/* Component Inspector Panel */}
+        {isInspectMode && (
+          <div className="w-1/3 h-full border-l bg-background">
+            <ComponentInspector />
           </div>
         )}
       </div>
