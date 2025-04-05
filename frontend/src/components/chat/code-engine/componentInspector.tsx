@@ -192,7 +192,12 @@ export function ComponentInspector() {
 
   // Save style changes to the source file
   const saveStylesToFile = async () => {
-    if (!selectedComponent || Object.keys(customStyles).length === 0) {
+    if (!selectedComponent) {
+      toast.error("No component selected");
+      return;
+    }
+    
+    if (Object.keys(customStyles).length === 0) {
       toast.error("No style changes to save");
       return;
     }
@@ -203,8 +208,7 @@ export function ComponentInspector() {
       // Persist the changes to the source file
       const success = await StyleUpdateService.persistStyleChanges(
         selectedComponent, 
-        customStyles,
-        true // Use Tailwind classes instead of inline styles
+        customStyles
       );
       
       if (success) {

@@ -45,13 +45,11 @@ export class StyleUpdateService {
    */
   static async persistStyleChanges(
     component: ComponentData,
-    styles: StyleChanges,
-    useTailwind: boolean = true
+    styles: StyleChanges
   ): Promise<boolean> {
     try {
       logger.info(`Persisting style changes for component: ${component.name}`, {
         styles,
-        useTailwind,
       });
 
       const fullFilePath = this.getFullFilePath(component.path);
@@ -75,21 +73,13 @@ export class StyleUpdateService {
 
       // Update the file based on chosen approach
       let updatedContent;
-      if (useTailwind) {
-        // Use Tailwind classes approach
-        updatedContent = this.applyTailwindClassesToCode(
-          originalContent,
-          parseInt(component.line),
-          styles
-        );
-      } else {
-        // Use inline styles approach
-        updatedContent = this.applyStylesToCode(
-          originalContent,
-          parseInt(component.line),
-          styles
-        );
-      }
+
+      // Use Tailwind classes approach
+      updatedContent = this.applyTailwindClassesToCode(
+        originalContent,
+        parseInt(component.line),
+        styles
+      );
 
       // Log what we're about to do for debugging
       console.log('Preparing to save file changes:', {
@@ -97,7 +87,6 @@ export class StyleUpdateService {
         originalSize: originalContent.length,
         updatedSize: updatedContent.length,
         componentLine: component.line,
-        approach: useTailwind ? 'Tailwind Classes' : 'Inline Styles',
       });
 
       // Save the updated content back to the file
