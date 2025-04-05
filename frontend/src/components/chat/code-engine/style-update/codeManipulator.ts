@@ -731,12 +731,14 @@ export class CodeManipulator {
 
       // Fix missing closing brackets in JSX tags
       // Example: <h1 className="class"Text</h1> → <h1 className="class">Text</h1>
+      /*
       const missingClosingBracketRegex =
         /(<[a-zA-Z][a-zA-Z0-9]*[^<>]*"[^<>]*)([a-zA-Z0-9])/g;
       if (missingClosingBracketRegex.test(line)) {
         line = line.replace(missingClosingBracketRegex, '$1>$2');
         console.log(`Fixed missing '>' in JSX tag at line ${i + 1}`);
       }
+      */
 
       // Fix incorrect closing tags
       // Look for patterns where closing tag doesn't match opening tag
