@@ -187,37 +187,38 @@ export default function ChatBottombar({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
 
+          {/* Add Edit UI button */}
+          {setIsInspectMode && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    className="p-1.5 text-gray-400 dark:text-zinc-400 rounded-md cursor-not-allowed opacity-50"
-                    aria-label="Record (not available)"
-                    disabled
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    onClick={() => {
+                      const newValue = !isInspectMode;
+                      setIsInspectMode(newValue);
+                      // Save to localStorage for persistence
+                      localStorage.setItem('inspectModeEnabled', newValue.toString());
+                    }}
+                    className={cn(
+                      'h-7 w-7 rounded-md flex items-center justify-center',
+                      isInspectMode 
+                        ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200'
+                    )}
+                      aria-label="Toggle UI Edit Mode"
                     >
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <circle cx="12" cy="12" r="4"></circle>
-                    </svg>
+                    <Code className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>Feature not available yet</p>
+                  <p>{isInspectMode ? 'Disable' : 'Enable'} UI Edit Mode</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          </div>
+          )}
 
           {/* Text input */}
           <div className="relative flex-1 flex items-center">
@@ -241,37 +242,6 @@ export default function ChatBottombar({
             <div className="text-sm text-gray-400 dark:text-zinc-400">
               <span>Have feedback?</span>
             </div>
-
-            {/* Add Edit UI button */}
-            {setIsInspectMode && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newValue = !isInspectMode;
-                        setIsInspectMode(newValue);
-                        // Save to localStorage for persistence
-                        localStorage.setItem('inspectModeEnabled', newValue.toString());
-                      }}
-                      className={cn(
-                        'h-7 w-7 rounded-md flex items-center justify-center',
-                        isInspectMode 
-                          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200'
-                      )}
-                      aria-label="Toggle UI Edit Mode"
-                    >
-                      <Code className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>{isInspectMode ? 'Disable' : 'Enable'} UI Edit Mode</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
 
             <button
               type="submit"
