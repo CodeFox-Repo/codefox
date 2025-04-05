@@ -47,6 +47,12 @@ export function ComponentInspector() {
   const [applyingChanges, setApplyingChanges] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   
+  // State for tracking raw input values before applying them
+  const [spacingInputs, setSpacingInputs] = useState<{[key: string]: string}>({});
+  
+  // Track original content to detect changes
+  const [originalContent, setOriginalContent] = useState<string>('');
+  
   // Get the iframe reference from the web-view
   useEffect(() => {
     const getIframeRef = () => {
@@ -89,11 +95,13 @@ export function ComponentInspector() {
         setIsContentEdited(false);
         setIsStyleEdited(false);
         
-        // Get latest content
+        // Get latest content and store it as the original content too
         if (event.data.componentData.content.text) {
           setEditableContent(event.data.componentData.content.text);
+          setOriginalContent(event.data.componentData.content.text);
         } else {
           setEditableContent('');
+          setOriginalContent('');
         }
       } else if (event.data.type === 'ELEMENT_STYLES') {
         console.log("Processing element styles response:", event.data.payload);
@@ -250,12 +258,48 @@ export function ComponentInspector() {
     }
   };
 
-  // Save content changes to the source file
+  // Handle content change with improved change detection
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    setEditableContent(newContent);
+    
+    // Force change state to true whenever user types something
+    setIsContentEdited(true);
+    
+    // More advanced change detection for debugging
+    const hasChanged = newContent !== originalContent;
+    console.log('Content change detected:', {
+      hasChanged,
+      newContentLength: newContent.length,
+      originalContentLength: originalContent.length,
+      matching: newContent === originalContent,
+      newContent: newContent.substring(0, 50),
+      originalContent: originalContent.substring(0, 50)
+    });
+    
+    // Apply content changes with slight delay to avoid disrupting typing
+    const timeoutId = setTimeout(() => {
+      if (selectedComponent && iframeRef.current) {
+        try {
+          updateElementContent(iframeRef.current, selectedComponent.id, newContent);
+        } catch (error) {
+          console.error('Error applying visual content update:', error);
+        }
+      }
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  };
+
+  // Save content changes to the source file with improved validation
   const saveContentToFile = async () => {
-    if (!selectedComponent || !isContentEdited) {
-      toast.error("No content changes to save");
+    if (!selectedComponent) {
+      toast.error("No component selected");
       return;
     }
+    
+    // Skip the content change check - if user wants to save, let them save
+    // This ensures the button works even if our change detection fails
     
     setApplyingChanges(true);
     
@@ -269,6 +313,7 @@ export function ComponentInspector() {
       if (success) {
         toast.success("Content changes saved to source file");
         setIsContentEdited(false);
+        setOriginalContent(editableContent); // Update the reference content
       } else {
         toast.error("Changes are visible but couldn't be saved to source file");
       }
@@ -280,23 +325,97 @@ export function ComponentInspector() {
     }
   };
 
-  // Handle content change
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setEditableContent(e.target.value);
-    setIsContentEdited(true);
+  // Handle spacing input change with debounce
+  const handleSpacingInputChange = (property: string, value: string, applyToBoth: boolean = false, pairedProperty?: string) => {
+    // Store the raw input value for display purposes
+    setSpacingInputs(prev => ({
+      ...prev,
+      [property]: value
+    }));
     
-    // Apply content changes with slight delay to avoid disrupting typing
-    const timeoutId = setTimeout(() => {
-      if (selectedComponent && iframeRef.current) {
-        try {
-          updateElementContent(iframeRef.current, selectedComponent.id, e.target.value);
-        } catch (error) {
-          console.error('Error applying visual content update:', error);
+    // Don't immediately apply px suffix - wait until user finishes typing
+    const numericValue = value.replace(/[^\d]/g, '');
+    
+    // Debounce the actual style change to avoid updating while user is typing
+    clearTimeout((window as any).spacingDebounceTimer);
+    (window as any).spacingDebounceTimer = setTimeout(() => {
+      // Only apply the style if we have a numeric value
+      if (numericValue) {
+        const valueWithUnit = `${numericValue}px`;
+        handleStyleChange(property, valueWithUnit);
+        
+        // If this is a paired property (like left/right padding), update both
+        if (applyToBoth && pairedProperty) {
+          handleStyleChange(pairedProperty, valueWithUnit);
+          setSpacingInputs(prev => ({
+            ...prev,
+            [pairedProperty]: numericValue
+          }));
         }
       }
     }, 500);
+  };
+  
+  // Render spacing input with debounced update
+  const renderSpacingInput = (property: string, label: string, pairedProperty?: string) => {
+    // Determine what value to show in the input field
+    const displayValue = 
+      // First show what the user is actively typing
+      spacingInputs[property] !== undefined ? spacingInputs[property] : 
+      // Then show what's in the style application queue
+      customStyles[property] ? customStyles[property].replace('px', '') :
+      // Finally fall back to computed styles if available
+      computedStyles?.[property] ? computedStyles[property].replace('px', '') : '';
     
-    return () => clearTimeout(timeoutId);
+    return (
+      <div>
+        <div className="flex justify-between mb-1.5">
+          <Label htmlFor={`${property}-input`} className="text-xs">{label}</Label>
+          <div className="flex space-x-2">
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="icon" 
+              className="h-4 w-4" 
+              onClick={(e) => {
+                const currentVal = parseInt(displayValue || "0");
+                if (currentVal > 0) {
+                  const newVal = (currentVal - 1).toString();
+                  handleSpacingInputChange(property, newVal, !!pairedProperty, pairedProperty);
+                }
+              }}
+            >
+              <span className="text-xs">-</span>
+            </Button>
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="icon" 
+              className="h-4 w-4" 
+              onClick={(e) => {
+                const currentVal = parseInt(displayValue || "0");
+                const newVal = (currentVal + 1).toString();
+                handleSpacingInputChange(property, newVal, !!pairedProperty, pairedProperty);
+              }}
+            >
+              <span className="text-xs">+</span>
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            id={`${property}-input`}
+            name={property}
+            type="text"
+            value={displayValue}
+            onChange={(e) => {
+              handleSpacingInputChange(property, e.target.value, !!pairedProperty, pairedProperty);
+            }}
+            className="h-7 text-xs"
+          />
+        </div>
+      </div>
+    );
   };
 
   if (!selectedComponent) {
@@ -471,110 +590,10 @@ export function ComponentInspector() {
                   
                   <div className="grid grid-cols-2 gap-3">
                     {/* Horizontal padding */}
-                    <div>
-                      <div className="flex justify-between mb-1.5">
-                        <Label htmlFor="padding-x" className="text-xs">Horizontal</Label>
-                        <div className="flex space-x-2">
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4" 
-                            onClick={(e) => {
-                              const currentVal = parseInt(customStyles.paddingLeft || "0");
-                              if (currentVal > 0) {
-                                const newVal = `${currentVal - 1}px`;
-                                handleStyleChange('paddingLeft', newVal);
-                                handleStyleChange('paddingRight', newVal);
-                              }
-                            }}
-                          >
-                            <span className="text-xs">-</span>
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4" 
-                            onClick={(e) => {
-                              const currentVal = parseInt(customStyles.paddingLeft || "0");
-                              const newVal = `${currentVal + 1}px`;
-                              handleStyleChange('paddingLeft', newVal);
-                              handleStyleChange('paddingRight', newVal);
-                            }}
-                          >
-                            <span className="text-xs">+</span>
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="padding-x"
-                          name="padding-x"
-                          type="text"
-                          value={customStyles.paddingLeft || computedStyles?.paddingLeft || ''}
-                          onChange={(e) => {
-                            const value = e.target.value.includes('px') ? e.target.value : `${e.target.value}px`;
-                            handleStyleChange('paddingLeft', value);
-                            handleStyleChange('paddingRight', value);
-                          }}
-                          className="h-7 text-xs"
-                        />
-                      </div>
-                    </div>
+                    {renderSpacingInput('paddingLeft', 'Horizontal', 'paddingRight')}
                     
                     {/* Vertical padding */}
-                    <div>
-                      <div className="flex justify-between mb-1.5">
-                        <Label htmlFor="padding-y" className="text-xs">Vertical</Label>
-                        <div className="flex space-x-2">
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4" 
-                            onClick={(e) => {
-                              const currentVal = parseInt(customStyles.paddingTop || "0");
-                              if (currentVal > 0) {
-                                const newVal = `${currentVal - 1}px`;
-                                handleStyleChange('paddingTop', newVal);
-                                handleStyleChange('paddingBottom', newVal);
-                              }
-                            }}
-                          >
-                            <span className="text-xs">-</span>
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4" 
-                            onClick={(e) => {
-                              const currentVal = parseInt(customStyles.paddingTop || "0");
-                              const newVal = `${currentVal + 1}px`;
-                              handleStyleChange('paddingTop', newVal);
-                              handleStyleChange('paddingBottom', newVal);
-                            }}
-                          >
-                            <span className="text-xs">+</span>
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="padding-y"
-                          name="padding-y"
-                          type="text"
-                          value={customStyles.paddingTop || computedStyles?.paddingTop || ''}
-                          onChange={(e) => {
-                            const value = e.target.value.includes('px') ? e.target.value : `${e.target.value}px`;
-                            handleStyleChange('paddingTop', value);
-                            handleStyleChange('paddingBottom', value);
-                          }}
-                          className="h-7 text-xs"
-                        />
-                      </div>
-                    </div>
+                    {renderSpacingInput('paddingTop', 'Vertical', 'paddingBottom')}
                   </div>
                 </div>
                 
@@ -586,110 +605,10 @@ export function ComponentInspector() {
                   
                   <div className="grid grid-cols-2 gap-3">
                     {/* Horizontal margin */}
-                    <div>
-                      <div className="flex justify-between mb-1.5">
-                        <Label htmlFor="margin-x" className="text-xs">Horizontal</Label>
-                        <div className="flex space-x-2">
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4" 
-                            onClick={(e) => {
-                              const currentVal = parseInt(customStyles.marginLeft || "0");
-                              if (currentVal > 0) {
-                                const newVal = `${currentVal - 1}px`;
-                                handleStyleChange('marginLeft', newVal);
-                                handleStyleChange('marginRight', newVal);
-                              }
-                            }}
-                          >
-                            <span className="text-xs">-</span>
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4" 
-                            onClick={(e) => {
-                              const currentVal = parseInt(customStyles.marginLeft || "0");
-                              const newVal = `${currentVal + 1}px`;
-                              handleStyleChange('marginLeft', newVal);
-                              handleStyleChange('marginRight', newVal);
-                            }}
-                          >
-                            <span className="text-xs">+</span>
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="margin-x"
-                          name="margin-x"
-                          type="text"
-                          value={customStyles.marginLeft || computedStyles?.marginLeft || ''}
-                          onChange={(e) => {
-                            const value = e.target.value.includes('px') ? e.target.value : `${e.target.value}px`;
-                            handleStyleChange('marginLeft', value);
-                            handleStyleChange('marginRight', value);
-                          }}
-                          className="h-7 text-xs"
-                        />
-                      </div>
-                    </div>
+                    {renderSpacingInput('marginLeft', 'Horizontal', 'marginRight')}
                     
                     {/* Vertical margin */}
-                    <div>
-                      <div className="flex justify-between mb-1.5">
-                        <Label htmlFor="margin-y" className="text-xs">Vertical</Label>
-                        <div className="flex space-x-2">
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4" 
-                            onClick={(e) => {
-                              const currentVal = parseInt(customStyles.marginTop || "0");
-                              if (currentVal > 0) {
-                                const newVal = `${currentVal - 1}px`;
-                                handleStyleChange('marginTop', newVal);
-                                handleStyleChange('marginBottom', newVal);
-                              }
-                            }}
-                          >
-                            <span className="text-xs">-</span>
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4" 
-                            onClick={(e) => {
-                              const currentVal = parseInt(customStyles.marginTop || "0");
-                              const newVal = `${currentVal + 1}px`;
-                              handleStyleChange('marginTop', newVal);
-                              handleStyleChange('marginBottom', newVal);
-                            }}
-                          >
-                            <span className="text-xs">+</span>
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="margin-y"
-                          name="margin-y"
-                          type="text"
-                          value={customStyles.marginTop || computedStyles?.marginTop || ''}
-                          onChange={(e) => {
-                            const value = e.target.value.includes('px') ? e.target.value : `${e.target.value}px`;
-                            handleStyleChange('marginTop', value);
-                            handleStyleChange('marginBottom', value);
-                          }}
-                          className="h-7 text-xs"
-                        />
-                      </div>
-                    </div>
+                    {renderSpacingInput('marginTop', 'Vertical', 'marginBottom')}
                   </div>
                 </div>
               </div>
@@ -718,7 +637,7 @@ export function ComponentInspector() {
               <Button 
                 size="sm" 
                 onClick={saveContentToFile}
-                disabled={!selectedComponent || !iframeRef.current || applyingChanges || !isContentEdited}
+                disabled={!selectedComponent || !iframeRef.current || applyingChanges || editableContent.trim() === ''}
               >
                 {applyingChanges ? 'Saving...' : 'Save to File'}
               </Button>
