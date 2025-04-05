@@ -17,6 +17,7 @@ import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
 import { ComponentInspector } from './componentInspector';
 import { setupIframeComm, toggleInspectMode as sendToggleInspectMode } from './iframe-click-handler';
+import { StyleUpdateService } from './styleUpdateService';
 
 function PreviewContent({
   curProject,
@@ -182,6 +183,9 @@ function PreviewContent({
       if (!curProject) return;
       const projectPath = curProject.projectPath;
 
+      // Set the project path in StyleUpdateService for file operations
+      StyleUpdateService.setProjectPath(projectPath);
+      
       if (lastProjectPathRef.current === projectPath) {
         return;
       }
