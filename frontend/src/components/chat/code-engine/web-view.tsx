@@ -16,15 +16,19 @@ import {
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
 import { ComponentInspector } from './componentInspector';
-import { setupIframeComm, toggleInspectMode as sendToggleInspectMode } from './iframe-click-handler';
+import { setupIframeComm, toggleInspectMode } from './iframe-click-handler';
 import { StyleUpdateService } from './styleUpdateService';
 
 function PreviewContent({
   curProject,
   getWebUrl,
+  isInspectMode,
+  setIsInspectMode
 }: {
   curProject: any;
   getWebUrl: any;
+  isInspectMode: boolean;
+  setIsInspectMode: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const [baseUrl, setBaseUrl] = useState('');
   const [displayPath, setDisplayPath] = useState('/');
@@ -34,7 +38,6 @@ function PreviewContent({
   const [isServiceReady, setIsServiceReady] = useState(false);
   const [serviceCheckAttempts, setServiceCheckAttempts] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('Loading preview...');
-  const [isInspectMode, setIsInspectMode] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<{ projectPath: string; domain: string } | null>(
     null
@@ -42,14 +45,6 @@ function PreviewContent({
   const lastProjectPathRef = useRef<string | null>(null);
   const serviceCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
   const MAX_CHECK_ATTEMPTS = 15;
-
-  // Check if inspect mode was previously enabled
-  useEffect(() => {
-    const savedInspectMode = localStorage.getItem('inspectModeEnabled') === 'true';
-    if (savedInspectMode) {
-      setIsInspectMode(true);
-    }
-  }, []);
 
   // Function to check if the frontend service is ready
   const checkServiceReady = async (url: string) => {
@@ -239,12 +234,33 @@ function PreviewContent({
     }
   }, [baseUrl, displayPath, isServiceReady]);
 
-  // Re-enable inspector mode when inspector is toggled on
+  // Effect to re-enable inspector mode when inspector is toggled on
+  // The inspection mode is now handled by the useEffect below that sends message to iframe
+  
+  // Check if inspect mode was previously enabled in localStorage
   useEffect(() => {
-    if (isInspectMode && iframeRef.current && isServiceReady) {
-      sendToggleInspectMode(iframeRef.current, true);
+    const savedInspectMode = localStorage.getItem('inspectModeEnabled');
+    if (savedInspectMode !== null) {
+      setIsInspectMode(savedInspectMode === 'true');
     }
-  }, [isInspectMode, isServiceReady]);
+  }, [setIsInspectMode]);
+
+  // Communicate with iframe when inspect mode changes
+  useEffect(() => {
+    // Safe check to make sure we have the iframe reference
+    if (!iframeRef.current) return;
+    
+    // Use the toggleInspectMode function to properly enable/disable inspect mode
+    toggleInspectMode(iframeRef.current, isInspectMode);
+    
+    // This direct message is no longer needed as toggleInspectMode handles it
+    // if (iframeRef.current.contentWindow) {
+    //  iframeRef.current.contentWindow.postMessage(
+    //    { type: 'toggleInspectMode', value: isInspectMode },
+    //    '*'
+    //  );
+    //}
+  }, [isInspectMode]);
 
   const enterFullScreen = () => {
     if (iframeRef.current) {
@@ -303,22 +319,12 @@ function PreviewContent({
     }
   };
 
-  const zoomIn = () => {
-    setScale((prevScale) => Math.min(prevScale + 0.1, 2)); // Max zoom 2x
-  };
-
   const zoomOut = () => {
-    setScale((prevScale) => Math.max(prevScale - 0.1, 0.5)); // Min zoom 0.5x
+    setScale((prev) => Math.max(0.1, prev - 0.1));
   };
 
-  const toggleInspectMode = () => {
-    const newInspectMode = !isInspectMode;
-    setIsInspectMode(newInspectMode);
-    
-    // Use custom inspector mode
-    if (iframeRef.current) {
-      sendToggleInspectMode(iframeRef.current, newInspectMode);
-    }
+  const zoomIn = () => {
+    setScale((prev) => Math.min(2, prev + 0.1));
   };
 
   return (
@@ -350,7 +356,6 @@ function PreviewContent({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
             onClick={reloadIframe}
             disabled={!baseUrl}
           >
@@ -372,16 +377,6 @@ function PreviewContent({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          <Button
-            variant={isInspectMode ? "default" : "ghost"}
-            size="icon"
-            onClick={toggleInspectMode}
-            className="h-8 w-8"
-            disabled={!baseUrl || !isServiceReady}
-            title="Toggle Component Inspector"
-          >
-            <Code className="h-4 w-4" />
-          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -477,7 +472,13 @@ function PreviewContent({
   );
 }
 
-export default function WebPreview() {
+export default function WebPreview({
+  isInspectMode,
+  setIsInspectMode
+}: {
+  isInspectMode: boolean;
+  setIsInspectMode: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
   const { curProject, getWebUrl } = useContext(ProjectContext);
 
   if (!curProject || !getWebUrl) {
@@ -488,5 +489,10 @@ export default function WebPreview() {
     );
   }
 
-  return <PreviewContent curProject={curProject} getWebUrl={getWebUrl} />;
+  return <PreviewContent 
+    curProject={curProject} 
+    getWebUrl={getWebUrl} 
+    isInspectMode={isInspectMode}
+    setIsInspectMode={setIsInspectMode}
+  />;
 }

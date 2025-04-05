@@ -26,6 +26,8 @@ export interface ChatProps {
   setMessages: (messages: Message[]) => void;
   setThinkingProcess: React.Dispatch<React.SetStateAction<string[]>>;
   isTPUpdating: boolean;
+  isInspectMode?: boolean;
+  setIsInspectMode?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function ChatContent({
@@ -44,6 +46,8 @@ export default function ChatContent({
   thinkingProcess,
   setThinkingProcess,
   isTPUpdating,
+  isInspectMode,
+  setIsInspectMode,
 }: ChatProps) {
   return (
     <motion.div
@@ -82,6 +86,8 @@ export default function ChatContent({
           setInput={setInput}
           setMessages={setMessages}
           setSelectedModel={setSelectedModel}
+          isInspectMode={isInspectMode}
+          setIsInspectMode={setIsInspectMode}
         />
       </div>
     </motion.div>

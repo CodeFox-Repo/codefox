@@ -29,6 +29,9 @@ export default function Chat() {
   const { models } = useModels();
   const [selectedModel, setSelectedModel] = useState(models[0] || 'gpt-4o');
   const { refetchChats } = useChatList();
+  
+  // Add state for component inspector mode
+  const [isInspectMode, setIsInspectMode] = useState(false);
 
   const [isTPUpdating, setIsTPUpdating] = useState(false);
   // Project status monitoring for the current chat
@@ -153,6 +156,8 @@ export default function Chat() {
             setMessages={setMessages}
             setThinkingProcess={setThinkingProcess}
             isTPUpdating={isTPUpdating}
+            isInspectMode={isInspectMode}
+            setIsInspectMode={setIsInspectMode}
           />
         </div>
       </ResizablePanel>
@@ -170,6 +175,8 @@ export default function Chat() {
             chatId={chatId}
             isProjectReady={isReady}
             projectId={projectId}
+            isInspectMode={isInspectMode}
+            setIsInspectMode={setIsInspectMode}
           />
         </div>
       </ResizablePanel>
@@ -191,6 +198,8 @@ export default function Chat() {
         setMessages={setMessages}
         setThinkingProcess={setThinkingProcess}
         isTPUpdating={isTPUpdating}
+        isInspectMode={isInspectMode}
+        setIsInspectMode={setIsInspectMode}
       />
     </div>
   );
