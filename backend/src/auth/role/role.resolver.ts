@@ -4,14 +4,17 @@ import { Role } from './role.model';
 import { CreateRoleInput } from './dto/create-role.input';
 import { UpdateRoleInput } from './dto/update-role.input';
 import { RequireAuth } from '../../decorator/auth.decorator';
+import { UseGuards } from '@nestjs/common';
+import { JWTAuthGuard } from 'src/guard/jwt-auth.guard';
 
+@UseGuards(JWTAuthGuard)
 @Resolver(() => Role)
 export class RoleResolver {
   constructor(private readonly roleService: RoleService) {}
 
   @Query(() => [Role])
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/role/list',
   })
   async roles(): Promise<Role[]> {
@@ -20,7 +23,7 @@ export class RoleResolver {
 
   @Query(() => Role)
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/role/detail',
   })
   async role(@Args('id', { type: () => ID }) id: string): Promise<Role> {

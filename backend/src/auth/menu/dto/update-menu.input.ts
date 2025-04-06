@@ -1,5 +1,5 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsArray } from 'class-validator';
 
 @InputType()
 export class UpdateMenuInput {
@@ -20,4 +20,9 @@ export class UpdateMenuInput {
   @IsString()
   @IsOptional()
   permission?: string;
+
+  @Field(() => [String], { nullable: true })
+  @IsArray()
+  @IsOptional()
+  roleIds?: string[];
 }

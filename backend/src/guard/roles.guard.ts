@@ -35,7 +35,8 @@ export class RolesGuard implements CanActivate {
     const gqlContext = GqlExecutionContext.create(context);
     const { req } = gqlContext.getContext();
 
-    if (!req.user?.id) {
+    if (!req.user?.userId) {
+      this.logger.warn(req.user);
       throw new UnauthorizedException('User is not authenticated');
     }
 

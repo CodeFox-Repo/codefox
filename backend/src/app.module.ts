@@ -21,6 +21,7 @@ import { GitHubModule } from './github/github.module';
 import { AppConfigService } from './config/config.service';
 import { getDatabaseConfig } from './database.config';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { Role } from './auth/role/role.model';
 
 @Module({
   imports: [

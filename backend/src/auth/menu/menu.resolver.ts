@@ -1,17 +1,20 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
-import { Menu } from './menu.model';
+import { UseGuards } from '@nestjs/common';
 import { MenuService } from './menu.service';
+import { Menu } from './menu.model';
 import { CreateMenuInput } from './dto/create-menu.input';
 import { UpdateMenuInput } from './dto/update-menu.input';
 import { RequireAuth } from '../../decorator/auth.decorator';
+import { JWTAuthGuard } from 'src/guard/jwt-auth.guard';
 
+@UseGuards(JWTAuthGuard)
 @Resolver(() => Menu)
 export class MenuResolver {
   constructor(private readonly menuService: MenuService) {}
 
   @Query(() => [Menu])
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/menu/list',
   })
   async menus(): Promise<Menu[]> {
@@ -20,27 +23,16 @@ export class MenuResolver {
 
   @Query(() => Menu)
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/menu/detail',
   })
   async menu(@Args('id', { type: () => ID }) id: string): Promise<Menu> {
     return this.menuService.findOne(id);
   }
 
-  @Query(() => [Menu])
-  @RequireAuth({
-    roles: ['admin'],
-    menuPath: '/menu/permission',
-  })
-  async menusByPermission(
-    @Args('permission') permission: string,
-  ): Promise<Menu[]> {
-    return this.menuService.findByPermission(permission);
-  }
-
   @Mutation(() => Menu)
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/menu/create',
   })
   async createMenu(
@@ -51,7 +43,7 @@ export class MenuResolver {
 
   @Mutation(() => Menu)
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/menu/update',
   })
   async updateMenu(
@@ -62,7 +54,7 @@ export class MenuResolver {
 
   @Mutation(() => Boolean)
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/menu/delete',
   })
   async removeMenu(

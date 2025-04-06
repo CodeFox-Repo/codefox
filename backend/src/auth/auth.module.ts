@@ -11,6 +11,10 @@ import { RefreshToken } from './refresh-token/refresh-token.model';
 import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { MailModule } from 'src/mail/mail.module';
 import { AppConfigModule } from 'src/config/config.module';
+import { RoleResolver } from './role/role.resolver';
+import { MenuResolver } from './menu/menu.resolver';
+import { RoleService } from './role/role.service';
+import { MenuService } from './menu/menu.service';
 
 @Module({
   imports: [
@@ -27,7 +31,14 @@ import { AppConfigModule } from 'src/config/config.module';
     JwtCacheModule,
     MailModule,
   ],
-  providers: [AuthService, AuthResolver],
-  exports: [AuthService, JwtModule],
+  providers: [
+    AuthService,
+    AuthResolver,
+    RoleResolver,
+    MenuResolver,
+    RoleService,
+    MenuService,
+  ],
+  exports: [AuthService, RoleService, MenuService, JwtModule],
 })
 export class AuthModule {}

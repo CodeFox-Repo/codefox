@@ -28,16 +28,20 @@ export class RoleService {
   }
 
   async findAll(): Promise<Role[]> {
-    return this.roleRepository.find({
-      relations: ['menus', 'users'],
-    });
+    const roles = await this.roleRepository
+      .createQueryBuilder('role')
+      .leftJoinAndSelect('role.menus', 'menu')
+      .getMany();
+
+    return roles;
   }
 
   async findOne(id: string): Promise<Role> {
-    const role = await this.roleRepository.findOne({
-      where: { id },
-      relations: ['menus', 'users'],
-    });
+    const role = await this.roleRepository
+      .createQueryBuilder('role')
+      .leftJoinAndSelect('role.menus', 'menu')
+      .where('role.id = :id', { id })
+      .getOne();
 
     if (!role) {
       throw new NotFoundException(`Role with ID "${id}" not found`);
@@ -50,8 +54,6 @@ export class RoleService {
     const role = await this.findOne(id);
     const { menuIds, ...roleData } = updateRoleInput;
 
-    Object.assign(role, roleData);
-
     if (menuIds !== undefined) {
       const menus = menuIds.length
         ? await this.menuRepository.findByIds(menuIds)
@@ -59,6 +61,7 @@ export class RoleService {
       role.menus = menus;
     }
 
+    Object.assign(role, roleData);
     return this.roleRepository.save(role);
   }
 
@@ -68,9 +71,10 @@ export class RoleService {
   }
 
   async findByName(name: string): Promise<Role> {
-    return this.roleRepository.findOne({
-      where: { name },
-      relations: ['menus', 'users'],
-    });
+    return this.roleRepository
+      .createQueryBuilder('role')
+      .leftJoinAndSelect('role.menus', 'menu')
+      .where('role.name = :name', { name })
+      .getOne();
   }
 }
