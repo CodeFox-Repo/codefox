@@ -419,7 +419,7 @@ function PreviewContent({
       {/* Preview Container */}
       <div className="relative flex-1 w-full h-full flex">
         {/* Preview Area */}
-        <div className={`relative ${isInspectMode ? "w-2/3" : "w-full"} h-full transition-all duration-200`}>
+        <div className="relative w-full h-full transition-all duration-200">
           {baseUrl && isServiceReady ? (
             <iframe
               id="myIframe"
@@ -460,13 +460,6 @@ function PreviewContent({
             </div>
           )}
         </div>
-
-        {/* Component Inspector Panel */}
-        {isInspectMode && (
-          <div className="w-1/3 h-full border-l bg-background">
-            <ComponentInspector />
-          </div>
-        )}
       </div>
     </div>
   );

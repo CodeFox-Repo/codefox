@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ComponentInspector } from '../chat/code-engine/componentInspector';
 
 interface ChatBottombarProps {
   messages: Message[];
@@ -95,7 +96,95 @@ export default function ChatBottombar({
   }, []);
 
   return (
-    <div className="px-4 pb-4 pt-2 bg-white dark:bg-[#151718]">
+    <div className="px-4 pb-4 pt-2 bg-white dark:bg-[#151718] relative">
+      {/* Component Inspector Popup */}
+      <AnimatePresence>
+        {isInspectMode && (
+          <motion.div
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 10, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute bottom-full left-0 right-0 z-50 bg-background border border-input shadow-xl flex flex-col"
+            style={{ 
+              height: "min(600px, 70vh)",
+              maxHeight: "calc(100vh - 150px)" 
+            }}
+          >
+            {/* Resizable handle - positioned at the top of the panel */}
+            <div 
+              className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize bg-transparent hover:bg-blue-500/20 transition-colors z-10" 
+              onMouseDown={(e) => {
+                e.preventDefault();
+                
+                // Store references to elements and initial values
+                const panel = e.currentTarget.parentElement;
+                if (!panel) return;
+                
+                const startY = e.clientY;
+                const startHeight = panel.getBoundingClientRect().height;
+                
+                const handleMouseMove = (moveEvent: MouseEvent) => {
+                  // Stop propagation to prevent other events
+                  moveEvent.preventDefault();
+                  moveEvent.stopPropagation();
+                  
+                  // Calculate new height
+                  const delta = startY - moveEvent.clientY;
+                  const newHeight = Math.min(
+                    Math.max(startHeight + delta, 100), // Min height reduced to 100px
+                    window.innerHeight - 150 // Max height
+                  );
+                  
+                  // Apply new height to the stored panel reference
+                  if (panel) {
+                    panel.style.height = `${newHeight}px`;
+                  }
+                };
+                
+                const handleMouseUp = () => {
+                  // Clean up all event listeners
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+                
+                // Add the event listeners to document
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            />
+            
+            <div className="border-b px-3 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 flex-shrink-0">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Code className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                <h3 className="font-medium text-blue-700 dark:text-blue-300 text-sm whitespace-nowrap overflow-hidden text-ellipsis">UI Inspector</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-blue-600/70 dark:text-blue-400/70 hidden sm:inline">
+                  Edit UI components directly
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (setIsInspectMode) {
+                      setIsInspectMode(false);
+                      localStorage.setItem('inspectModeEnabled', 'false');
+                    }
+                  }}
+                  className="h-6 w-6 rounded-md flex-shrink-0 flex items-center justify-center hover:bg-blue-200 text-blue-600 dark:hover:bg-blue-800/30 dark:text-blue-300"
+                  aria-label="Close UI Edit Mode"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <ComponentInspector />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+        
       <motion.div
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
