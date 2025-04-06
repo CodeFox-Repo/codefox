@@ -13,16 +13,19 @@ import {
   Tooltip,
   Box,
   Chip,
-  Button
+  Button,
+  Link
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
+import PersonIcon from '@mui/icons-material/Person';
+import ChatIcon from '@mui/icons-material/Chat';
+import PublicIcon from '@mui/icons-material/Public';
+import LockIcon from '@mui/icons-material/Lock';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
-const RolesList: FC = () => {
+const ProjectsList: FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -43,24 +46,19 @@ const RolesList: FC = () => {
         alignItems="center"
         p={2}
       >
-        <Typography variant="h3">Roles Management</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/management/roles/create')}
-        >
-          Create Role
-        </Button>
+        <Typography variant="h3">Projects Management</Typography>
       </Box>
       <Card>
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Role Name</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Menus Count</TableCell>
-                <TableCell>Users Count</TableCell>
+                <TableCell>Project Name</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Path</TableCell>
+                <TableCell>Chats</TableCell>
+                <TableCell>Packages</TableCell>
+                <TableCell>Visibility</TableCell>
                 <TableCell>Created Date</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -85,4 +83,4 @@ const RolesList: FC = () => {
   );
 };
 
-export default RolesList;
+export default ProjectsList;

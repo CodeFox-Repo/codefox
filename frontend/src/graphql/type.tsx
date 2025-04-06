@@ -83,6 +83,14 @@ export type ChatCompletionDeltaType = {
   content?: Maybe<Scalars['String']['output']>;
 };
 
+export type ChatFilterInput = {
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  isDeleted?: InputMaybe<Scalars['Boolean']['input']>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+  userId?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type ChatInputType = {
   chatId: Scalars['String']['input'];
   message: Scalars['String']['input'];
@@ -92,6 +100,12 @@ export type ChatInputType = {
 
 export type CheckTokenInput = {
   token: Scalars['String']['input'];
+};
+
+export type CreateChatInput = {
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  title: Scalars['String']['input'];
+  userId: Scalars['ID']['input'];
 };
 
 export type CreateMenuInput = {
@@ -121,6 +135,14 @@ export type CreateUserInput = {
   password: Scalars['String']['input'];
   roleIds?: Array<Scalars['String']['input']>;
   username: Scalars['String']['input'];
+};
+
+export type DashboardCreateProjectInput = {
+  isPublic?: InputMaybe<Scalars['Boolean']['input']>;
+  packageIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+  projectName: Scalars['String']['input'];
+  projectPath: Scalars['String']['input'];
+  userId: Scalars['ID']['input'];
 };
 
 export type EmailConfirmationResponse = {
@@ -178,15 +200,18 @@ export type Message = {
 
 export type Mutation = {
   __typename: 'Mutation';
-  adminLogin: RefreshTokenResponse;
   clearChatHistory: Scalars['Boolean']['output'];
   confirmEmail: EmailConfirmationResponse;
   createChat: Chat;
+  createDashboardChat: Chat;
+  createDashboardProject: Project;
   createDashboardUser: User;
   createMenu: Menu;
   createProject: Chat;
   createRole: SystemRole;
   deleteChat: Scalars['Boolean']['output'];
+  deleteDashboardChat: Scalars['Boolean']['output'];
+  deleteDashboardProject: Scalars['Boolean']['output'];
   deleteDashboardUser: Scalars['Boolean']['output'];
   deleteProject: Scalars['Boolean']['output'];
   forkProject: Chat;
@@ -202,16 +227,14 @@ export type Mutation = {
   syncProjectToGitHub: Project;
   triggerChatStream: Scalars['Boolean']['output'];
   updateChatTitle?: Maybe<Chat>;
+  updateDashboardChat: Chat;
+  updateDashboardProject: Project;
   updateDashboardUser: User;
   updateMenu: Menu;
   updateProjectPhoto: Project;
   updateProjectPublicStatus: Project;
   updateRole: SystemRole;
   uploadAvatar: AvatarUploadResponse;
-};
-
-export type MutationAdminLoginArgs = {
-  input: LoginUserInput;
 };
 
 export type MutationClearChatHistoryArgs = {
@@ -224,6 +247,14 @@ export type MutationConfirmEmailArgs = {
 
 export type MutationCreateChatArgs = {
   newChatInput: NewChatInput;
+};
+
+export type MutationCreateDashboardChatArgs = {
+  input: CreateChatInput;
+};
+
+export type MutationCreateDashboardProjectArgs = {
+  input: DashboardCreateProjectInput;
 };
 
 export type MutationCreateDashboardUserArgs = {
@@ -246,8 +277,16 @@ export type MutationDeleteChatArgs = {
   chatId: Scalars['String']['input'];
 };
 
+export type MutationDeleteDashboardChatArgs = {
+  id: Scalars['ID']['input'];
+};
+
+export type MutationDeleteDashboardProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
 export type MutationDeleteDashboardUserArgs = {
-  id: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
 };
 
 export type MutationDeleteProjectArgs = {
@@ -306,8 +345,18 @@ export type MutationUpdateChatTitleArgs = {
   updateChatTitleInput: UpdateChatTitleInput;
 };
 
+export type MutationUpdateDashboardChatArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateChatInput;
+};
+
+export type MutationUpdateDashboardProjectArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateProjectInput;
+};
+
 export type MutationUpdateDashboardUserArgs = {
-  id: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
   input: UpdateUserInput;
 };
 
@@ -364,6 +413,16 @@ export type Project = {
   userId: Scalars['ID']['output'];
 };
 
+export type ProjectFilterInput = {
+  createdAfter?: InputMaybe<Scalars['Date']['input']>;
+  createdBefore?: InputMaybe<Scalars['Date']['input']>;
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  isDeleted?: InputMaybe<Scalars['Boolean']['input']>;
+  isPublic?: InputMaybe<Scalars['Boolean']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+  userId?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type ProjectPackage = {
   name: Scalars['String']['input'];
   version: Scalars['String']['input'];
@@ -384,6 +443,10 @@ export type ProjectPackages = {
 export type Query = {
   __typename: 'Query';
   checkToken: Scalars['Boolean']['output'];
+  dashboardChat: Chat;
+  dashboardChats: Array<Chat>;
+  dashboardProject: Project;
+  dashboardProjects: Array<Project>;
   dashboardUser: User;
   dashboardUsers: Array<User>;
   fetchPublicProjects: Array<Project>;
@@ -411,8 +474,24 @@ export type QueryCheckTokenArgs = {
   input: CheckTokenInput;
 };
 
+export type QueryDashboardChatArgs = {
+  id: Scalars['ID']['input'];
+};
+
+export type QueryDashboardChatsArgs = {
+  filter?: InputMaybe<ChatFilterInput>;
+};
+
+export type QueryDashboardProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+export type QueryDashboardProjectsArgs = {
+  filter?: InputMaybe<ProjectFilterInput>;
+};
+
 export type QueryDashboardUserArgs = {
-  id: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
 };
 
 export type QueryDashboardUsersArgs = {
@@ -498,6 +577,11 @@ export type SystemRole = {
   users?: Maybe<Array<User>>;
 };
 
+export type UpdateChatInput = {
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type UpdateChatTitleInput = {
   chatId: Scalars['String']['input'];
   title?: InputMaybe<Scalars['String']['input']>;
@@ -509,6 +593,14 @@ export type UpdateMenuInput = {
   path?: InputMaybe<Scalars['String']['input']>;
   permission?: InputMaybe<Scalars['String']['input']>;
   roleIds?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+export type UpdateProjectInput = {
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  isPublic?: InputMaybe<Scalars['Boolean']['input']>;
+  packageIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+  projectName?: InputMaybe<Scalars['String']['input']>;
+  projectPath?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateProjectPhotoInput = {
@@ -670,12 +762,15 @@ export type ResolversTypes = ResolversObject<{
   ChatCompletionChoiceType: ResolverTypeWrapper<ChatCompletionChoiceType>;
   ChatCompletionChunkType: ResolverTypeWrapper<ChatCompletionChunkType>;
   ChatCompletionDeltaType: ResolverTypeWrapper<ChatCompletionDeltaType>;
+  ChatFilterInput: ChatFilterInput;
   ChatInputType: ChatInputType;
   CheckTokenInput: CheckTokenInput;
+  CreateChatInput: CreateChatInput;
   CreateMenuInput: CreateMenuInput;
   CreateProjectInput: CreateProjectInput;
   CreateRoleInput: CreateRoleInput;
   CreateUserInput: CreateUserInput;
+  DashboardCreateProjectInput: DashboardCreateProjectInput;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
   EmailConfirmationResponse: ResolverTypeWrapper<EmailConfirmationResponse>;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -690,6 +785,7 @@ export type ResolversTypes = ResolversObject<{
   Mutation: ResolverTypeWrapper<{}>;
   NewChatInput: NewChatInput;
   Project: ResolverTypeWrapper<Project>;
+  ProjectFilterInput: ProjectFilterInput;
   ProjectPackage: ProjectPackage;
   ProjectPackages: ResolverTypeWrapper<ProjectPackages>;
   Query: ResolverTypeWrapper<{}>;
@@ -701,8 +797,10 @@ export type ResolversTypes = ResolversObject<{
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Subscription: ResolverTypeWrapper<{}>;
   SystemRole: ResolverTypeWrapper<SystemRole>;
+  UpdateChatInput: UpdateChatInput;
   UpdateChatTitleInput: UpdateChatTitleInput;
   UpdateMenuInput: UpdateMenuInput;
+  UpdateProjectInput: UpdateProjectInput;
   UpdateProjectPhotoInput: UpdateProjectPhotoInput;
   UpdateRoleInput: UpdateRoleInput;
   UpdateUserInput: UpdateUserInput;
@@ -719,12 +817,15 @@ export type ResolversParentTypes = ResolversObject<{
   ChatCompletionChoiceType: ChatCompletionChoiceType;
   ChatCompletionChunkType: ChatCompletionChunkType;
   ChatCompletionDeltaType: ChatCompletionDeltaType;
+  ChatFilterInput: ChatFilterInput;
   ChatInputType: ChatInputType;
   CheckTokenInput: CheckTokenInput;
+  CreateChatInput: CreateChatInput;
   CreateMenuInput: CreateMenuInput;
   CreateProjectInput: CreateProjectInput;
   CreateRoleInput: CreateRoleInput;
   CreateUserInput: CreateUserInput;
+  DashboardCreateProjectInput: DashboardCreateProjectInput;
   Date: Scalars['Date']['output'];
   EmailConfirmationResponse: EmailConfirmationResponse;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -739,6 +840,7 @@ export type ResolversParentTypes = ResolversObject<{
   Mutation: {};
   NewChatInput: NewChatInput;
   Project: Project;
+  ProjectFilterInput: ProjectFilterInput;
   ProjectPackage: ProjectPackage;
   ProjectPackages: ProjectPackages;
   Query: {};
@@ -748,8 +850,10 @@ export type ResolversParentTypes = ResolversObject<{
   String: Scalars['String']['output'];
   Subscription: {};
   SystemRole: SystemRole;
+  UpdateChatInput: UpdateChatInput;
   UpdateChatTitleInput: UpdateChatTitleInput;
   UpdateMenuInput: UpdateMenuInput;
+  UpdateProjectInput: UpdateProjectInput;
   UpdateProjectPhotoInput: UpdateProjectPhotoInput;
   UpdateRoleInput: UpdateRoleInput;
   UpdateUserInput: UpdateUserInput;
@@ -913,12 +1017,6 @@ export type MutationResolvers<
   ParentType extends
     ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
-  adminLogin?: Resolver<
-    ResolversTypes['RefreshTokenResponse'],
-    ParentType,
-    ContextType,
-    RequireFields<MutationAdminLoginArgs, 'input'>
-  >;
   clearChatHistory?: Resolver<
     ResolversTypes['Boolean'],
     ParentType,
@@ -936,6 +1034,18 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationCreateChatArgs, 'newChatInput'>
+  >;
+  createDashboardChat?: Resolver<
+    ResolversTypes['Chat'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateDashboardChatArgs, 'input'>
+  >;
+  createDashboardProject?: Resolver<
+    ResolversTypes['Project'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateDashboardProjectArgs, 'input'>
   >;
   createDashboardUser?: Resolver<
     ResolversTypes['User'],
@@ -966,6 +1076,18 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationDeleteChatArgs, 'chatId'>
+  >;
+  deleteDashboardChat?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeleteDashboardChatArgs, 'id'>
+  >;
+  deleteDashboardProject?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeleteDashboardProjectArgs, 'id'>
   >;
   deleteDashboardUser?: Resolver<
     ResolversTypes['Boolean'],
@@ -1056,6 +1178,18 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationUpdateChatTitleArgs, 'updateChatTitleInput'>
+  >;
+  updateDashboardChat?: Resolver<
+    ResolversTypes['Chat'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationUpdateDashboardChatArgs, 'id' | 'input'>
+  >;
+  updateDashboardProject?: Resolver<
+    ResolversTypes['Project'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationUpdateDashboardProjectArgs, 'id' | 'input'>
   >;
   updateDashboardUser?: Resolver<
     ResolversTypes['User'],
@@ -1191,6 +1325,30 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryCheckTokenArgs, 'input'>
+  >;
+  dashboardChat?: Resolver<
+    ResolversTypes['Chat'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDashboardChatArgs, 'id'>
+  >;
+  dashboardChats?: Resolver<
+    Array<ResolversTypes['Chat']>,
+    ParentType,
+    ContextType,
+    Partial<QueryDashboardChatsArgs>
+  >;
+  dashboardProject?: Resolver<
+    ResolversTypes['Project'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDashboardProjectArgs, 'id'>
+  >;
+  dashboardProjects?: Resolver<
+    Array<ResolversTypes['Project']>,
+    ParentType,
+    ContextType,
+    Partial<QueryDashboardProjectsArgs>
   >;
   dashboardUser?: Resolver<
     ResolversTypes['User'],

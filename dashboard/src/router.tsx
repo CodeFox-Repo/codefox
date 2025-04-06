@@ -14,75 +14,59 @@ const Loader = (Component) => (props) =>
     </Suspense>
   );
 
-// Pages
-const Overview = Loader(lazy(() => import('src/content/overview')));
-
-// Dashboards
-const Crypto = Loader(lazy(() => import('src/content/dashboards/Crypto')));
-
-// Applications
-const Messenger = Loader(
-  lazy(() => import('src/content/applications/Messenger'))
-);
-const Transactions = Loader(
-  lazy(() => import('src/content/applications/Transactions'))
-);
-const UserProfile = Loader(
-  lazy(() => import('src/content/applications/Users/profile'))
-);
-const UserSettings = Loader(
-  lazy(() => import('src/content/applications/Users/settings'))
+// Dashboard
+const DashboardOverview = Loader(
+  lazy(() => import('src/content/dashboard/Overview/DashboardOverview'))
 );
 
 // Management
+const UsersList = Loader(
+  lazy(() => import('src/content/management/Users/UsersList'))
+);
+const UserCreate = Loader(
+  lazy(() => import('src/content/management/Users/UserCreate'))
+);
+const UserEdit = Loader(
+  lazy(() => import('src/content/management/Users/UserEdit'))
+);
+
 const RolesList = Loader(
   lazy(() => import('src/content/management/Roles/RolesList'))
 );
-const RoleForm = Loader(
-  lazy(() => import('src/content/management/Roles/RoleForm'))
+const RoleCreate = Loader(
+  lazy(() => import('src/content/management/Roles/RoleCreate'))
 );
+const RoleEdit = Loader(
+  lazy(() => import('src/content/management/Roles/RoleEdit'))
+);
+
 const MenusList = Loader(
   lazy(() => import('src/content/management/Menus/MenusList'))
 );
-const MenuForm = Loader(
-  lazy(() => import('src/content/management/Menus/MenuForm'))
+const MenuCreate = Loader(
+  lazy(() => import('src/content/management/Menus/MenuCreate'))
+);
+const MenuEdit = Loader(
+  lazy(() => import('src/content/management/Menus/MenuEdit'))
 );
 
-// Components
-const Buttons = Loader(
-  lazy(() => import('src/content/pages/Components/Buttons'))
+const ChatsList = Loader(
+  lazy(() => import('src/content/management/Chats/ChatsList'))
 );
-const Modals = Loader(
-  lazy(() => import('src/content/pages/Components/Modals'))
+const ChatView = Loader(
+  lazy(() => import('src/content/management/Chats/ChatView'))
 );
-const Accordions = Loader(
-  lazy(() => import('src/content/pages/Components/Accordions'))
+
+const ProjectsList = Loader(
+  lazy(() => import('src/content/management/Projects/ProjectsList'))
 );
-const Tabs = Loader(lazy(() => import('src/content/pages/Components/Tabs')));
-const Badges = Loader(
-  lazy(() => import('src/content/pages/Components/Badges'))
+const ProjectView = Loader(
+  lazy(() => import('src/content/management/Projects/ProjectView'))
 );
-const Tooltips = Loader(
-  lazy(() => import('src/content/pages/Components/Tooltips'))
-);
-const Avatars = Loader(
-  lazy(() => import('src/content/pages/Components/Avatars'))
-);
-const Cards = Loader(lazy(() => import('src/content/pages/Components/Cards')));
-const Forms = Loader(lazy(() => import('src/content/pages/Components/Forms')));
 
 // Status
 const Status404 = Loader(
   lazy(() => import('src/content/pages/Status/Status404'))
-);
-const Status500 = Loader(
-  lazy(() => import('src/content/pages/Status/Status500'))
-);
-const StatusComingSoon = Loader(
-  lazy(() => import('src/content/pages/Status/ComingSoon'))
-);
-const StatusMaintenance = Loader(
-  lazy(() => import('src/content/pages/Status/Maintenance'))
 );
 
 const routes: RouteObject[] = [
@@ -92,32 +76,7 @@ const routes: RouteObject[] = [
     children: [
       {
         path: '/',
-        element: <Overview />
-      },
-      {
-        path: 'status',
-        children: [
-          {
-            path: '',
-            element: <Navigate to="404" replace />
-          },
-          {
-            path: '404',
-            element: <Status404 />
-          },
-          {
-            path: '500',
-            element: <Status500 />
-          },
-          {
-            path: 'maintenance',
-            element: <StatusMaintenance />
-          },
-          {
-            path: 'coming-soon',
-            element: <StatusComingSoon />
-          }
-        ]
+        element: <Navigate to="/dashboard/overview" replace />
       },
       {
         path: '*',
@@ -126,20 +85,16 @@ const routes: RouteObject[] = [
     ]
   },
   {
-    path: 'dashboards',
+    path: 'dashboard',
     element: <SidebarLayout />,
     children: [
       {
         path: '',
-        element: <Navigate to="crypto" replace />
+        element: <Navigate to="overview" replace />
       },
       {
-        path: 'crypto',
-        element: <Crypto />
-      },
-      {
-        path: 'messenger',
-        element: <Messenger />
+        path: 'overview',
+        element: <DashboardOverview />
       }
     ]
   },
@@ -149,7 +104,24 @@ const routes: RouteObject[] = [
     children: [
       {
         path: '',
-        element: <Navigate to="roles" replace />
+        element: <Navigate to="users" replace />
+      },
+      {
+        path: 'users',
+        children: [
+          {
+            path: '',
+            element: <UsersList />
+          },
+          {
+            path: 'create',
+            element: <UserCreate />
+          },
+          {
+            path: 'edit/:id',
+            element: <UserEdit />
+          }
+        ]
       },
       {
         path: 'roles',
@@ -160,11 +132,11 @@ const routes: RouteObject[] = [
           },
           {
             path: 'create',
-            element: <RoleForm />
+            element: <RoleCreate />
           },
           {
             path: 'edit/:id',
-            element: <RoleForm />
+            element: <RoleEdit />
           }
         ]
       },
@@ -177,80 +149,39 @@ const routes: RouteObject[] = [
           },
           {
             path: 'create',
-            element: <MenuForm />
+            element: <MenuCreate />
           },
           {
             path: 'edit/:id',
-            element: <MenuForm />
+            element: <MenuEdit />
           }
         ]
       },
       {
-        path: 'transactions',
-        element: <Transactions />
-      },
-      {
-        path: 'profile',
+        path: 'chats',
         children: [
           {
             path: '',
-            element: <Navigate to="details" replace />
+            element: <ChatsList />
           },
           {
-            path: 'details',
-            element: <UserProfile />
-          },
-          {
-            path: 'settings',
-            element: <UserSettings />
+            path: 'view/:id',
+            element: <ChatView />
           }
         ]
-      }
-    ]
-  },
-  {
-    path: '/components',
-    element: <SidebarLayout />,
-    children: [
-      {
-        path: '',
-        element: <Navigate to="buttons" replace />
       },
       {
-        path: 'buttons',
-        element: <Buttons />
-      },
-      {
-        path: 'modals',
-        element: <Modals />
-      },
-      {
-        path: 'accordions',
-        element: <Accordions />
-      },
-      {
-        path: 'tabs',
-        element: <Tabs />
-      },
-      {
-        path: 'badges',
-        element: <Badges />
-      },
-      {
-        path: 'tooltips',
-        element: <Tooltips />
-      },
-      {
-        path: 'avatars',
-        element: <Avatars />
-      },
-      {
-        path: 'cards',
-        element: <Cards />
-      },
-      {
-        path: 'forms',
-        element: <Forms />
+        path: 'projects',
+        children: [
+          {
+            path: '',
+            element: <ProjectsList />
+          },
+          {
+            path: 'view/:id',
+            element: <ProjectView />
+          }
+        ]
       }
     ]
   }

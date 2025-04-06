@@ -40,6 +40,14 @@ type ChatCompletionDeltaType {
   content: String
 }
 
+input ChatFilterInput {
+  isActive: Boolean
+  isDeleted: Boolean
+  projectId: String
+  search: String
+  userId: String
+}
+
 input ChatInputType {
   chatId: String!
   message: String!
@@ -49,6 +57,12 @@ input ChatInputType {
 
 input CheckTokenInput {
   token: String!
+}
+
+input CreateChatInput {
+  projectId: ID
+  title: String!
+  userId: ID!
 }
 
 input CreateMenuInput {
@@ -78,6 +92,14 @@ input CreateUserInput {
   password: String!
   roleIds: [String!]! = []
   username: String!
+}
+
+input DashboardCreateProjectInput {
+  isPublic: Boolean
+  packageIds: [ID!]
+  projectName: String!
+  projectPath: String!
+  userId: ID!
 }
 
 """Date custom scalar type"""
@@ -133,16 +155,19 @@ type Message {
 }
 
 type Mutation {
-  adminLogin(input: LoginUserInput!): RefreshTokenResponse!
   clearChatHistory(chatId: String!): Boolean!
   confirmEmail(token: String!): EmailConfirmationResponse!
   createChat(newChatInput: NewChatInput!): Chat!
+  createDashboardChat(input: CreateChatInput!): Chat!
+  createDashboardProject(input: DashboardCreateProjectInput!): Project!
   createDashboardUser(input: CreateUserInput!): User!
   createMenu(createMenuInput: CreateMenuInput!): Menu!
   createProject(createProjectInput: CreateProjectInput!): Chat!
   createRole(createRoleInput: CreateRoleInput!): SystemRole!
   deleteChat(chatId: String!): Boolean!
-  deleteDashboardUser(id: String!): Boolean!
+  deleteDashboardChat(id: ID!): Boolean!
+  deleteDashboardProject(id: ID!): Boolean!
+  deleteDashboardUser(id: ID!): Boolean!
   deleteProject(projectId: String!): Boolean!
   forkProject(projectId: ID!): Chat!
   login(input: LoginUserInput!): LoginResponse!
@@ -157,7 +182,9 @@ type Mutation {
   syncProjectToGitHub(projectId: String!): Project!
   triggerChatStream(input: ChatInputType!): Boolean!
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
-  updateDashboardUser(id: String!, input: UpdateUserInput!): User!
+  updateDashboardChat(id: ID!, input: UpdateChatInput!): Chat!
+  updateDashboardProject(id: ID!, input: UpdateProjectInput!): Project!
+  updateDashboardUser(id: ID!, input: UpdateUserInput!): User!
   updateMenu(updateMenuInput: UpdateMenuInput!): Menu!
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
   updateProjectPublicStatus(isPublic: Boolean!, projectId: ID!): Project!
@@ -197,6 +224,16 @@ type Project {
   userId: ID!
 }
 
+input ProjectFilterInput {
+  createdAfter: Date
+  createdBefore: Date
+  isActive: Boolean
+  isDeleted: Boolean
+  isPublic: Boolean
+  search: String
+  userId: String
+}
+
 input ProjectPackage {
   name: String!
   version: String!
@@ -215,7 +252,11 @@ type ProjectPackages {
 
 type Query {
   checkToken(input: CheckTokenInput!): Boolean!
-  dashboardUser(id: String!): User!
+  dashboardChat(id: ID!): Chat!
+  dashboardChats(filter: ChatFilterInput): [Chat!]!
+  dashboardProject(id: ID!): Project!
+  dashboardProjects(filter: ProjectFilterInput): [Project!]!
+  dashboardUser(id: ID!): User!
   dashboardUsers(filter: UserFilterInput): [User!]!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
   getAvailableModelTags: [String!]
@@ -281,6 +322,11 @@ type SystemRole {
   users: [User!]
 }
 
+input UpdateChatInput {
+  isActive: Boolean
+  title: String
+}
+
 input UpdateChatTitleInput {
   chatId: String!
   title: String
@@ -292,6 +338,14 @@ input UpdateMenuInput {
   path: String
   permission: String
   roleIds: [String!]
+}
+
+input UpdateProjectInput {
+  isActive: Boolean
+  isPublic: Boolean
+  packageIds: [ID!]
+  projectName: String
+  projectPath: String
 }
 
 input UpdateProjectPhotoInput {

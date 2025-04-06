@@ -18,11 +18,10 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
-const RolesList: FC = () => {
+const UsersList: FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -43,13 +42,13 @@ const RolesList: FC = () => {
         alignItems="center"
         p={2}
       >
-        <Typography variant="h3">Roles Management</Typography>
+        <Typography variant="h3">Users Management</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => navigate('/management/roles/create')}
+          onClick={() => navigate('/management/users/create')}
         >
-          Create Role
+          Create User
         </Button>
       </Box>
       <Card>
@@ -57,10 +56,9 @@ const RolesList: FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Role Name</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Menus Count</TableCell>
-                <TableCell>Users Count</TableCell>
+                <TableCell>Username</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Roles</TableCell>
                 <TableCell>Created Date</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -85,4 +83,4 @@ const RolesList: FC = () => {
   );
 };
 
-export default RolesList;
+export default UsersList;
