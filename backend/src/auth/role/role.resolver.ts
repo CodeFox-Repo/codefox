@@ -32,7 +32,7 @@ export class RoleResolver {
 
   @Mutation(() => Role)
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/role/create',
   })
   async createRole(
@@ -43,7 +43,7 @@ export class RoleResolver {
 
   @Mutation(() => Role)
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/role/update',
   })
   async updateRole(
@@ -54,7 +54,7 @@ export class RoleResolver {
 
   @Mutation(() => Boolean)
   @RequireAuth({
-    roles: ['admin'],
+    roles: ['Admin'],
     menuPath: '/role/delete',
   })
   async removeRole(
