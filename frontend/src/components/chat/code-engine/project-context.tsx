@@ -117,29 +117,66 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const editorRef = useRef<any>(null);
-  const [pendingProjects, setPendingProjects] = useState<Project[]>([]);
+  const [pendingProjects, setPendingProjects] = useState<Project[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('pendingProjects');
+        if (raw) {
+          return JSON.parse(raw) as Project[];
+        }
+      } catch (e) {
+        logger.warn('Failed to parse pendingProjects from localStorage');
+      }
+    }
+    return [];
+  });
+  const setRecentlyCompletedProjectId = (id: string | null) => {
+    if (typeof window !== 'undefined') {
+      if (id) {
+        localStorage.setItem('pendingChatId', id);
+      } else {
+        localStorage.removeItem('pendingChatId');
+      }
+    }
+    setRecentlyCompletedProjectIdRaw(id);
+  };
+
   const [recentlyCompletedProjectIdRaw, setRecentlyCompletedProjectIdRaw] =
     useState<string | null>(() =>
       typeof window !== 'undefined'
         ? localStorage.getItem('pendingChatId')
         : null
     );
-
-  // setter：更新 state + localStorage
-  const setRecentlyCompletedProjectId = (id: string | null) => {
-    if (id) {
-      localStorage.setItem('pendingChatId', id);
-    } else {
-      localStorage.removeItem('pendingChatId');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('pendingProjects', JSON.stringify(pendingProjects));
+    } catch (e) {
+      logger.warn('Failed to store pendingProjects in localStorage');
     }
-    setRecentlyCompletedProjectIdRaw(id);
+  }, [pendingProjects]);
+  // setter：更新 state + localStorage
+  const setTempLoadingProjectId = (id: string | null) => {
+    if (typeof window !== 'undefined') {
+      if (id) {
+        localStorage.setItem('tempLoadingProjectId', id);
+      } else {
+        localStorage.removeItem('tempLoadingProjectId');
+      }
+    }
+    setTempLoadingProjectIdRaw(id);
   };
   const [chatId, setChatId] = useState<string | null>(null);
   const [pollTime, setPollTime] = useState(Date.now());
   const [isCreateButtonClicked, setIsCreateButtonClicked] = useState(false);
-  const [tempLoadingProjectId, setTempLoadingProjectId] = useState<
+  const [tempLoadingProjectIdRaw, setTempLoadingProjectIdRaw] = useState<
     string | null
-  >(null);
+  >(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tempLoadingProjectId');
+    }
+    return null;
+  });
   interface ChatProjectCacheEntry {
     project: Project | null;
     timestamp: number;
@@ -306,6 +343,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
     loadInitialData();
   }, [isAuthorized]);
+  useEffect(() => {
+    const valid = pendingProjects.filter((p) => !p.projectPath);
+    if (valid.length !== pendingProjects.length) {
+      setPendingProjects(valid);
+    }
+  }, [pendingProjects]);
 
   // Initialization and update effects
   useEffect(() => {
@@ -910,13 +953,20 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
               // Try to get web URL in background
               if (isMounted.current && project.projectPath) {
-                getWebUrl(project.projectPath).catch((error) => {
-                  logger.warn('Background web URL fetch failed:', error);
-                });
+                setCurProject(project);
+                localStorage.setItem('lastProjectId', project.id);
+                getWebUrl(project.projectPath)
+                  .then(({ domain }) => {
+                    const baseUrl = `${URL_PROTOCOL_PREFIX}://${domain}`;
+                    takeProjectScreenshot(project.id, baseUrl);
+                  })
+                  .catch((error) => {
+                    logger.warn('Background web URL fetch failed:', error);
+                  });
               }
 
               if (isMounted.current) {
-                setTempLoadingProjectId(null); 
+                setTempLoadingProjectId(null);
               }
               return project;
             }
@@ -1005,7 +1055,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setPendingProjects,
       refetchPublicProjects,
       setRefetchPublicProjects,
-      tempLoadingProjectId,
+      tempLoadingProjectId: tempLoadingProjectIdRaw,
       setTempLoadingProjectId,
     }),
     [
@@ -1030,8 +1080,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setPendingProjects,
       refetchPublicProjects,
       setRefetchPublicProjects,
-      tempLoadingProjectId,
-    setTempLoadingProjectId,
+      tempLoadingProjectIdRaw,
+      setTempLoadingProjectId,
     ]
   );
 

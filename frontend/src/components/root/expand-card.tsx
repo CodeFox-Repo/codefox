@@ -148,7 +148,7 @@ export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
                 className="absolute inset-0 bg-black/40 flex items-center justify-center"
               >
                 <span className="text-white font-medium px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                  {isGenerating ? 'Generating...' : 'View Project'}
+                  {isGenerating ? 'Open Chat' : 'View Project'}
                 </span>
               </motion.div>
             </motion.div>

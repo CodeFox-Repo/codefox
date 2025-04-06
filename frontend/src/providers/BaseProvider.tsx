@@ -5,7 +5,7 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './AuthProvider';
 import { ProjectProvider } from '@/components/chat/code-engine/project-context';
-import GlobalToastListener from '@/components/global-toast-listener';
+import GlobalToastListener from '@/components/global-project-poller';
 const DynamicApolloProvider = dynamic(() => import('./DynamicApolloProvider'), {
   ssr: false, // disables SSR for the ApolloProvider
 });

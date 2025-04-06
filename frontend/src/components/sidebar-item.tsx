@@ -90,11 +90,11 @@ function SideBarItemComponent({
       initial={false}
       animate={{
         backgroundColor: isGenerating
-          ? 'rgba(237, 233, 254, 0.5)' // violet-100 with transparency
+          ? 'rgba(209, 213, 219, 0.5)' // gray-300 with transparency
           : 'transparent',
       }}
       transition={{ duration: 0.3 }}
-      className="relative"
+      className="relative rounded-lg"
     >
       <button
         className={cn(
@@ -103,14 +103,6 @@ function SideBarItemComponent({
         )}
         onClick={handleChatClick}
       >
-        {/* 左侧高亮条 */}
-        {isGenerating && (
-          <motion.span
-            layoutId="highlight-bar"
-            className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-violet-500 rounded-r-md"
-          />
-        )}
-
         <div className="flex-1 flex items-center truncate ml-2 mr-12 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-xs font-normal truncate">

@@ -1,9 +1,9 @@
 'use client';
 
 import { useQuery } from '@apollo/client';
-import { FETCH_PUBLIC_PROJECTS } from '@/graphql/request';
+import { FETCH_PUBLIC_PROJECTS, GET_USER_PROJECTS } from '@/graphql/request';
 import { ExpandableCard } from './expand-card';
-import { useContext, useEffect, useState, useMemo } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { ProjectContext } from '../chat/code-engine/project-context';
 import { redirectChatPage } from '../chat-page-navigation';
 import { Button } from '@/components/ui/button';
@@ -14,115 +14,104 @@ import { Project } from '../chat/project-modal';
 export function ProjectsSection() {
   const [view, setView] = useState<'my' | 'community'>('my');
   const { user } = useAuthContext();
+  const router = useRouter();
+
   const {
     setChatId,
     pendingProjects,
     setPendingProjects,
     setRefetchPublicProjects,
+    tempLoadingProjectId,
   } = useContext(ProjectContext);
-  const [currentChatid, setCurrentChatid] = useState('');
-  const [publicRefreshCounter, setPublicRefreshCounter] = useState(0); // ✅ NEW
-  const router = useRouter();
 
-  const { data, loading, error, refetch } = useQuery(FETCH_PUBLIC_PROJECTS, {
+  const [currentChatid, setCurrentChatid] = useState('');
+  const [publicRefreshCounter, setPublicRefreshCounter] = useState(0);
+
+  // Fetch both public and user projects
+  const {
+    data: publicData,
+    loading: publicLoading,
+    error: publicError,
+    refetch: refetchPublic,
+  } = useQuery(FETCH_PUBLIC_PROJECTS, {
     variables: { input: { size: 100, strategy: 'latest' } },
     fetchPolicy: 'network-only',
   });
-  const { tempLoadingProjectId } = useContext(ProjectContext);
+
+  const {
+    data: userData,
+    loading: userLoading,
+    error: userError,
+    refetch: refetchUser,
+  } = useQuery(GET_USER_PROJECTS, {
+    fetchPolicy: 'network-only',
+  });
 
   useEffect(() => {
     setRefetchPublicProjects(() => async () => {
       setPublicRefreshCounter((prev) => prev + 1);
-      return await refetch();
+      await refetchPublic();
+      return await refetchUser();
     });
-  }, [refetch, setRefetchPublicProjects]);
+  }, [refetchPublic, refetchUser, setRefetchPublicProjects]);
 
   useEffect(() => {
-    refetch();
+    refetchPublic();
+    refetchUser();
   }, [publicRefreshCounter]);
 
-  const allProjects = data?.fetchPublicProjects || [];
+  const publicProjects = publicData?.fetchPublicProjects || [];
+  const userProjects = userData?.getUserProjects || [];
 
   useEffect(() => {
-    const realProjectMap = new Map<string, Project>(
-      allProjects.map((p) => [p.id, p])
-    );
+    const realMap = new Map(userProjects.map((p: Project) => [p.id, p]));
 
     setPendingProjects((prev) => {
-      const newPending = prev.filter((p) => {
-        const real = realProjectMap.get(p.id);
-        console.log('[Check Pending]', {
-          pendingId: p.id,
-          pendingName: p.projectName,
-          real: real ?? '❌ not found',
-          projectPath: real?.projectPath ?? 'N/A',
-        });
+      const next = prev.filter((p) => {
+        const real = realMap.get(p.id) as Project | undefined;
         return !real || !real.projectPath;
       });
-
-      return newPending.length === prev.length ? prev : newPending;
+      return next.length === prev.length ? prev : next;
     });
-  }, [allProjects, pendingProjects, setPendingProjects]);
+  }, [userProjects, setPendingProjects]);
 
-  useEffect(() => {
-    console.log(
-      '[Effect] All realProjects updated:',
-      allProjects.map((p) => ({ id: p.id, path: p.projectPath }))
+  const mergedMyProjects = useMemo(() => {
+    const map = new Map<string, Project>();
+
+    pendingProjects.forEach((p) =>
+      map.set(p.id, {
+        ...p,
+        userId: String(p.userId ?? user?.id),
+      })
     );
-  }, [allProjects]);
-
-  const mergedProjects = useMemo(() => {
-    const map = new Map<string, any>();
-
-    pendingProjects.forEach((p) => {
-      map.set(p.id, {
-        ...p,
-        isReady: Boolean(p.projectPath),
-        _source: 'pending',
-      });
-    });
-
-    allProjects.forEach((p) => {
-      map.set(p.id, {
-        ...p,
-        isReady: Boolean(p.projectPath),
-        _source: 'real',
-      });
-    });
+    userProjects.forEach((p) => map.set(p.id, p));
 
     return Array.from(map.values());
-  }, [pendingProjects, allProjects]);
+  }, [pendingProjects, userProjects, user?.id]);
 
-  const filteredProjects = useMemo(() => {
-    if (!user?.id) return view === 'my' ? [] : mergedProjects;
+  const displayProjects = view === 'my' ? mergedMyProjects : publicProjects;
 
-    return mergedProjects.filter(
-      (project) =>
-        view === 'my' ? project.userId === user.id : project.userId !== user.id // community 只要不是自己即可
-    );
-  }, [mergedProjects, user?.id, view]);
-
-  const transformedProjects = filteredProjects.map((project) => {
-    return {
-      id: project.id,
-      name: project.projectName,
-      path: project.projectPath,
-      isReady: project.isReady,
-      createDate: project.createdAt
-        ? new Date(project.createdAt).toISOString().split('T')[0]
-        : '2025-01-01',
-      author: project.user?.username || 'Unknown',
-      forkNum: project.subNumber || 0,
-      image: project.isReady
-        ? project.photoUrl ||
-          `https://picsum.photos/500/250?random=${project.id}`
-        : '/placeholder-black.png',
-    };
-  });
+  const transformedProjects = displayProjects.map((project) => ({
+    id: project.id,
+    name: project.projectName || project.title || 'Untitled Project',
+    path: project.projectPath ?? '',
+    isReady: !!project.projectPath,
+    createDate: project.createdAt
+      ? new Date(project.createdAt).toISOString().split('T')[0]
+      : 'N/A',
+    author: project.user?.username || user?.username || 'Unknown',
+    forkNum: project.subNumber || 0,
+    image: project.projectPath
+      ? project.photoUrl || `https://picsum.photos/500/250?random=${project.id}`
+      : null,
+  }));
 
   const handleOpenChat = (chatId: string) => {
     redirectChatPage(chatId, setCurrentChatid, setChatId, router);
   };
+
+  const loading = view === 'my' ? userLoading : publicLoading;
+  const error = view === 'my' ? userError : publicError;
 
   return (
     <section className="w-full max-w-7xl mx-auto px-4">
@@ -162,7 +151,7 @@ export function ProjectsSection() {
                   {
                     id: tempLoadingProjectId,
                     name: 'Generating Project...',
-                    image: '/placeholder-black.png', // 或者 '/loading.gif' 如果你有
+                    image: null,
                     isReady: false,
                     createDate: new Date().toISOString().split('T')[0],
                     author: user?.username || 'Unknown',
