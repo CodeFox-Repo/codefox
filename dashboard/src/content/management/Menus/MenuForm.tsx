@@ -16,8 +16,12 @@ import {
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@apollo/client';
-import { MENU_QUERY, CREATE_MENU, UPDATE_MENU } from 'src/graphql/menu';
-import { ROLES_QUERY } from 'src/graphql/role';
+import {
+  ROLES_QUERY,
+  MENU_QUERY,
+  CREATE_MENU,
+  UPDATE_MENU
+} from 'src/graphql/request';
 
 const MenuForm: FC = () => {
   const { id } = useParams();

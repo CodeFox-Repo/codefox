@@ -158,6 +158,7 @@ export const UPDATE_MENU = gql`
       name
       path
       permission
+      isActive
       roles {
         id
         name

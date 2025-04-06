@@ -339,6 +339,7 @@ input UpdateChatTitleInput {
 
 input UpdateMenuInput {
   id: ID!
+  isActive: Boolean
   name: String
   path: String
   permission: String
@@ -367,6 +368,7 @@ input UpdateRoleInput {
 
 input UpdateUserInput {
   email: String
+  isActive: Boolean
   password: String
   username: String
 }

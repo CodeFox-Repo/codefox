@@ -16,6 +16,10 @@ export class UpdateRoleInput {
   @IsOptional()
   description?: string;
 
+  @Field({ nullable: true })
+  @IsOptional()
+  isActive?: boolean;
+
   @Field(() => [String], { nullable: true })
   @IsArray()
   @IsOptional()

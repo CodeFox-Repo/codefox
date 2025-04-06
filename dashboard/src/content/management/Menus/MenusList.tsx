@@ -22,15 +22,36 @@ import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { useQuery } from '@apollo/client';
-import { MENUS_QUERY } from 'src/graphql/request';
+import { useQuery, useMutation } from '@apollo/client';
+import { MENUS_QUERY, DELETE_MENU, UPDATE_MENU } from 'src/graphql/request';
 
 const MenusList: FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
 
-  const { data, loading, error } = useQuery(MENUS_QUERY);
+  // 查询菜单列表
+  const { data, loading, error, refetch } = useQuery(MENUS_QUERY);
+
+  // 删除菜单 Mutation
+  const [deleteMenu] = useMutation(DELETE_MENU, {
+    onCompleted: () => {
+      refetch();
+    },
+    onError: (err) => {
+      console.error('Delete menu error:', err);
+    }
+  });
+
+  // 更新菜单状态 Mutation
+  const [updateMenu] = useMutation(UPDATE_MENU, {
+    onCompleted: () => {
+      refetch();
+    },
+    onError: (err) => {
+      console.error('Update menu error:', err);
+    }
+  });
 
   const handlePageChange = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -41,9 +62,22 @@ const MenusList: FC = () => {
     setPage(0);
   };
 
-  console.log('Data:', data);
+  // 删除操作
+  const handleDelete = async (menuId: string) => {
+    if (window.confirm('Are you sure you want to delete this menu?')) {
+      await deleteMenu({ variables: { id: menuId } });
+    }
+  };
+
+  // 锁定/解锁操作：调用 updateMenu 传入更新后的 isActive 值（取反当前状态）
+  const handleToggleStatus = async (menuId: string, currentStatus: boolean) => {
+    await updateMenu({
+      variables: { updateMenuInput: { id: menuId, isActive: !currentStatus } }
+    });
+  };
+
+  // 获取查询数据
   const menus = data?.menus || [];
-  console.log('Menus:', menus);
   const paginatedMenus = menus.slice(page * limit, page * limit + limit);
 
   return (
@@ -119,9 +153,9 @@ const MenusList: FC = () => {
                       <Tooltip title="Lock/Unlock">
                         <IconButton
                           size="small"
-                          onClick={() => {
-                            /* 锁定/解锁操作 */
-                          }}
+                          onClick={() =>
+                            handleToggleStatus(menu.id, menu.isActive)
+                          }
                         >
                           {menu.isActive ? (
                             <LockIcon fontSize="small" />
@@ -144,9 +178,7 @@ const MenusList: FC = () => {
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => {
-                            /* 删除操作 */
-                          }}
+                          onClick={() => handleDelete(menu.id)}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

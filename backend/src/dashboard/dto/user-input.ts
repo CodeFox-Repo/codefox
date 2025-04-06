@@ -43,6 +43,10 @@ export class UpdateUserInput {
   email?: string;
 
   @Field({ nullable: true })
+  @IsOptional()
+  isActive?: boolean;
+
+  @Field({ nullable: true })
   @IsString()
   @MinLength(6)
   @IsOptional()

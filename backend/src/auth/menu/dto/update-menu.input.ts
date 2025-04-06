@@ -21,6 +21,10 @@ export class UpdateMenuInput {
   @IsOptional()
   permission?: string;
 
+  @Field({ nullable: true })
+  @IsOptional()
+  isActive?: boolean;
+
   @Field(() => [String], { nullable: true })
   @IsArray()
   @IsOptional()

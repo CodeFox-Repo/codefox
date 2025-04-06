@@ -611,6 +611,7 @@ export type UpdateChatTitleInput = {
 
 export type UpdateMenuInput = {
   id: Scalars['ID']['input'];
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   path?: InputMaybe<Scalars['String']['input']>;
   permission?: InputMaybe<Scalars['String']['input']>;
@@ -639,6 +640,7 @@ export type UpdateRoleInput = {
 
 export type UpdateUserInput = {
   email?: InputMaybe<Scalars['String']['input']>;
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
   password?: InputMaybe<Scalars['String']['input']>;
   username?: InputMaybe<Scalars['String']['input']>;
 };

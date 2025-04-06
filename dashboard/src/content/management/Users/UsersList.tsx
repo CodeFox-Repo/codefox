@@ -18,17 +18,36 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { useQuery } from '@apollo/client';
-import { GET_DASHBOARD_USERS } from 'src/graphql/request';
+import { useQuery, useMutation } from '@apollo/client';
+import {
+  GET_DASHBOARD_USERS,
+  UPDATE_DASHBOARD_USER,
+  DELETE_DASHBOARD_USER
+} from 'src/graphql/request';
 
 const UsersList: FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
 
-  const { data, loading, error } = useQuery(GET_DASHBOARD_USERS);
+  // 查询用户列表
+  const { data, loading, error, refetch } = useQuery(GET_DASHBOARD_USERS);
+
+  // 更新用户状态（例如切换激活/停用）的 Mutation
+  const [updateUser] = useMutation(UPDATE_DASHBOARD_USER, {
+    onCompleted: () => refetch(),
+    onError: (err) => console.error('Update user error:', err)
+  });
+
+  // 删除用户 Mutation
+  const [deleteUser] = useMutation(DELETE_DASHBOARD_USER, {
+    onCompleted: () => refetch(),
+    onError: (err) => console.error('Delete user error:', err)
+  });
 
   const handlePageChange = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -37,6 +56,20 @@ const UsersList: FC = () => {
   const handleLimitChange = (event: any) => {
     setLimit(parseInt(event.target.value));
     setPage(0);
+  };
+
+  // 切换激活状态（锁定/解锁）的操作
+  const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
+    await updateUser({
+      variables: { id: userId, input: { isActive: !currentStatus } }
+    });
+  };
+
+  // 删除操作
+  const handleDelete = async (userId: string) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      await deleteUser({ variables: { id: userId } });
+    }
   };
 
   const users = data?.dashboardUsers || [];
@@ -108,6 +141,22 @@ const UsersList: FC = () => {
                       />
                     </TableCell>
                     <TableCell align="right">
+                      <Tooltip
+                        title={user.isActive ? 'Deactivate' : 'Activate'}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            handleToggleStatus(user.id, user.isActive)
+                          }
+                        >
+                          {user.isActive ? (
+                            <LockIcon fontSize="small" />
+                          ) : (
+                            <LockOpenIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Edit">
                         <IconButton
                           size="small"
@@ -119,7 +168,11 @@ const UsersList: FC = () => {
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">
-                        <IconButton size="small" color="error">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDelete(user.id)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -147,4 +200,3 @@ const UsersList: FC = () => {
 };
 
 export default UsersList;
-// This component is a part of the Users Management section of the dashboard.
