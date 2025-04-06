@@ -12,6 +12,22 @@ import { StyleUpdateService } from './style-update';
 import { toast } from 'sonner';
 import { Code } from 'lucide-react';
 
+// Add global styles for dragging
+const DragStyles = () => (
+  <style jsx global>{`
+    .dragging-spacing {
+      cursor: ew-resize !important;
+    }
+    .dragging-spacing * {
+      cursor: ew-resize !important;
+      user-select: none !important;
+    }
+    .cursor-ew-resize:hover {
+      cursor: ew-resize;
+    }
+  `}</style>
+);
+
 // Type for component data from custom inspector
 type ComponentData = {
   id: string;
@@ -39,7 +55,7 @@ type ComputedStyles = {
 
 export function ComponentInspector() {
   const [selectedComponent, setSelectedComponent] = useState<ComponentData | null>(null);
-  const [activeTab, setActiveTab] = useState('info');
+  const [activeTab, setActiveTab] = useState('content');
   const [computedStyles, setComputedStyles] = useState<ComputedStyles | null>(null);
   const [customStyles, setCustomStyles] = useState<ComputedStyles>({});
   const [editableContent, setEditableContent] = useState<string>('');
@@ -96,6 +112,9 @@ export function ComponentInspector() {
         setIsContentEdited(false);
         setIsStyleEdited(false);
         
+        // Reset spacing inputs
+        setSpacingInputs({});
+        
         // Get latest content and store it as the original content too
         if (event.data.componentData.content.text) {
           setEditableContent(event.data.componentData.content.text);
@@ -108,7 +127,26 @@ export function ComponentInspector() {
         console.log("Processing element styles response:", event.data.payload);
         if (event.data.payload && event.data.payload.success) {
           console.log("Received computed styles:", event.data.payload.styles);
-          setComputedStyles(event.data.payload.styles);
+          
+          // Process received styles
+          const styles = event.data.payload.styles;
+          
+          // Initialize spacing inputs from computed styles
+          const spacingProperties = [
+            'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+            'marginTop', 'marginRight', 'marginBottom', 'marginLeft'
+          ];
+          
+          const initialSpacingInputs: {[key: string]: string} = {};
+          
+          spacingProperties.forEach(prop => {
+            if (styles[prop]) {
+              initialSpacingInputs[prop] = styles[prop].replace('px', '');
+            }
+          });
+          
+          setSpacingInputs(initialSpacingInputs);
+          setComputedStyles(styles);
         } else {
           console.error("Error fetching styles:", event.data.payload?.error || "Unknown error");
         }
@@ -361,7 +399,64 @@ export function ComponentInspector() {
     }, 500);
   };
   
-  // Render spacing input with debounced update
+  // Convert RGB/RGBA to HEX for color inputs
+  const rgbToHex = (rgbStr: string): string => {
+    if (!rgbStr) return '';
+    if (rgbStr.startsWith('#')) return rgbStr;
+    
+    // Extract RGB/RGBA values
+    const rgbMatch = rgbStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/);
+    if (!rgbMatch) return rgbStr;
+    
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
+    
+    // Convert to hex
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  };
+
+  // Get color value for inputs, converting to hex when needed
+  const getColorValue = (style: string, fallback: string = '#000000'): string => {
+    const color = customStyles[style] || computedStyles?.[style] || fallback;
+    return rgbToHex(color);
+  };
+
+  // Function for drag-based value adjustment
+  const handleMouseDrag = (property: string, startValue: number, e: React.MouseEvent, pairedProperty?: string) => {
+    e.preventDefault();
+    
+    const startX = e.clientX;
+    let currentValue = startValue;
+    const sensitivity = 0.3; // How many pixels mouse movement = 1px change
+    
+    // Add a class to the body to change cursor during drag
+    document.body.classList.add('dragging-spacing');
+    
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault();
+      
+      // Calculate the drag distance and convert to value change
+      const deltaX = moveEvent.clientX - startX;
+      const newValue = Math.max(0, Math.round(currentValue + (deltaX * sensitivity)));
+      
+      // Update the spacing value
+      handleSpacingInputChange(property, newValue.toString(), !!pairedProperty, pairedProperty);
+    };
+    
+    const onMouseUp = () => {
+      // Remove the cursor style
+      document.body.classList.remove('dragging-spacing');
+      
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+  
+  // Render spacing input with debounced update and drag support
   const renderSpacingInput = (property: string, label: string, pairedProperty?: string) => {
     // Determine what value to show in the input field
     const displayValue = 
@@ -378,7 +473,7 @@ export function ComponentInspector() {
           <Label htmlFor={`${property}-input`} className="text-xs flex items-center gap-1">
             <span>{label}</span>
             {displayValue && (
-              <code className="text-[10px] bg-gray-100 dark:bg-zinc-800 px-1 rounded text-blue-500">
+              <code className="text-xs bg-gray-100 dark:bg-zinc-800 px-1 rounded text-blue-500">
                 {displayValue}px
               </code>
             )}
@@ -425,7 +520,13 @@ export function ComponentInspector() {
               onChange={(e) => {
                 handleSpacingInputChange(property, e.target.value, !!pairedProperty, pairedProperty);
               }}
-              className="h-7 text-xs flex-1"
+              className="h-7 text-xs flex-1 cursor-ew-resize"
+              onMouseDown={(e) => {
+                // Only use drag on the input (not on buttons or other elements)
+                if (e.currentTarget === e.target) {
+                  handleMouseDrag(property, parseInt(displayValue || "0"), e, pairedProperty);
+                }
+              }}
             />
             <div className="bg-gray-100 dark:bg-zinc-800 px-2 py-1 rounded text-xs text-muted-foreground flex-shrink-0">
               px
@@ -506,6 +607,7 @@ export function ComponentInspector() {
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-gray-50/50 dark:bg-zinc-900/20">
+      <DragStyles />
       <div className="py-1.5 px-3 bg-white dark:bg-zinc-900 border-b flex-shrink-0 min-h-[40px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 overflow-hidden">
@@ -526,8 +628,8 @@ export function ComponentInspector() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="px-2 sm:px-4 border-b bg-gray-50 dark:bg-zinc-900/50 flex-shrink-0">
           <TabsList className="mb-0 gap-1 bg-transparent h-8">   
-            <TabsTrigger value="styles" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Styles</TabsTrigger>
             <TabsTrigger value="content" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Content</TabsTrigger>
+            <TabsTrigger value="styles" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Layout & Colors</TabsTrigger>
             <TabsTrigger value="classes" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Classes</TabsTrigger>
             <TabsTrigger value="info" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Info</TabsTrigger>    
           </TabsList>
@@ -563,7 +665,7 @@ export function ComponentInspector() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b mb-4">
               <h3 className="text-sm font-medium flex items-center">
                 <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                Style Properties
+                Layout & Colors
               </h3>
               <Button 
                 size="sm" 
@@ -576,7 +678,7 @@ export function ComponentInspector() {
                     <div className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin mr-1"></div>
                     <span>Saving...</span>
                   </div> : 
-                  'Save to File'
+                  'Save Styles'
                 }
               </Button>
             </div>
@@ -593,7 +695,7 @@ export function ComponentInspector() {
                     <Label htmlFor="text-color" className="text-xs flex items-center justify-between">
                       <span>Text Color</span>
                       <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
-                        {customStyles.color || computedStyles?.color || '#000000'}
+                        {getColorValue('color')}
                       </code>
                     </Label>
                     <div className="flex gap-2 items-center">
@@ -601,13 +703,13 @@ export function ComponentInspector() {
                         id="text-color"
                         name="text-color"
                         type="color"
-                        value={customStyles.color || (computedStyles?.color || '#000000')}
+                        value={getColorValue('color')}
                         onChange={(e) => handleStyleChange('color', e.target.value)}
                         className="w-10 h-10 p-1 rounded-full overflow-hidden"
                       />
                       <Input
                         type="text"
-                        value={customStyles.color || (computedStyles?.color || '')}
+                        value={getColorValue('color')}
                         onChange={(e) => handleStyleChange('color', e.target.value)}
                         className="flex-1 h-8 text-xs"
                         placeholder="#000000"
@@ -618,7 +720,7 @@ export function ComponentInspector() {
                     <Label htmlFor="bg-color" className="text-xs flex items-center justify-between">
                       <span>Background</span>
                       <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
-                        {customStyles.backgroundColor || computedStyles?.backgroundColor || '#ffffff'}
+                        {getColorValue('backgroundColor')}
                       </code>
                     </Label>
                     <div className="flex gap-2 items-center">
@@ -626,13 +728,13 @@ export function ComponentInspector() {
                         id="bg-color"
                         name="bg-color"
                         type="color"
-                        value={customStyles.backgroundColor || (computedStyles?.backgroundColor || '#ffffff')}
+                        value={getColorValue('backgroundColor')}
                         onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
                         className="w-10 h-10 p-1 rounded-full overflow-hidden"
                       />
                       <Input
                         type="text"
-                        value={customStyles.backgroundColor || (computedStyles?.backgroundColor || '')}
+                        value={getColorValue('backgroundColor')}
                         onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
                         className="flex-1 h-8 text-xs"
                         placeholder="#ffffff"
@@ -642,79 +744,6 @@ export function ComponentInspector() {
                 </div>
               </div>
 
-              {/* Typography Section */}
-              <div className="bg-gray-50 dark:bg-zinc-800/50 rounded-md p-3 sm:p-4">
-                <h4 className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-3 flex items-center">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                  Typography
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <Label htmlFor="font-size" className="text-xs mb-1.5 flex items-center justify-between">
-                      <span>Font Size</span>
-                      <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
-                        {customStyles.fontSize || computedStyles?.fontSize || ''}
-                      </code>
-                    </Label>
-                    <Input
-                      id="font-size"
-                      name="font-size"
-                      value={customStyles.fontSize || computedStyles?.fontSize || ''}
-                      onChange={(e) => handleStyleChange('fontSize', e.target.value)}
-                      className="h-8 text-xs"
-                      placeholder={computedStyles?.fontSize || '16px'}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="font-weight" className="text-xs mb-1.5 flex items-center justify-between">
-                      <span>Font Weight</span>
-                      <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
-                        {customStyles.fontWeight || computedStyles?.fontWeight || ''}
-                      </code>
-                    </Label>
-                    <select
-                      id="font-weight"
-                      name="font-weight"
-                      value={customStyles.fontWeight || computedStyles?.fontWeight || ''}
-                      onChange={(e) => handleStyleChange('fontWeight', e.target.value)}
-                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-3"
-                    >
-                      <option value="">Default</option>
-                      <option value="normal">Normal</option>
-                      <option value="bold">Bold</option>
-                      <option value="100">100</option>
-                      <option value="200">200</option>
-                      <option value="300">300</option>
-                      <option value="400">400</option>
-                      <option value="500">500</option>
-                      <option value="600">600</option>
-                      <option value="700">700</option>
-                      <option value="800">800</option>
-                      <option value="900">900</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="text-align" className="text-xs mb-1.5 block">Text Align</Label>
-                  <div className="flex gap-1">
-                    {['left', 'center', 'right', 'justify'].map(align => (
-                      <Button
-                        key={align}
-                        size="sm"
-                        variant={(customStyles.textAlign || computedStyles?.textAlign) === align ? "default" : "outline"}
-                        className={`flex-1 h-7 text-xs ${(customStyles.textAlign || computedStyles?.textAlign) === align ? 'bg-blue-500 text-white hover:bg-blue-600' : ''}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleStyleChange('textAlign', align);
-                        }}
-                      >
-                        {align}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              
               {/* Spacing Section */}
               <div className="bg-gray-50 dark:bg-zinc-800/50 rounded-md p-3 sm:p-4">
                 <h4 className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-3 flex items-center">
@@ -848,12 +877,12 @@ export function ComponentInspector() {
                     <div className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin mr-1"></div>
                     <span>Saving...</span>
                   </div> : 
-                  'Save to File'
+                  'Save Content'
                 }
               </Button>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); saveContentToFile(); }}>
+            <form onSubmit={(e) => { e.preventDefault(); saveContentToFile(); }} className="space-y-4">
               <div className="space-y-2 mb-4">
                 <Label htmlFor="component-content" className="text-xs">Edit Text</Label>
                 <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-md p-1">
@@ -875,6 +904,179 @@ export function ComponentInspector() {
                     Content modified - click Save to apply changes to the source file
                   </p>
                 )}
+              </div>
+            
+              {/* Typography Section - Moved from Styles tab */}
+              <div className="bg-gray-50 dark:bg-zinc-800/50 rounded-md p-3 sm:p-4 mt-4">
+                <h4 className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-3 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    Typography
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <span>Saved with style changes</span>
+                  </div>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <Label htmlFor="font-size" className="text-xs mb-1.5 flex items-center justify-between">
+                      <span>Font Size</span>
+                      <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
+                        {customStyles.fontSize || computedStyles?.fontSize || ''}
+                      </code>
+                    </Label>
+                    <select
+                      id="font-size"
+                      name="font-size"
+                      value={customStyles.fontSize || computedStyles?.fontSize || ''}
+                      onChange={(e) => {
+                        if (e.target.value === '') {
+                          // Clear the style if "Default" is selected
+                          const newStyles = {...customStyles};
+                          delete newStyles.fontSize;
+                          setCustomStyles(newStyles);
+                        } else {
+                          handleStyleChange('fontSize', e.target.value);
+                        }
+                      }}
+                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-3"
+                    >
+                      <option value="">Default</option>
+                      <option value="0.75rem">text-xs (12px)</option>
+                      <option value="0.875rem">text-sm (14px)</option>
+                      <option value="1rem">text-base (16px)</option>
+                      <option value="1.125rem">text-lg (18px)</option>
+                      <option value="1.25rem">text-xl (20px)</option>
+                      <option value="1.5rem">text-2xl (24px)</option>
+                      <option value="1.875rem">text-3xl (30px)</option>
+                      <option value="2.25rem">text-4xl (36px)</option>
+                      <option value="3rem">text-5xl (48px)</option>
+                      <option value="3.75rem">text-6xl (60px)</option>
+                      <option value="4.5rem">text-7xl (72px)</option>
+                      <option value="6rem">text-8xl (96px)</option>
+                      <option value="8rem">text-9xl (128px)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="font-weight" className="text-xs mb-1.5 flex items-center justify-between">
+                      <span>Font Weight</span>
+                      <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
+                        {customStyles.fontWeight || computedStyles?.fontWeight || ''}
+                      </code>
+                    </Label>
+                    <select
+                      id="font-weight"
+                      name="font-weight"
+                      value={customStyles.fontWeight || computedStyles?.fontWeight || ''}
+                      onChange={(e) => handleStyleChange('fontWeight', e.target.value)}
+                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-3"
+                    >
+                      <option value="">Default</option>
+                      <option value="100">font-thin (100)</option>
+                      <option value="200">font-extralight (200)</option>
+                      <option value="300">font-light (300)</option>
+                      <option value="400">font-normal (400)</option>
+                      <option value="500">font-medium (500)</option>
+                      <option value="600">font-semibold (600)</option>
+                      <option value="700">font-bold (700)</option>
+                      <option value="800">font-extrabold (800)</option>
+                      <option value="900">font-black (900)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <Label htmlFor="letter-spacing" className="text-xs mb-1.5 flex items-center justify-between">
+                      <span>Letter Spacing</span>
+                      <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
+                        {customStyles.letterSpacing || computedStyles?.letterSpacing || ''}
+                      </code>
+                    </Label>
+                    <select
+                      id="letter-spacing"
+                      name="letter-spacing"
+                      value={customStyles.letterSpacing || computedStyles?.letterSpacing || ''}
+                      onChange={(e) => handleStyleChange('letterSpacing', e.target.value)}
+                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-3"
+                    >
+                      <option value="">Default</option>
+                      <option value="-0.05em">tracking-tighter</option>
+                      <option value="-0.025em">tracking-tight</option>
+                      <option value="0">tracking-normal</option>
+                      <option value="0.025em">tracking-wide</option>
+                      <option value="0.05em">tracking-wider</option>
+                      <option value="0.1em">tracking-widest</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="line-height" className="text-xs mb-1.5 flex items-center justify-between">
+                      <span>Line Height</span>
+                      <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
+                        {customStyles.lineHeight || computedStyles?.lineHeight || ''}
+                      </code>
+                    </Label>
+                    <select
+                      id="line-height"
+                      name="line-height"
+                      value={customStyles.lineHeight || computedStyles?.lineHeight || ''}
+                      onChange={(e) => handleStyleChange('lineHeight', e.target.value)}
+                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-3"
+                    >
+                      <option value="">Default</option>
+                      <option value="1">leading-none (1)</option>
+                      <option value="1.25">leading-tight (1.25)</option>
+                      <option value="1.375">leading-snug (1.375)</option>
+                      <option value="1.5">leading-normal (1.5)</option>
+                      <option value="1.625">leading-relaxed (1.625)</option>
+                      <option value="2">leading-loose (2)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <Label htmlFor="text-decoration" className="text-xs mb-1.5 flex items-center justify-between">
+                      <span>Text Decoration</span>
+                      <code className="text-xs bg-gray-100 dark:bg-zinc-900 px-1 rounded">
+                        {customStyles.textDecoration || computedStyles?.textDecoration || ''}
+                      </code>
+                    </Label>
+                    <select
+                      id="text-decoration"
+                      name="text-decoration"
+                      value={customStyles.textDecoration || computedStyles?.textDecoration || ''}
+                      onChange={(e) => handleStyleChange('textDecoration', e.target.value)}
+                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-3"
+                    >
+                      <option value="">Default</option>
+                      <option value="underline">underline</option>
+                      <option value="line-through">line-through</option>
+                      <option value="overline">overline</option>
+                      <option value="none">none</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="text-align" className="text-xs mb-1.5 block">Text Align</Label>
+                  <div className="flex gap-1">
+                    {['left', 'center', 'right', 'justify'].map(align => (
+                      <Button
+                        key={align}
+                        size="sm"
+                        variant={(customStyles.textAlign || computedStyles?.textAlign) === align ? "default" : "outline"}
+                        className={`flex-1 h-7 text-xs ${(customStyles.textAlign || computedStyles?.textAlign) === align ? 'bg-blue-500 text-white hover:bg-blue-600' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleStyleChange('textAlign', align);
+                        }}
+                      >
+                        {align}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </form>
             
