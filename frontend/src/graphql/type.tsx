@@ -642,6 +642,7 @@ export type UpdateUserInput = {
   email?: InputMaybe<Scalars['String']['input']>;
   isActive?: InputMaybe<Scalars['Boolean']['input']>;
   password?: InputMaybe<Scalars['String']['input']>;
+  roleIds?: InputMaybe<Array<Scalars['String']['input']>>;
   username?: InputMaybe<Scalars['String']['input']>;
 };
 

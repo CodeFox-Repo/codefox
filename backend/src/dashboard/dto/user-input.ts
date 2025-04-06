@@ -28,7 +28,6 @@ export class CreateUserInput {
   @IsOptional()
   roleIds?: string[];
 }
-
 @InputType()
 export class UpdateUserInput {
   @Field({ nullable: true })
@@ -51,6 +50,10 @@ export class UpdateUserInput {
   @MinLength(6)
   @IsOptional()
   password?: string;
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  roleIds?: string[];
 }
 
 @InputType()

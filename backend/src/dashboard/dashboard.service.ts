@@ -83,18 +83,37 @@ export class DashboardService {
 
   async createUser(input: CreateUserInput): Promise<User> {
     const hashedPassword = await hash(input.password, 10);
+
+    let roles = [];
+    if (input.roleIds && input.roleIds.length > 0) {
+      roles = await this.roleRepository.findByIds(input.roleIds);
+    }
+
     const user = this.userRepository.create({
       ...input,
       password: hashedPassword,
+      roles,
     });
+    console.log('user', user);
     return this.userRepository.save(user);
   }
 
   async updateUser(id: string, input: UpdateUserInput): Promise<User> {
     const user = await this.findUserById(id);
+    console.log('user before update', user);
+
     if (input.password) {
       input.password = await hash(input.password, 10);
     }
+
+    if (typeof input.roleIds !== 'undefined') {
+      const roles =
+        input.roleIds.length > 0
+          ? await this.roleRepository.findByIds(input.roleIds)
+          : [];
+      (input as any).roles = roles;
+    }
+
     Object.assign(user, input);
     return this.userRepository.save(user);
   }

@@ -370,6 +370,7 @@ input UpdateUserInput {
   email: String
   isActive: Boolean
   password: String
+  roleIds: [String!]
   username: String
 }
 
