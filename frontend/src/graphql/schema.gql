@@ -51,6 +51,13 @@ input CheckTokenInput {
   token: String!
 }
 
+input CreateMenuInput {
+  name: String!
+  path: String!
+  permission: String!
+  roleIds: [String!]
+}
+
 input CreateProjectInput {
   databaseType: String
   description: String!
@@ -58,6 +65,12 @@ input CreateProjectInput {
   packages: [ProjectPackage!]!
   projectName: String
   public: Boolean
+}
+
+input CreateRoleInput {
+  description: String
+  menuIds: [String!]
+  name: String!
 }
 
 input CreateUserInput {
@@ -97,12 +110,14 @@ input LoginUserInput {
 
 type Menu {
   createdAt: Date!
+  description: String
   id: ID!
   isActive: Boolean!
   isDeleted: Boolean!
   name: String!
   path: String!
   permission: String!
+  roles: [SystemRole!]
   updatedAt: Date!
 }
 
@@ -123,7 +138,9 @@ type Mutation {
   confirmEmail(token: String!): EmailConfirmationResponse!
   createChat(newChatInput: NewChatInput!): Chat!
   createDashboardUser(input: CreateUserInput!): User!
+  createMenu(createMenuInput: CreateMenuInput!): Menu!
   createProject(createProjectInput: CreateProjectInput!): Chat!
+  createRole(createRoleInput: CreateRoleInput!): SystemRole!
   deleteChat(chatId: String!): Boolean!
   deleteDashboardUser(id: String!): Boolean!
   deleteProject(projectId: String!): Boolean!
@@ -132,6 +149,8 @@ type Mutation {
   refreshToken(refreshToken: String!): RefreshTokenResponse!
   regenerateDescription(input: String!): String!
   registerUser(input: RegisterUserInput!): User!
+  removeMenu(id: ID!): Boolean!
+  removeRole(id: ID!): Boolean!
   resendConfirmationEmail(input: ResendEmailInput!): EmailConfirmationResponse!
   saveMessage(input: ChatInputType!): Boolean!
   subscribeToProject(projectId: ID!): Project!
@@ -139,8 +158,10 @@ type Mutation {
   triggerChatStream(input: ChatInputType!): Boolean!
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
   updateDashboardUser(id: String!, input: UpdateUserInput!): User!
+  updateMenu(updateMenuInput: UpdateMenuInput!): Menu!
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
   updateProjectPublicStatus(isPublic: Boolean!, projectId: ID!): Project!
+  updateRole(updateRoleInput: UpdateRoleInput!): SystemRole!
   uploadAvatar(file: Upload!): AvatarUploadResponse!
 }
 
@@ -211,6 +232,10 @@ type Query {
   isValidateProject(isValidProject: IsValidProjectInput!): Boolean!
   logout: Boolean!
   me: User!
+  menu(id: ID!): Menu!
+  menus: [Menu!]!
+  role(id: ID!): SystemRole!
+  roles: [SystemRole!]!
 }
 
 type RefreshTokenResponse {
@@ -244,14 +269,41 @@ type Subscription {
   chatStream(input: ChatInputType!): ChatCompletionChunkType
 }
 
+type SystemRole {
+  createdAt: Date!
+  description: String
+  id: ID!
+  isActive: Boolean!
+  isDeleted: Boolean!
+  menus: [Menu!]
+  name: String!
+  updatedAt: Date!
+  users: [User!]
+}
+
 input UpdateChatTitleInput {
   chatId: String!
   title: String
 }
 
+input UpdateMenuInput {
+  id: ID!
+  name: String
+  path: String
+  permission: String
+  roleIds: [String!]
+}
+
 input UpdateProjectPhotoInput {
   file: Upload!
   projectId: ID!
+}
+
+input UpdateRoleInput {
+  description: String
+  id: ID!
+  menuIds: [String!]
+  name: String
 }
 
 input UpdateUserInput {
@@ -275,6 +327,7 @@ type User {
   isEmailConfirmed: Boolean!
   lastEmailSendTime: Date!
   projects: [Project!]!
+  roles: [SystemRole!]!
   subscribedProjects: [Project!] @deprecated(reason: "Use projects with forkedFromId instead")
   updatedAt: Date!
   username: String!

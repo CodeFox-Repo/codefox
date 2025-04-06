@@ -15,15 +15,12 @@ const Loader = (Component) => (props) =>
   );
 
 // Pages
-
 const Overview = Loader(lazy(() => import('src/content/overview')));
 
 // Dashboards
-
 const Crypto = Loader(lazy(() => import('src/content/dashboards/Crypto')));
 
 // Applications
-
 const Messenger = Loader(
   lazy(() => import('src/content/applications/Messenger'))
 );
@@ -37,8 +34,21 @@ const UserSettings = Loader(
   lazy(() => import('src/content/applications/Users/settings'))
 );
 
-// Components
+// Management
+const RolesList = Loader(
+  lazy(() => import('src/content/management/Roles/RolesList'))
+);
+const RoleForm = Loader(
+  lazy(() => import('src/content/management/Roles/RoleForm'))
+);
+const MenusList = Loader(
+  lazy(() => import('src/content/management/Menus/MenusList'))
+);
+const MenuForm = Loader(
+  lazy(() => import('src/content/management/Menus/MenuForm'))
+);
 
+// Components
 const Buttons = Loader(
   lazy(() => import('src/content/pages/Components/Buttons'))
 );
@@ -62,7 +72,6 @@ const Cards = Loader(lazy(() => import('src/content/pages/Components/Cards')));
 const Forms = Loader(lazy(() => import('src/content/pages/Components/Forms')));
 
 // Status
-
 const Status404 = Loader(
   lazy(() => import('src/content/pages/Status/Status404'))
 );
@@ -140,7 +149,41 @@ const routes: RouteObject[] = [
     children: [
       {
         path: '',
-        element: <Navigate to="transactions" replace />
+        element: <Navigate to="roles" replace />
+      },
+      {
+        path: 'roles',
+        children: [
+          {
+            path: '',
+            element: <RolesList />
+          },
+          {
+            path: 'create',
+            element: <RoleForm />
+          },
+          {
+            path: 'edit/:id',
+            element: <RoleForm />
+          }
+        ]
+      },
+      {
+        path: 'menus',
+        children: [
+          {
+            path: '',
+            element: <MenusList />
+          },
+          {
+            path: 'create',
+            element: <MenuForm />
+          },
+          {
+            path: 'edit/:id',
+            element: <MenuForm />
+          }
+        ]
       },
       {
         path: 'transactions',

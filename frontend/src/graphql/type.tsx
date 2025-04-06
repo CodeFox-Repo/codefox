@@ -94,6 +94,13 @@ export type CheckTokenInput = {
   token: Scalars['String']['input'];
 };
 
+export type CreateMenuInput = {
+  name: Scalars['String']['input'];
+  path: Scalars['String']['input'];
+  permission: Scalars['String']['input'];
+  roleIds?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
 export type CreateProjectInput = {
   databaseType?: InputMaybe<Scalars['String']['input']>;
   description: Scalars['String']['input'];
@@ -101,6 +108,12 @@ export type CreateProjectInput = {
   packages: Array<ProjectPackage>;
   projectName?: InputMaybe<Scalars['String']['input']>;
   public?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export type CreateRoleInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  menuIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  name: Scalars['String']['input'];
 };
 
 export type CreateUserInput = {
@@ -140,12 +153,14 @@ export type LoginUserInput = {
 export type Menu = {
   __typename: 'Menu';
   createdAt: Scalars['Date']['output'];
+  description?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActive: Scalars['Boolean']['output'];
   isDeleted: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
   path: Scalars['String']['output'];
   permission: Scalars['String']['output'];
+  roles?: Maybe<Array<SystemRole>>;
   updatedAt: Scalars['Date']['output'];
 };
 
@@ -168,7 +183,9 @@ export type Mutation = {
   confirmEmail: EmailConfirmationResponse;
   createChat: Chat;
   createDashboardUser: User;
+  createMenu: Menu;
   createProject: Chat;
+  createRole: SystemRole;
   deleteChat: Scalars['Boolean']['output'];
   deleteDashboardUser: Scalars['Boolean']['output'];
   deleteProject: Scalars['Boolean']['output'];
@@ -177,6 +194,8 @@ export type Mutation = {
   refreshToken: RefreshTokenResponse;
   regenerateDescription: Scalars['String']['output'];
   registerUser: User;
+  removeMenu: Scalars['Boolean']['output'];
+  removeRole: Scalars['Boolean']['output'];
   resendConfirmationEmail: EmailConfirmationResponse;
   saveMessage: Scalars['Boolean']['output'];
   subscribeToProject: Project;
@@ -184,8 +203,10 @@ export type Mutation = {
   triggerChatStream: Scalars['Boolean']['output'];
   updateChatTitle?: Maybe<Chat>;
   updateDashboardUser: User;
+  updateMenu: Menu;
   updateProjectPhoto: Project;
   updateProjectPublicStatus: Project;
+  updateRole: SystemRole;
   uploadAvatar: AvatarUploadResponse;
 };
 
@@ -209,8 +230,16 @@ export type MutationCreateDashboardUserArgs = {
   input: CreateUserInput;
 };
 
+export type MutationCreateMenuArgs = {
+  createMenuInput: CreateMenuInput;
+};
+
 export type MutationCreateProjectArgs = {
   createProjectInput: CreateProjectInput;
+};
+
+export type MutationCreateRoleArgs = {
+  createRoleInput: CreateRoleInput;
 };
 
 export type MutationDeleteChatArgs = {
@@ -245,6 +274,14 @@ export type MutationRegisterUserArgs = {
   input: RegisterUserInput;
 };
 
+export type MutationRemoveMenuArgs = {
+  id: Scalars['ID']['input'];
+};
+
+export type MutationRemoveRoleArgs = {
+  id: Scalars['ID']['input'];
+};
+
 export type MutationResendConfirmationEmailArgs = {
   input: ResendEmailInput;
 };
@@ -274,6 +311,10 @@ export type MutationUpdateDashboardUserArgs = {
   input: UpdateUserInput;
 };
 
+export type MutationUpdateMenuArgs = {
+  updateMenuInput: UpdateMenuInput;
+};
+
 export type MutationUpdateProjectPhotoArgs = {
   input: UpdateProjectPhotoInput;
 };
@@ -281,6 +322,10 @@ export type MutationUpdateProjectPhotoArgs = {
 export type MutationUpdateProjectPublicStatusArgs = {
   isPublic: Scalars['Boolean']['input'];
   projectId: Scalars['ID']['input'];
+};
+
+export type MutationUpdateRoleArgs = {
+  updateRoleInput: UpdateRoleInput;
 };
 
 export type MutationUploadAvatarArgs = {
@@ -356,6 +401,10 @@ export type Query = {
   isValidateProject: Scalars['Boolean']['output'];
   logout: Scalars['Boolean']['output'];
   me: User;
+  menu: Menu;
+  menus: Array<Menu>;
+  role: SystemRole;
+  roles: Array<SystemRole>;
 };
 
 export type QueryCheckTokenArgs = {
@@ -398,6 +447,14 @@ export type QueryIsValidateProjectArgs = {
   isValidProject: IsValidProjectInput;
 };
 
+export type QueryMenuArgs = {
+  id: Scalars['ID']['input'];
+};
+
+export type QueryRoleArgs = {
+  id: Scalars['ID']['input'];
+};
+
 export type RefreshTokenResponse = {
   __typename: 'RefreshTokenResponse';
   accessToken: Scalars['String']['output'];
@@ -428,14 +485,42 @@ export type SubscriptionChatStreamArgs = {
   input: ChatInputType;
 };
 
+export type SystemRole = {
+  __typename: 'SystemRole';
+  createdAt: Scalars['Date']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  isDeleted: Scalars['Boolean']['output'];
+  menus?: Maybe<Array<Menu>>;
+  name: Scalars['String']['output'];
+  updatedAt: Scalars['Date']['output'];
+  users?: Maybe<Array<User>>;
+};
+
 export type UpdateChatTitleInput = {
   chatId: Scalars['String']['input'];
   title?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UpdateMenuInput = {
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  path?: InputMaybe<Scalars['String']['input']>;
+  permission?: InputMaybe<Scalars['String']['input']>;
+  roleIds?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
 export type UpdateProjectPhotoInput = {
   file: Scalars['Upload']['input'];
   projectId: Scalars['ID']['input'];
+};
+
+export type UpdateRoleInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  menuIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  name?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateUserInput = {
@@ -457,6 +542,7 @@ export type User = {
   isEmailConfirmed: Scalars['Boolean']['output'];
   lastEmailSendTime: Scalars['Date']['output'];
   projects: Array<Project>;
+  roles: Array<SystemRole>;
   /** @deprecated Use projects with forkedFromId instead */
   subscribedProjects?: Maybe<Array<Project>>;
   updatedAt: Scalars['Date']['output'];
@@ -586,7 +672,9 @@ export type ResolversTypes = ResolversObject<{
   ChatCompletionDeltaType: ResolverTypeWrapper<ChatCompletionDeltaType>;
   ChatInputType: ChatInputType;
   CheckTokenInput: CheckTokenInput;
+  CreateMenuInput: CreateMenuInput;
   CreateProjectInput: CreateProjectInput;
+  CreateRoleInput: CreateRoleInput;
   CreateUserInput: CreateUserInput;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
   EmailConfirmationResponse: ResolverTypeWrapper<EmailConfirmationResponse>;
@@ -612,8 +700,11 @@ export type ResolversTypes = ResolversObject<{
   StreamStatus: StreamStatus;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Subscription: ResolverTypeWrapper<{}>;
+  SystemRole: ResolverTypeWrapper<SystemRole>;
   UpdateChatTitleInput: UpdateChatTitleInput;
+  UpdateMenuInput: UpdateMenuInput;
   UpdateProjectPhotoInput: UpdateProjectPhotoInput;
+  UpdateRoleInput: UpdateRoleInput;
   UpdateUserInput: UpdateUserInput;
   Upload: ResolverTypeWrapper<Scalars['Upload']['output']>;
   User: ResolverTypeWrapper<User>;
@@ -630,7 +721,9 @@ export type ResolversParentTypes = ResolversObject<{
   ChatCompletionDeltaType: ChatCompletionDeltaType;
   ChatInputType: ChatInputType;
   CheckTokenInput: CheckTokenInput;
+  CreateMenuInput: CreateMenuInput;
   CreateProjectInput: CreateProjectInput;
+  CreateRoleInput: CreateRoleInput;
   CreateUserInput: CreateUserInput;
   Date: Scalars['Date']['output'];
   EmailConfirmationResponse: EmailConfirmationResponse;
@@ -654,8 +747,11 @@ export type ResolversParentTypes = ResolversObject<{
   ResendEmailInput: ResendEmailInput;
   String: Scalars['String']['output'];
   Subscription: {};
+  SystemRole: SystemRole;
   UpdateChatTitleInput: UpdateChatTitleInput;
+  UpdateMenuInput: UpdateMenuInput;
   UpdateProjectPhotoInput: UpdateProjectPhotoInput;
+  UpdateRoleInput: UpdateRoleInput;
   UpdateUserInput: UpdateUserInput;
   Upload: Scalars['Upload']['output'];
   User: User;
@@ -776,12 +872,22 @@ export type MenuResolvers<
     ResolversParentTypes['Menu'] = ResolversParentTypes['Menu'],
 > = ResolversObject<{
   createdAt?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
+  description?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   isActive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isDeleted?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   permission?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  roles?: Resolver<
+    Maybe<Array<ResolversTypes['SystemRole']>>,
+    ParentType,
+    ContextType
+  >;
   updatedAt?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -837,11 +943,23 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreateDashboardUserArgs, 'input'>
   >;
+  createMenu?: Resolver<
+    ResolversTypes['Menu'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateMenuArgs, 'createMenuInput'>
+  >;
   createProject?: Resolver<
     ResolversTypes['Chat'],
     ParentType,
     ContextType,
     RequireFields<MutationCreateProjectArgs, 'createProjectInput'>
+  >;
+  createRole?: Resolver<
+    ResolversTypes['SystemRole'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateRoleArgs, 'createRoleInput'>
   >;
   deleteChat?: Resolver<
     ResolversTypes['Boolean'],
@@ -891,6 +1009,18 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationRegisterUserArgs, 'input'>
   >;
+  removeMenu?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationRemoveMenuArgs, 'id'>
+  >;
+  removeRole?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationRemoveRoleArgs, 'id'>
+  >;
   resendConfirmationEmail?: Resolver<
     ResolversTypes['EmailConfirmationResponse'],
     ParentType,
@@ -933,6 +1063,12 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationUpdateDashboardUserArgs, 'id' | 'input'>
   >;
+  updateMenu?: Resolver<
+    ResolversTypes['Menu'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationUpdateMenuArgs, 'updateMenuInput'>
+  >;
   updateProjectPhoto?: Resolver<
     ResolversTypes['Project'],
     ParentType,
@@ -947,6 +1083,12 @@ export type MutationResolvers<
       MutationUpdateProjectPublicStatusArgs,
       'isPublic' | 'projectId'
     >
+  >;
+  updateRole?: Resolver<
+    ResolversTypes['SystemRole'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationUpdateRoleArgs, 'updateRoleInput'>
   >;
   uploadAvatar?: Resolver<
     ResolversTypes['AvatarUploadResponse'],
@@ -1132,6 +1274,24 @@ export type QueryResolvers<
   >;
   logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   me?: Resolver<ResolversTypes['User'], ParentType, ContextType>;
+  menu?: Resolver<
+    ResolversTypes['Menu'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryMenuArgs, 'id'>
+  >;
+  menus?: Resolver<Array<ResolversTypes['Menu']>, ParentType, ContextType>;
+  role?: Resolver<
+    ResolversTypes['SystemRole'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryRoleArgs, 'id'>
+  >;
+  roles?: Resolver<
+    Array<ResolversTypes['SystemRole']>,
+    ParentType,
+    ContextType
+  >;
 }>;
 
 export type RefreshTokenResponseResolvers<
@@ -1156,6 +1316,35 @@ export type SubscriptionResolvers<
     ContextType,
     RequireFields<SubscriptionChatStreamArgs, 'input'>
   >;
+}>;
+
+export type SystemRoleResolvers<
+  ContextType = any,
+  ParentType extends
+    ResolversParentTypes['SystemRole'] = ResolversParentTypes['SystemRole'],
+> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
+  description?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isActive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  isDeleted?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  menus?: Resolver<
+    Maybe<Array<ResolversTypes['Menu']>>,
+    ParentType,
+    ContextType
+  >;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
+  users?: Resolver<
+    Maybe<Array<ResolversTypes['User']>>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export interface UploadScalarConfig
@@ -1195,6 +1384,11 @@ export type UserResolvers<
     ParentType,
     ContextType
   >;
+  roles?: Resolver<
+    Array<ResolversTypes['SystemRole']>,
+    ParentType,
+    ContextType
+  >;
   subscribedProjects?: Resolver<
     Maybe<Array<ResolversTypes['Project']>>,
     ParentType,
@@ -1222,6 +1416,7 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   Query?: QueryResolvers<ContextType>;
   RefreshTokenResponse?: RefreshTokenResponseResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
+  SystemRole?: SystemRoleResolvers<ContextType>;
   Upload?: GraphQLScalarType;
   User?: UserResolvers<ContextType>;
 }>;
