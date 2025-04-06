@@ -10,6 +10,8 @@ import { AuthResolver } from './auth.resolver';
 import { RefreshToken } from './refresh-token/refresh-token.model';
 import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { MailModule } from 'src/mail/mail.module';
+import { GoogleStrategy } from './oauth/GoogleStrategy';
+import { GoogleController } from './google.controller';
 import { AppConfigModule } from 'src/config/config.module';
 import { RoleResolver } from './role/role.resolver';
 import { MenuResolver } from './menu/menu.resolver';
@@ -38,7 +40,9 @@ import { MenuService } from './menu/menu.service';
     MenuResolver,
     RoleService,
     MenuService,
+    GoogleStrategy,
   ],
   exports: [AuthService, RoleService, MenuService, JwtModule],
+  controllers: [GoogleController],
 })
 export class AuthModule {}
