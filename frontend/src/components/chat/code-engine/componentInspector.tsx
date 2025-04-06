@@ -525,11 +525,11 @@ export function ComponentInspector() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="px-2 sm:px-4 border-b bg-gray-50 dark:bg-zinc-900/50 flex-shrink-0">
-          <TabsList className="mb-0 gap-1 bg-transparent h-8">
-            <TabsTrigger value="info" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Info</TabsTrigger>
+          <TabsList className="mb-0 gap-1 bg-transparent h-8">   
             <TabsTrigger value="styles" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Styles</TabsTrigger>
-            <TabsTrigger value="classes" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Classes</TabsTrigger>
             <TabsTrigger value="content" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Content</TabsTrigger>
+            <TabsTrigger value="classes" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Classes</TabsTrigger>
+            <TabsTrigger value="info" className="text-xs px-2 sm:px-3 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm">Info</TabsTrigger>    
           </TabsList>
         </div>
 
