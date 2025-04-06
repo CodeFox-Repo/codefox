@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from './user.model';
+import { User } from '../user/user.model';
 import { Role } from '../auth/role/role.model';
 import * as bcrypt from 'bcrypt';
 
@@ -61,6 +61,6 @@ export class UserInitService implements OnModuleInit {
     });
 
     await this.userRepository.save(adminUser);
-    console.log('Admin user created successfully');
+    console.log(adminUser);
   }
 }

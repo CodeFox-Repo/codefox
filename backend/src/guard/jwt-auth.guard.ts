@@ -56,7 +56,10 @@ export class JWTAuthGuard implements CanActivate {
 
       request.user = payload;
       this.logger.debug('User successfully authenticated');
-
+      if (contextType === ('graphql' as ContextType)) {
+        const gqlContext = GqlExecutionContext.create(context);
+        gqlContext.getContext().user = payload;
+      }
       return true;
     } catch (error) {
       this.logger.error(`Authentication failed: ${error.message}`);
