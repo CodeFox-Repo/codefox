@@ -47,6 +47,26 @@ export function ProjectsSection() {
     fetchPolicy: 'network-only',
   });
 
+  const publicProjects = publicData?.fetchPublicProjects || [];
+  const userProjects = userData?.getUserProjects || [];
+
+  // Add effect to listen for project deletion
+  useEffect(() => {
+    const handleProjectDelete = () => {
+      refetchUser();
+      refetchPublic();
+      // Clean up any deleted projects from pendingProjects
+      setPendingProjects((prev) => 
+        prev.filter((p) => userProjects.some((up) => up.id === p.id))
+      );
+    };
+
+    window.addEventListener('project-deleted', handleProjectDelete);
+    return () => {
+      window.removeEventListener('project-deleted', handleProjectDelete);
+    };
+  }, [refetchUser, refetchPublic, setPendingProjects, userProjects]);
+
   useEffect(() => {
     setRefetchPublicProjects(() => async () => {
       setPublicRefreshCounter((prev) => prev + 1);
@@ -59,9 +79,6 @@ export function ProjectsSection() {
     refetchPublic();
     refetchUser();
   }, [publicRefreshCounter]);
-
-  const publicProjects = publicData?.fetchPublicProjects || [];
-  const userProjects = userData?.getUserProjects || [];
 
   useEffect(() => {
     const realMap = new Map(userProjects.map((p: Project) => [p.id, p]));
@@ -78,12 +95,18 @@ export function ProjectsSection() {
   const mergedMyProjects = useMemo(() => {
     const map = new Map<string, Project>();
 
-    pendingProjects.forEach((p) =>
-      map.set(p.id, {
-        ...p,
-        userId: String(p.userId ?? user?.id),
-      })
-    );
+    // Only add pending projects that are not in userProjects (not yet completed)
+    pendingProjects
+      .filter(p => !userProjects.some(up => up.id === p.id))
+      .forEach((p) =>
+        map.set(p.id, {
+          ...p,
+          userId: String(p.userId ?? user?.id),
+          createdAt: p.createdAt || new Date().toISOString(),
+        })
+      );
+    
+    // Add all user projects
     userProjects.forEach((p) => map.set(p.id, p));
 
     return Array.from(map.values());
@@ -91,20 +114,22 @@ export function ProjectsSection() {
 
   const displayProjects = view === 'my' ? mergedMyProjects : publicProjects;
 
-  const transformedProjects = displayProjects.map((project) => ({
-    id: project.id,
-    name: project.projectName || project.title || 'Untitled Project',
-    path: project.projectPath ?? '',
-    isReady: !!project.projectPath,
-    createDate: project.createdAt
-      ? new Date(project.createdAt).toISOString().split('T')[0]
-      : 'N/A',
-    author: project.user?.username || user?.username || 'Unknown',
-    forkNum: project.subNumber || 0,
-    image: project.projectPath
-      ? project.photoUrl || `https://picsum.photos/500/250?random=${project.id}`
-      : null,
-  }));
+  const transformedProjects = displayProjects
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((project) => ({
+      id: project.id,
+      name: project.projectName || project.title || 'Untitled Project',
+      path: project.projectPath ?? '',
+      isReady: !!project.projectPath,
+      createDate: project.createdAt
+        ? new Date(project.createdAt).toISOString().split('T')[0]
+        : 'N/A',
+      author: project.user?.username || user?.username || 'Unknown',
+      forkNum: project.subNumber || 0,
+      image: project.projectPath
+        ? project.photoUrl || `https://picsum.photos/500/250?random=${project.id}`
+        : null,
+    }));
 
   const handleOpenChat = (chatId: string) => {
     redirectChatPage(chatId, setCurrentChatid, setChatId, router);
@@ -144,7 +169,7 @@ export function ProjectsSection() {
           </div>
         ) : (
           <>
-            {view === 'my' && tempLoadingProjectId && (
+            {/* {view === 'my' && tempLoadingProjectId && (
               <ExpandableCard
                 key={`loading-${tempLoadingProjectId}`}
                 projects={[
@@ -169,7 +194,7 @@ export function ProjectsSection() {
                   )
                 }
               />
-            )}
+            )} */}
 
             {transformedProjects.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -5,8 +5,8 @@ export interface Project {
   id: string;
   projectName: string;
   projectPath: string;
-  createdAt: number;
-  updatedAt: number;
+  createdAt: string;
+  updatedAt: string;
   isActive: boolean;
   isDeleted: boolean;
   userId: string;

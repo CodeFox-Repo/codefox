@@ -128,6 +128,7 @@ export const GET_USER_PROJECTS = gql`
       userId
       forkedFromId
       isDeleted
+      createdAt
       projectPackages {
         id
         content
@@ -206,6 +207,16 @@ export const CREATE_PROJECT = gql`
         photoUrl
         userId
         subNumber
+        createdAt
+        updatedAt
+        isActive
+        isDeleted
+        projectPackages {
+          id
+          name
+          version
+          content
+        }
       }
     }
   }

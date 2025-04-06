@@ -117,10 +117,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const editorRef = useRef<any>(null);
+  
+  // 获取带用户ID的localStorage键
+  const getUserStorageKey = (key: string) => {
+    return user?.id ? `${key}_${user.id}` : key;
+  };
+  
   const [pendingProjects, setPendingProjects] = useState<Project[]>(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && user?.id) {
       try {
-        const raw = localStorage.getItem('pendingProjects');
+        const raw = localStorage.getItem(getUserStorageKey('pendingProjects'));
         if (raw) {
           return JSON.parse(raw) as Project[];
         }
@@ -130,12 +136,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
     return [];
   });
+  
   const setRecentlyCompletedProjectId = (id: string | null) => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && user?.id) {
       if (id) {
-        localStorage.setItem('pendingChatId', id);
+        localStorage.setItem(getUserStorageKey('pendingChatId'), id);
       } else {
-        localStorage.removeItem('pendingChatId');
+        localStorage.removeItem(getUserStorageKey('pendingChatId'));
       }
     }
     setRecentlyCompletedProjectIdRaw(id);
@@ -143,37 +150,40 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const [recentlyCompletedProjectIdRaw, setRecentlyCompletedProjectIdRaw] =
     useState<string | null>(() =>
-      typeof window !== 'undefined'
-        ? localStorage.getItem('pendingChatId')
+      typeof window !== 'undefined' && user?.id
+        ? localStorage.getItem(getUserStorageKey('pendingChatId'))
         : null
     );
+    
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !user?.id) return;
     try {
-      localStorage.setItem('pendingProjects', JSON.stringify(pendingProjects));
+      localStorage.setItem(getUserStorageKey('pendingProjects'), JSON.stringify(pendingProjects));
     } catch (e) {
       logger.warn('Failed to store pendingProjects in localStorage');
     }
-  }, [pendingProjects]);
+  }, [pendingProjects, user?.id]);
+  
   // setter：更新 state + localStorage
   const setTempLoadingProjectId = (id: string | null) => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && user?.id) {
       if (id) {
-        localStorage.setItem('tempLoadingProjectId', id);
+        localStorage.setItem(getUserStorageKey('tempLoadingProjectId'), id);
       } else {
-        localStorage.removeItem('tempLoadingProjectId');
+        localStorage.removeItem(getUserStorageKey('tempLoadingProjectId'));
       }
     }
     setTempLoadingProjectIdRaw(id);
   };
+  
   const [chatId, setChatId] = useState<string | null>(null);
   const [pollTime, setPollTime] = useState(Date.now());
   const [isCreateButtonClicked, setIsCreateButtonClicked] = useState(false);
   const [tempLoadingProjectIdRaw, setTempLoadingProjectIdRaw] = useState<
     string | null
   >(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('tempLoadingProjectId');
+    if (typeof window !== 'undefined' && user?.id) {
+      return localStorage.getItem(getUserStorageKey('tempLoadingProjectId'));
     }
     return null;
   });
@@ -793,7 +803,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         if (createdChat?.id) {
           setChatId(createdChat.id);
           setIsCreateButtonClicked(true);
-          localStorage.setItem('pendingChatId', createdChat.id);
+          localStorage.setItem(getUserStorageKey('pendingChatId'), createdChat.id);
           setTempLoadingProjectId(createdChat.id);
           return createdChat.id;
         } else {

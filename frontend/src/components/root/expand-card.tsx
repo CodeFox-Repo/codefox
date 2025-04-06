@@ -176,7 +176,7 @@ export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
                       onOpenChat();
                     }}
                   >
-                    Open Chat
+                    {/* Open Chat */}
                   </Button>
                 </div>
               )}

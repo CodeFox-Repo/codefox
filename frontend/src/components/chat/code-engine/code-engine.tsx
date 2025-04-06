@@ -10,6 +10,7 @@ import ConsoleTab from './tabs/console-tab';
 import ResponsiveToolbar from './responsive-toolbar';
 import SaveChangesBar from './save-changes-bar';
 import { logger } from '@/app/log/logger';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 export function CodeEngine({
   chatId,
@@ -27,6 +28,7 @@ export function CodeEngine({
     editorRef,
     setRecentlyCompletedProjectId,
   } = useContext(ProjectContext);
+  const { user } = useAuthContext();
   const [localProject, setLocalProject] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filePath, setFilePath] = useState<string | null>(null);
@@ -330,7 +332,7 @@ export function CodeEngine({
           setProjectCompleted(true);
           isProjectLoadedRef.current = true;
           try {
-            localStorage.setItem(`project-completed-${chatId}`, 'true');
+            localStorage.setItem(getUserStorageKey(`project-completed-${chatId}`), 'true');
           } catch (e) {
             logger.error('Failed to save project completion status:', e);
           }
@@ -368,6 +370,32 @@ export function CodeEngine({
     }
     return () => interval && clearInterval(interval);
   }, [timerActive]);
+
+  // 获取带用户ID的localStorage键
+  const getUserStorageKey = (key: string) => {
+    return user?.id ? `${key}_${user.id}` : key;
+  };
+
+  useEffect(() => {
+    if (
+      curProject?.projectPath &&
+      chatId &&
+      projectCompleted &&
+      !isProjectLoadedRef.current
+    ) {
+      setProgress(100);
+      setTimerActive(false);
+      setIsCompleting(false);
+      setProjectCompleted(true);
+      isProjectLoadedRef.current = true;
+
+      try {
+        localStorage.setItem(getUserStorageKey(`project-completed-${chatId}`), 'true');
+      } catch (e) {
+        logger.error('Failed to save project completion status:', e);
+      }
+    }
+  }, [curProject?.projectPath, chatId, projectCompleted, user?.id]);
 
   return (
     <div className="rounded-lg border shadow-sm overflow-scroll h-full">

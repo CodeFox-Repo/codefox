@@ -139,6 +139,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    // 清除当前用户的数据
+    if (user?.id) {
+      // 清除所有与当前用户相关的 localStorage 数据
+      localStorage.removeItem(`completedChatIds_${user.id}`);
+      localStorage.removeItem(`pendingChatId_${user.id}`);
+      localStorage.removeItem(`pendingProjects_${user.id}`);
+      localStorage.removeItem(`tempLoadingProjectId_${user.id}`);
+      localStorage.removeItem(`lastProjectId_${user.id}`);
+      
+      // 清除当前用户的所有项目完成状态
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(`project-completed-${user.id}-`)) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+    
+    // 清除认证相关的 localStorage
     setToken(null);
     setIsAuthorized(false);
     setUser(null);

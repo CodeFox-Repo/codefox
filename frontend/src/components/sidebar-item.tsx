@@ -44,7 +44,7 @@ function SideBarItemComponent({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
-  const { recentlyCompletedProjectId } = useContext(ProjectContext);
+  const { recentlyCompletedProjectId, setPendingProjects } = useContext(ProjectContext);
   const isGenerating = id === recentlyCompletedProjectId;
   const isSelected = currentChatId === id;
   const variant = isSelected ? 'secondary' : 'ghost';
@@ -57,6 +57,10 @@ function SideBarItemComponent({
         const event = new Event(EventEnum.NEW_CHAT);
         window.dispatchEvent(event);
       }
+      // Remove from pendingProjects
+      setPendingProjects((prev) => prev.filter((p) => p.id !== id));
+      // Dispatch project-deleted event
+      window.dispatchEvent(new Event('project-deleted'));
       refetchChats();
     },
     onError: (error) => {
@@ -70,6 +74,11 @@ function SideBarItemComponent({
       await deleteChat({
         variables: {
           chatId: id,
+        },
+        update: (cache) => {
+          // Remove the deleted chat from Apollo cache
+          cache.evict({ id: `Chat:${id}` });
+          cache.gc();
         },
       });
       setIsDialogOpen(false);
