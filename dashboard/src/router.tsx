@@ -2,11 +2,10 @@ import { Suspense, lazy } from 'react';
 import { Navigate } from 'react-router-dom';
 import { RouteObject } from 'react-router';
 
-import SidebarLayout from 'src/layouts/SidebarLayout';
-import BaseLayout from 'src/layouts/BaseLayout';
+import SidebarLayout from './layouts/SidebarLayout';
+import BaseLayout from './layouts/BaseLayout';
 
-import SuspenseLoader from 'src/components/SuspenseLoader';
-import RoleForm from './content/management/Roles/RoleForm';
+import SuspenseLoader from './components/SuspenseLoader';
 import Login from './content/login/Login';
 
 const Loader = (Component) => (props) =>
@@ -18,52 +17,52 @@ const Loader = (Component) => (props) =>
 
 // Dashboard
 const DashboardOverview = Loader(
-  lazy(() => import('src/content/dashboard/Overview/DashboardOverview'))
+  lazy(() => import('./content/dashboard/Overview/DashboardOverview'))
 );
 
 // Management
 const UsersList = Loader(
-  lazy(() => import('src/content/management/Users/UsersList'))
+  lazy(() => import('./content/management/Users/UsersList'))
 );
 const UserCreate = Loader(
-  lazy(() => import('src/content/management/Users/UserCreate'))
+  lazy(() => import('./content/management/Users/UserCreate'))
 );
 const UserEdit = Loader(
-  lazy(() => import('src/content/management/Users/UserEdit'))
+  lazy(() => import('./content/management/Users/UserEdit'))
 );
 
 const RolesList = Loader(
-  lazy(() => import('src/content/management/Roles/RolesList'))
+  lazy(() => import('./content/management/Roles/RolesList'))
 );
 const RoleCreate = Loader(
-  lazy(() => import('src/content/management/Roles/RoleCreate'))
+  lazy(() => import('./content/management/Roles/RoleCreate'))
 );
 const RoleEdit = Loader(
-  lazy(() => import('src/content/management/Roles/RoleEdit'))
+  lazy(() => import('./content/management/Roles/RoleEdit'))
 );
 
 const MenusList = Loader(
-  lazy(() => import('src/content/management/Menus/MenusList'))
+  lazy(() => import('./content/management/Menus/MenusList'))
 );
 const MenuCreate = Loader(
-  lazy(() => import('src/content/management/Menus/MenuCreate'))
+  lazy(() => import('./content/management/Menus/MenuCreate'))
 );
 const MenuEdit = Loader(
-  lazy(() => import('src/content/management/Menus/MenuEdit'))
+  lazy(() => import('./content/management/Menus/MenuEdit'))
 );
 
 const ChatsList = Loader(
-  lazy(() => import('src/content/management/Chats/ChatsList'))
+  lazy(() => import('./content/management/Chats/ChatsList'))
 );
 const ChatView = Loader(
-  lazy(() => import('src/content/management/Chats/ChatView'))
+  lazy(() => import('./content/management/Chats/ChatView'))
 );
 
 const ProjectsList = Loader(
-  lazy(() => import('src/content/management/Projects/ProjectsList'))
+  lazy(() => import('./content/management/Projects/ProjectsList'))
 );
 const ProjectView = Loader(
-  lazy(() => import('src/content/management/Projects/ProjectView'))
+  lazy(() => import('./content/management/Projects/ProjectView'))
 );
 
 // Status

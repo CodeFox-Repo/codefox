@@ -16,9 +16,12 @@ import {
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@apollo/client';
-import { ROLE_QUERY, CREATE_ROLE, UPDATE_ROLE } from 'src/graphql/role';
-import { MENUS_QUERY } from 'src/graphql/menu';
-
+import {
+  MENUS_QUERY,
+  ROLE_QUERY,
+  CREATE_ROLE,
+  UPDATE_ROLE
+} from 'src/graphql/request';
 const RoleForm: FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
