@@ -15,9 +15,18 @@ import {
 } from 'lucide-react';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
-import { ComponentInspector } from './componentInspector';
+import { ComponentInspector } from './component-inspector';
 import { setupIframeComm, toggleInspectMode } from './iframe-click-handler';
 import { StyleUpdateService } from './styleUpdateService';
+import { Card } from '@/components/ui/card';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ZoomIn as LucideZoomIn, ZoomOut as LucideZoomOut, Play, Rotate3d, Undo2 } from 'lucide-react';
+import { setIframeRef } from './component-inspector/utils/iframe-utils';
 
 function PreviewContent({
   curProject,
@@ -230,6 +239,8 @@ function PreviewContent({
       // Setup communication with the iframe using our custom inspector
       if (iframeRef.current) {
         setupIframeComm(iframeRef.current);
+        // Set iframe reference for component inspector
+        setIframeRef(iframeRef.current);
       }
     }
   }, [baseUrl, displayPath, isServiceReady]);
@@ -384,7 +395,7 @@ function PreviewContent({
             className="h-8 w-8"
             disabled={!baseUrl || !isServiceReady}
           >
-            <ZoomOut className="h-4 w-4" />
+            <LucideZoomOut className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -393,7 +404,7 @@ function PreviewContent({
             className="h-8 w-8"
             disabled={!baseUrl || !isServiceReady}
           >
-            <ZoomIn className="h-4 w-4" />
+            <LucideZoomIn className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"

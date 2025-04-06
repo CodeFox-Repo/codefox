@@ -68,12 +68,6 @@ export class StyleUpdateService {
       const fileData = await fileResponse.json();
       const originalContent = fileData.content;
 
-      // Log original content for debugging (first 100 chars)
-      console.log(
-        'Original content sample:',
-        originalContent.substring(0, 100)
-      );
-
       // Use Tailwind classes approach
       const updatedContent = CodeManipulator.applyTailwindClassesToCode(
         originalContent,

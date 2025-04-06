@@ -12,7 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ComponentInspector } from '../chat/code-engine/componentInspector';
+import { ComponentInspector } from './code-engine/componentInspector';
 
 interface ChatBottombarProps {
   messages: Message[];
