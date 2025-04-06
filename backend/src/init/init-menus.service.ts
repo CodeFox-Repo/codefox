@@ -6,6 +6,14 @@ import { Role } from '../auth/role/role.model';
 import { DefaultRoles } from '../common/enums/role.enum';
 
 const DEFAULT_MENUS = [
+  // Admin catch-all menu
+  {
+    name: 'All',
+    path: '*',
+    permission: '*',
+    description: 'Full system access',
+    isActive: true,
+  },
   // Role management menus
   {
     name: 'Role List',
@@ -100,17 +108,15 @@ export class InitMenusService implements OnApplicationBootstrap {
     this.logger.log('Checking and initializing default menus...');
 
     // First, ensure all menus exist
-    const menus = await this.createOrUpdateMenus();
+    await this.createOrUpdateMenus();
 
     // Then, associate them with the admin role
-    await this.associateMenusWithAdminRole(menus);
+    await this.associateMenusWithAdminRole();
 
     this.logger.log('Default menus initialization completed');
   }
 
-  private async createOrUpdateMenus(): Promise<Menu[]> {
-    const menus: Menu[] = [];
-
+  private async createOrUpdateMenus(): Promise<void> {
     for (const menuData of DEFAULT_MENUS) {
       let menu = await this.menuRepository.findOne({
         where: { path: menuData.path },
@@ -123,11 +129,7 @@ export class InitMenusService implements OnApplicationBootstrap {
         Object.assign(menu, menuData);
         menu = await this.menuRepository.save(menu);
       }
-
-      menus.push(menu);
     }
-
-    return menus;
   }
 
   private async createMenu(menuData: {
@@ -151,7 +153,7 @@ export class InitMenusService implements OnApplicationBootstrap {
     }
   }
 
-  private async associateMenusWithAdminRole(menus: Menu[]) {
+  private async associateMenusWithAdminRole() {
     try {
       let adminRole = await this.roleRepository.findOne({
         where: { name: DefaultRoles.ADMIN },
@@ -165,9 +167,13 @@ export class InitMenusService implements OnApplicationBootstrap {
         return;
       }
 
-      adminRole.menus = menus;
+      const menu = await this.menuRepository.find({
+        where: { path: '*' },
+      });
+
+      adminRole.menus = menu;
       adminRole = await this.roleRepository.save(adminRole);
-      this.logger.log(`Associated ${menus.length} menus with admin role`);
+      this.logger.log(`Associated ${menu.length} menus with admin role`);
     } catch (error) {
       this.logger.error(
         'Failed to associate menus with admin role:',

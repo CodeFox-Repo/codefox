@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MENU_PATH_KEY } from 'src/decorator/menu.decorator';
 import { User } from 'src/user/user.model';
 import { Repository } from 'typeorm';
+
 @Injectable()
 export class MenuGuard implements CanActivate {
   private readonly logger = new Logger(MenuGuard.name);
@@ -48,6 +49,18 @@ export class MenuGuard implements CanActivate {
         throw new UnauthorizedException('User not found');
       }
 
+      // Check if user has any role with the wildcard '*' permission
+      const hasWildcardAccess = user.roles.some((role) =>
+        role.menus?.some(
+          (menu) => menu.path === '*' || menu.permission === '*',
+        ),
+      );
+
+      if (hasWildcardAccess) {
+        return true;
+      }
+
+      // Check specific menu permissions
       const hasMenuAccess = user.roles.some((role) =>
         role.menus?.some((menu) => menu.path === requiredPath),
       );
