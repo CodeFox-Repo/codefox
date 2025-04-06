@@ -11,7 +11,7 @@ import {
 import { styled } from '@mui/material/styles';
 import { useState } from 'react';
 import { useMutation } from '@apollo/client';
-import { ADMIN_LOGIN } from '../../../graphql/request';
+import { LOGIN } from '../../../graphql/request';
 import { useNavigate } from 'react-router-dom';
 import { LocalStore } from 'src/lib/storage';
 
@@ -29,18 +29,18 @@ const FormTextField = styled(TextField)(
 `
 );
 
-function Hero() {
+function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const [adminLogin, { loading }] = useMutation(ADMIN_LOGIN, {
+  const [login, { loading }] = useMutation(LOGIN, {
     onCompleted: (data) => {
-      const { accessToken, refreshToken } = data.adminLogin;
+      const { accessToken, refreshToken } = data.login;
       localStorage.setItem(LocalStore.accessToken, accessToken);
       localStorage.setItem(LocalStore.refreshToken, refreshToken);
-      navigate('/dashboards/crypto');
+      navigate('/dashboard/overview');
     },
     onError: (error) => {
       setError(error.message);
@@ -52,7 +52,7 @@ function Hero() {
     setError('');
     console.log('Logging in with:', { email, password });
     try {
-      await adminLogin({
+      await login({
         variables: {
           input: {
             email,
@@ -108,4 +108,4 @@ function Hero() {
   );
 }
 
-export default Hero;
+export default Login;

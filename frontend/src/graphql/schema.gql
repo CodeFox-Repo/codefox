@@ -160,6 +160,7 @@ type Mutation {
   createChat(newChatInput: NewChatInput!): Chat!
   createDashboardChat(input: CreateChatInput!): Chat!
   createDashboardProject(input: DashboardCreateProjectInput!): Project!
+  createDashboardRole(input: CreateRoleInput!): SystemRole!
   createDashboardUser(input: CreateUserInput!): User!
   createMenu(createMenuInput: CreateMenuInput!): Menu!
   createProject(createProjectInput: CreateProjectInput!): Chat!
@@ -167,6 +168,7 @@ type Mutation {
   deleteChat(chatId: String!): Boolean!
   deleteDashboardChat(id: ID!): Boolean!
   deleteDashboardProject(id: ID!): Boolean!
+  deleteDashboardRole(id: ID!): Boolean!
   deleteDashboardUser(id: ID!): Boolean!
   deleteProject(projectId: String!): Boolean!
   forkProject(projectId: ID!): Chat!
@@ -184,6 +186,7 @@ type Mutation {
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
   updateDashboardChat(id: ID!, input: UpdateChatInput!): Chat!
   updateDashboardProject(id: ID!, input: UpdateProjectInput!): Project!
+  updateDashboardRole(id: ID!, input: UpdateRoleInput!): SystemRole!
   updateDashboardUser(id: ID!, input: UpdateUserInput!): User!
   updateMenu(updateMenuInput: UpdateMenuInput!): Menu!
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
@@ -256,6 +259,8 @@ type Query {
   dashboardChats(filter: ChatFilterInput): [Chat!]!
   dashboardProject(id: ID!): Project!
   dashboardProjects(filter: ProjectFilterInput): [Project!]!
+  dashboardRole(id: ID!): SystemRole!
+  dashboardRoles: [SystemRole!]!
   dashboardUser(id: ID!): User!
   dashboardUsers(filter: UserFilterInput): [User!]!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!

@@ -205,6 +205,7 @@ export type Mutation = {
   createChat: Chat;
   createDashboardChat: Chat;
   createDashboardProject: Project;
+  createDashboardRole: SystemRole;
   createDashboardUser: User;
   createMenu: Menu;
   createProject: Chat;
@@ -212,6 +213,7 @@ export type Mutation = {
   deleteChat: Scalars['Boolean']['output'];
   deleteDashboardChat: Scalars['Boolean']['output'];
   deleteDashboardProject: Scalars['Boolean']['output'];
+  deleteDashboardRole: Scalars['Boolean']['output'];
   deleteDashboardUser: Scalars['Boolean']['output'];
   deleteProject: Scalars['Boolean']['output'];
   forkProject: Chat;
@@ -229,6 +231,7 @@ export type Mutation = {
   updateChatTitle?: Maybe<Chat>;
   updateDashboardChat: Chat;
   updateDashboardProject: Project;
+  updateDashboardRole: SystemRole;
   updateDashboardUser: User;
   updateMenu: Menu;
   updateProjectPhoto: Project;
@@ -257,6 +260,10 @@ export type MutationCreateDashboardProjectArgs = {
   input: DashboardCreateProjectInput;
 };
 
+export type MutationCreateDashboardRoleArgs = {
+  input: CreateRoleInput;
+};
+
 export type MutationCreateDashboardUserArgs = {
   input: CreateUserInput;
 };
@@ -282,6 +289,10 @@ export type MutationDeleteDashboardChatArgs = {
 };
 
 export type MutationDeleteDashboardProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+export type MutationDeleteDashboardRoleArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -353,6 +364,11 @@ export type MutationUpdateDashboardChatArgs = {
 export type MutationUpdateDashboardProjectArgs = {
   id: Scalars['ID']['input'];
   input: UpdateProjectInput;
+};
+
+export type MutationUpdateDashboardRoleArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateRoleInput;
 };
 
 export type MutationUpdateDashboardUserArgs = {
@@ -447,6 +463,8 @@ export type Query = {
   dashboardChats: Array<Chat>;
   dashboardProject: Project;
   dashboardProjects: Array<Project>;
+  dashboardRole: SystemRole;
+  dashboardRoles: Array<SystemRole>;
   dashboardUser: User;
   dashboardUsers: Array<User>;
   fetchPublicProjects: Array<Project>;
@@ -488,6 +506,10 @@ export type QueryDashboardProjectArgs = {
 
 export type QueryDashboardProjectsArgs = {
   filter?: InputMaybe<ProjectFilterInput>;
+};
+
+export type QueryDashboardRoleArgs = {
+  id: Scalars['ID']['input'];
 };
 
 export type QueryDashboardUserArgs = {
@@ -1047,6 +1069,12 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreateDashboardProjectArgs, 'input'>
   >;
+  createDashboardRole?: Resolver<
+    ResolversTypes['SystemRole'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateDashboardRoleArgs, 'input'>
+  >;
   createDashboardUser?: Resolver<
     ResolversTypes['User'],
     ParentType,
@@ -1088,6 +1116,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationDeleteDashboardProjectArgs, 'id'>
+  >;
+  deleteDashboardRole?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeleteDashboardRoleArgs, 'id'>
   >;
   deleteDashboardUser?: Resolver<
     ResolversTypes['Boolean'],
@@ -1190,6 +1224,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationUpdateDashboardProjectArgs, 'id' | 'input'>
+  >;
+  updateDashboardRole?: Resolver<
+    ResolversTypes['SystemRole'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationUpdateDashboardRoleArgs, 'id' | 'input'>
   >;
   updateDashboardUser?: Resolver<
     ResolversTypes['User'],
@@ -1349,6 +1389,17 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     Partial<QueryDashboardProjectsArgs>
+  >;
+  dashboardRole?: Resolver<
+    ResolversTypes['SystemRole'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDashboardRoleArgs, 'id'>
+  >;
+  dashboardRoles?: Resolver<
+    Array<ResolversTypes['SystemRole']>,
+    ParentType,
+    ContextType
   >;
   dashboardUser?: Resolver<
     ResolversTypes['User'],

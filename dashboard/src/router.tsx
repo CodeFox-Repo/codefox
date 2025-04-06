@@ -6,6 +6,8 @@ import SidebarLayout from 'src/layouts/SidebarLayout';
 import BaseLayout from 'src/layouts/BaseLayout';
 
 import SuspenseLoader from 'src/components/SuspenseLoader';
+import RoleForm from './content/management/Roles/RoleForm';
+import Login from './content/login/Login';
 
 const Loader = (Component) => (props) =>
   (
@@ -76,7 +78,7 @@ const routes: RouteObject[] = [
     children: [
       {
         path: '/',
-        element: <Navigate to="/dashboard/overview" replace />
+        element: <Login />
       },
       {
         path: '*',
