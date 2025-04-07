@@ -23,7 +23,7 @@ import {
   TableRow,
   TableContainer,
   useTheme,
-  styled,
+  styled
 } from '@mui/material';
 
 import DoneTwoToneIcon from '@mui/icons-material/DoneTwoTone';

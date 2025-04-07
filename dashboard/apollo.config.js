@@ -3,9 +3,9 @@ module.exports = {
   client: {
     service: {
       name: 'codefox-backend1',
-      localSchemaFile: './src/graphql/schema.gql',
+      localSchemaFile: './src/graphql/schema.gql'
     },
     includes: ['./src/**/*.{js,ts,tsx}'],
-    excludes: ['**/__tests__/**'],
-  },
+    excludes: ['**/__tests__/**']
+  }
 };

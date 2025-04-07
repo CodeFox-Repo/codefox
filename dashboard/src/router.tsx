@@ -9,12 +9,11 @@ import SuspenseLoader from './components/SuspenseLoader';
 import { LoginPage } from './content/login';
 import TelemetryLogs from './content/management/telemetry/TelemetryLogs';
 
-const Loader = (Component) => (props) =>
-  (
-    <Suspense fallback={<SuspenseLoader />}>
-      <Component {...props} />
-    </Suspense>
-  );
+const Loader = (Component) => (props) => (
+  <Suspense fallback={<SuspenseLoader />}>
+    <Component {...props} />
+  </Suspense>
+);
 
 // Dashboard
 const DashboardOverview = Loader(

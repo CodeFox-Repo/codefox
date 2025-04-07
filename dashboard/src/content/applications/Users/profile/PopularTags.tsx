@@ -10,7 +10,7 @@ import {
   ListItemText,
   Avatar,
   useTheme,
-  styled,
+  styled
 } from '@mui/material';
 
 const ListWrapper = styled(List)(

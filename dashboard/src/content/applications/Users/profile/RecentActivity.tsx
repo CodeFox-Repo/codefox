@@ -6,7 +6,7 @@ import {
   Divider,
   Avatar,
   useTheme,
-  styled,
+  styled
 } from '@mui/material';
 
 import ShoppingBagTwoToneIcon from '@mui/icons-material/ShoppingBagTwoTone';

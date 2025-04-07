@@ -16,9 +16,11 @@
 ![license](https://img.shields.io/badge/license-MIT-blue.svg)
 
 <a href="https://bloomui.com/product/tokyo-free-white-react-typescript-material-ui-admin-dashboard/"><img src="https://bloomui.s3.us-east-2.amazonaws.com/tokyo-free-white-react-typescript-material-ui-admin-dashboard.jpg" /></a>
+
 </div>
 
 <a href="https://bloomui.com/product/tokyo-free-white-react-typescript-material-ui-admin-dashboard/"><h3>Free React Typescript Admin Dashboard Template built with Material-UI</h3></a>
+
 <p>
     This free and open source admin dashboard template is built for React and it’s bootstrapped from Facebook’s create-react-app. All NPM dependencies are up to date and it contains multiple fully customized components based on the popular frontend components framework, Material-UI.
 </p>
@@ -33,6 +35,7 @@ We’ve included a few page examples for most used user flows that will give you
 </p>
 
 ---
+
 <h3>Updrade to PRO</h3>
 
 <p>If you're looking for more features like translations, complex user flows, redux examples and more,  we recommend taking a look at the premium version (Tokyo White Typescript Dashboard) on <a href="https://bloomui.com">bloomui.com</a></p>

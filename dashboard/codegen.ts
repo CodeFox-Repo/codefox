@@ -9,7 +9,7 @@ const config: CodegenConfig = {
         'typescript',
         'typescript-operations',
         'typescript-resolvers',
-        'typescript-react-apollo',
+        'typescript-react-apollo'
       ],
       config: {
         withHooks: true,
@@ -21,19 +21,19 @@ const config: CodegenConfig = {
         nonOptionalTypename: true,
         preResolveTypes: true,
         namingConvention: {
-          enumValues: 'keep',
+          enumValues: 'keep'
         },
         scalars: {
-          Date: 'Date',
-        },
-      },
-    },
+          Date: 'Date'
+        }
+      }
+    }
   },
   hooks: {
     afterOneFileWrite: ['prettier --write'],
-    afterAllFileWrite: ['echo "✨ GraphQL types generated successfully"'],
+    afterAllFileWrite: ['echo "✨ GraphQL types generated successfully"']
   },
-  watch: ['./src/graphql/schema.gql'],
+  watch: ['./src/graphql/schema.gql']
 };
 
 export default config;
