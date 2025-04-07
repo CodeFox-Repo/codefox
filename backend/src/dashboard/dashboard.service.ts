@@ -169,8 +169,21 @@ export class DashboardService {
     return chat;
   }
 
-  async createChat(input: CreateChatInput): Promise<Chat> {
-    const chat = this.chatRepository.create(input);
+  async createChat(input: CreateChatInput, userId: string): Promise<Chat> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+    const project = await this.projectRepository.findOne({
+      where: { id: input.projectId },
+      relations: ['user'],
+    });
+    const inputChat = {
+      ...input,
+      userId,
+      user,
+      project,
+    } as Chat;
+    const chat = this.chatRepository.create(inputChat);
     return this.chatRepository.save(chat);
   }
 

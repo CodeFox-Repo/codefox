@@ -105,7 +105,6 @@ export type CheckTokenInput = {
 export type CreateChatInput = {
   projectId?: InputMaybe<Scalars['ID']['input']>;
   title: Scalars['String']['input'];
-  userId: Scalars['ID']['input'];
 };
 
 export type CreateMenuInput = {
@@ -196,7 +195,7 @@ export type Mutation = {
   confirmEmail: EmailConfirmationResponse;
   createChat: Chat;
   createDashboardChat: Chat;
-  createDashboardProject: Project;
+  createDashboardProject: Chat;
   createDashboardRole: SystemRole;
   createDashboardUser: User;
   createMenu: Menu;
@@ -626,6 +625,7 @@ export type UpdateProjectPhotoInput = {
 export type UpdateRoleInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
   menuIds?: InputMaybe<Array<Scalars['String']['input']>>;
   name?: InputMaybe<Scalars['String']['input']>;
 };
@@ -1057,7 +1057,7 @@ export type MutationResolvers<
     RequireFields<MutationCreateDashboardChatArgs, 'input'>
   >;
   createDashboardProject?: Resolver<
-    ResolversTypes['Project'],
+    ResolversTypes['Chat'],
     ParentType,
     ContextType,
     RequireFields<MutationCreateDashboardProjectArgs, 'input'>

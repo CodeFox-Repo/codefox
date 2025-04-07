@@ -23,9 +23,6 @@ export class CreateChatInput {
   @Field()
   title: string;
 
-  @Field(() => ID)
-  userId: string;
-
   @Field(() => ID, { nullable: true })
   projectId?: string;
 }

@@ -454,6 +454,9 @@ importers:
       react-scripts:
         specifier: 5.0.1
         version: 5.0.1(@babel/plugin-syntax-flow@7.26.0(@babel/core@7.26.10))(@babel/plugin-transform-react-jsx@7.25.9(@babel/core@7.26.10))(@types/babel__core@7.20.5)(eslint@8.17.0)(react@17.0.2)(ts-node@10.9.2(@types/node@22.13.14)(typescript@4.7.3))(type-fest@4.38.0)(typescript@4.7.3)
+      sonner:
+        specifier: ^1.5.0
+        version: 1.7.4(react-dom@17.0.2(react@17.0.2))(react@17.0.2)
       stylis:
         specifier: 4.1.1
         version: 4.1.1
@@ -34114,6 +34117,11 @@ snapshots:
   sonic-boom@4.2.0:
     dependencies:
       atomic-sleep: 1.0.0
+
+  sonner@1.7.4(react-dom@17.0.2(react@17.0.2))(react@17.0.2):
+    dependencies:
+      react: 17.0.2
+      react-dom: 17.0.2(react@17.0.2)
 
   sonner@1.7.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:

@@ -85,9 +85,10 @@ export class DashboardResolver {
 
   @Mutation(() => Chat)
   async createDashboardChat(
+    @GetUserIdFromToken() userId: string,
     @Args('input') input: CreateChatInput,
   ): Promise<Chat> {
-    return this.dashboardService.createChat(input);
+    return this.dashboardService.createChat(input, userId);
   }
 
   @Mutation(() => Chat)
@@ -120,7 +121,7 @@ export class DashboardResolver {
     return this.dashboardService.findProjectById(id);
   }
 
-  @Mutation(() => Project)
+  @Mutation(() => Chat)
   async createDashboardProject(
     @GetUserIdFromToken() userId: string,
     @Args('input') input: CreateProjectInput,

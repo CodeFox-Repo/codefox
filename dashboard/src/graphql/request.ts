@@ -373,6 +373,9 @@ export const GET_DASHBOARD_PROJECTS = gql`
       isActive
       isPublic
       createdAt
+      chats {
+        id
+      }
       user {
         id
         username
@@ -407,7 +410,6 @@ export const CREATE_DASHBOARD_PROJECT = gql`
   mutation CreateDashboardProject($input: CreateProjectInput!) {
     createDashboardProject(input: $input) {
       id
-      projectName
     }
   }
 `;
@@ -437,6 +439,30 @@ export const GET_DASHBOARD_STATS = gql`
       activeUsers
       activeProjects
       activeChats
+    }
+  }
+`;
+
+// Query to get chat details
+export const GET_CHAT_DETAILS = gql`
+  query GetChatDetails($chatId: String!) {
+    getChatDetails(chatId: $chatId) {
+      id
+      title
+      userId
+      messages {
+        id
+        content
+        role
+        createdAt
+      }
+      project {
+        id
+        projectName
+        projectPath
+        isPublic
+        photoUrl
+      }
     }
   }
 `;

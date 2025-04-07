@@ -62,7 +62,6 @@ input CheckTokenInput {
 input CreateChatInput {
   projectId: ID
   title: String!
-  userId: ID!
 }
 
 input CreateMenuInput {
@@ -151,7 +150,7 @@ type Mutation {
   confirmEmail(token: String!): EmailConfirmationResponse!
   createChat(newChatInput: NewChatInput!): Chat!
   createDashboardChat(input: CreateChatInput!): Chat!
-  createDashboardProject(input: CreateProjectInput!): Project!
+  createDashboardProject(input: CreateProjectInput!): Chat!
   createDashboardRole(input: CreateRoleInput!): SystemRole!
   createDashboardUser(input: CreateUserInput!): User!
   createMenu(createMenuInput: CreateMenuInput!): Menu!
@@ -354,6 +353,7 @@ input UpdateProjectPhotoInput {
 input UpdateRoleInput {
   description: String
   id: ID!
+  isActive: Boolean
   menuIds: [String!]
   name: String
 }

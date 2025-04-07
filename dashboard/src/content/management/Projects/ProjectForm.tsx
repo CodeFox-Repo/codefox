@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useState, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -11,12 +11,14 @@ import {
   Switch
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery, useLazyQuery } from '@apollo/client';
 import {
   GET_DASHBOARD_PROJECT,
   CREATE_DASHBOARD_PROJECT,
-  UPDATE_DASHBOARD_PROJECT
+  UPDATE_DASHBOARD_PROJECT,
+  GET_CHAT_DETAILS
 } from 'src/graphql/request';
+import { toast } from 'sonner';
 
 const ProjectForm: FC = () => {
   const { id } = useParams();
@@ -29,34 +31,60 @@ const ProjectForm: FC = () => {
     public: false
   });
 
+  // 获取项目详情（编辑时使用）
   const { data: projectData } = useQuery(GET_DASHBOARD_PROJECT, {
     variables: { id },
     skip: !id
   });
 
+  // 创建和更新项目 Mutation
   const [createProject] = useMutation(CREATE_DASHBOARD_PROJECT);
   const [updateProject] = useMutation(UPDATE_DASHBOARD_PROJECT);
+  // 用于轮询获取 chat 详情的 lazyQuery
+  const [getChatDetail] = useLazyQuery(GET_CHAT_DETAILS);
 
   useEffect(() => {
     if (projectData?.dashboardProject) {
       setFormData({
         projectName: projectData.dashboardProject.projectName,
         description: projectData.dashboardProject.description || '',
-        isPublic: projectData.dashboardProject.isPublic || false,
-        isActive: projectData.dashboardProject.isActive || true
+        public: projectData.dashboardProject.isPublic || false
       });
     }
   }, [projectData]);
 
-  const handleChange = (e) => {
-    const { name, value, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, type, value, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value !== undefined ? value : checked
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
-  const handleSubmit = async (e) => {
+  // 轮询函数：每 3 秒请求一次，最多重试 10 次，根据 chatId 查询 chat 详情
+  const pollChatProject = useCallback(
+    async (chatId: string): Promise<any | null> => {
+      const maxRetries = 10;
+      let retries = 0;
+      while (retries < maxRetries) {
+        try {
+          const { data } = await getChatDetail({ variables: { chatId } });
+          // 假设返回数据结构为 data.getChatDetails.chat，表示 chat 已生成
+          if (data?.getChatDetails?.chat) {
+            return data.getChatDetails;
+          }
+        } catch (error) {
+          console.error(`Polling attempt ${retries + 1} failed:`, error);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        retries++;
+      }
+      return null;
+    },
+    [getChatDetail]
+  );
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       if (isEdit) {
@@ -66,16 +94,24 @@ const ProjectForm: FC = () => {
             input: formData
           }
         });
+        navigate('/management/projects');
       } else {
-        await createProject({
+        // 调用创建项目的 Mutation
+        const result = await createProject({
           variables: {
             input: formData
           }
         });
+        const chatId = result.data?.createDashboardProject?.id;
+        if (chatId) {
+          // 轮询获取 chat 详情
+          pollChatProject(chatId);
+          navigate('/management/projects');
+        }
       }
-      navigate('/management/projects');
     } catch (error) {
       console.error('Error saving project:', error);
+      toast.error('Error saving project. Please try again.');
     }
   };
 
@@ -114,7 +150,7 @@ const ProjectForm: FC = () => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={formData.isPublic}
+                    checked={formData.public}
                     onChange={handleChange}
                     name="isPublic"
                   />

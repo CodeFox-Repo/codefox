@@ -28,8 +28,7 @@ const ChatForm: FC = () => {
 
   const [formData, setFormData] = useState({
     title: '',
-    projectId: '',
-    isActive: true
+    projectId: ''
   });
 
   const { data: chatData } = useQuery(GET_DASHBOARD_CHAT, {
@@ -46,8 +45,7 @@ const ChatForm: FC = () => {
     if (chatData?.dashboardChat) {
       setFormData({
         title: chatData.dashboardChat.title,
-        projectId: chatData.dashboardChat.project?.id || '',
-        isActive: chatData.dashboardChat.isActive
+        projectId: chatData.dashboardChat.project?.id || ''
       });
     }
   }, [chatData]);
