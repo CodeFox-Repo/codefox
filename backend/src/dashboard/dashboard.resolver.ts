@@ -33,6 +33,7 @@ export class DashboardResolver {
     private readonly authService: AuthService,
   ) {}
 
+  @RequireRoles('Admin')
   @Query(() => [User])
   async dashboardUsers(
     @Args('filter', { nullable: true }) filter?: UserFilterInput,
@@ -40,6 +41,7 @@ export class DashboardResolver {
     return await this.dashboardService.findUsers(filter);
   }
 
+  @RequireRoles('Admin')
   @Query(() => User)
   async dashboardUser(
     @Args('id', { type: () => ID }) id: string,
@@ -47,6 +49,7 @@ export class DashboardResolver {
     return this.dashboardService.findUserById(id);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => User)
   async createDashboardUser(
     @Args('input') input: CreateUserInput,
@@ -54,6 +57,7 @@ export class DashboardResolver {
     return this.dashboardService.createUser(input);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => User)
   async updateDashboardUser(
     @Args('id', { type: () => ID }) id: string,
@@ -62,6 +66,7 @@ export class DashboardResolver {
     return this.dashboardService.updateUser(id, input);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Boolean)
   async deleteDashboardUser(
     @Args('id', { type: () => ID }) id: string,
@@ -70,6 +75,7 @@ export class DashboardResolver {
   }
 
   // Chat Management
+  @RequireRoles('Admin')
   @Query(() => [Chat])
   async dashboardChats(
     @Args('filter', { nullable: true }) filter?: ChatFilterInput,
@@ -77,6 +83,7 @@ export class DashboardResolver {
     return this.dashboardService.findChats(filter);
   }
 
+  @RequireRoles('Admin')
   @Query(() => Chat)
   async dashboardChat(
     @Args('id', { type: () => ID }) id: string,
@@ -84,6 +91,7 @@ export class DashboardResolver {
     return this.dashboardService.findChatById(id);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Chat)
   async createDashboardChat(
     @GetUserIdFromToken() userId: string,
@@ -92,6 +100,7 @@ export class DashboardResolver {
     return this.dashboardService.createChat(input, userId);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Chat)
   async updateDashboardChat(
     @Args('id', { type: () => ID }) id: string,
@@ -100,6 +109,7 @@ export class DashboardResolver {
     return this.dashboardService.updateChat(id, input);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Boolean)
   async deleteDashboardChat(
     @Args('id', { type: () => ID }) id: string,
@@ -108,6 +118,7 @@ export class DashboardResolver {
   }
 
   // Project Management
+  @RequireRoles('Admin')
   @Query(() => [Project])
   async dashboardProjects(
     @Args('filter', { nullable: true }) filter?: ProjectFilterInput,
@@ -115,6 +126,7 @@ export class DashboardResolver {
     return this.dashboardService.findProjects(filter);
   }
 
+  @RequireRoles('Admin')
   @Query(() => Project)
   async dashboardProject(
     @Args('id', { type: () => ID }) id: string,
@@ -122,6 +134,7 @@ export class DashboardResolver {
     return this.dashboardService.findProjectById(id);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Chat)
   async createDashboardProject(
     @GetUserIdFromToken() userId: string,
@@ -130,6 +143,7 @@ export class DashboardResolver {
     return await this.dashboardService.createProject(input, userId);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Project)
   async updateDashboardProject(
     @Args('id', { type: () => ID }) id: string,
@@ -138,6 +152,7 @@ export class DashboardResolver {
     return this.dashboardService.updateProject(id, input);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Boolean)
   async deleteDashboardProject(
     @Args('id', { type: () => ID }) id: string,
@@ -145,11 +160,14 @@ export class DashboardResolver {
     return this.dashboardService.deleteProject(id);
   }
 
+  // Role Management
+  @RequireRoles('Admin')
   @Query(() => [Role])
   async dashboardRoles(): Promise<Role[]> {
     return this.dashboardService.findRoles();
   }
 
+  @RequireRoles('Admin')
   @Query(() => Role)
   async dashboardRole(
     @Args('id', { type: () => ID }) id: string,
@@ -157,6 +175,7 @@ export class DashboardResolver {
     return this.dashboardService.findRoleById(id);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Role)
   async createDashboardRole(
     @Args('input') input: CreateRoleInput,
@@ -164,6 +183,7 @@ export class DashboardResolver {
     return this.dashboardService.createRole(input);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Role)
   async updateDashboardRole(
     @Args('id', { type: () => ID }) id: string,
@@ -172,6 +192,7 @@ export class DashboardResolver {
     return this.dashboardService.updateRole(id, input);
   }
 
+  @RequireRoles('Admin')
   @Mutation(() => Boolean)
   async deleteDashboardRole(
     @Args('id', { type: () => ID }) id: string,
@@ -179,6 +200,8 @@ export class DashboardResolver {
     return this.dashboardService.deleteRole(id);
   }
 
+  // Dashboard Stats
+  @RequireRoles('Admin')
   @Query(() => DashboardStats)
   async dashboardStats(): Promise<DashboardStats> {
     return this.dashboardService.getDashboardStats();
