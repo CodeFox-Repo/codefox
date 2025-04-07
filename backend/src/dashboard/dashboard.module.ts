@@ -17,6 +17,9 @@ import { ChatModule } from '../chat/chat.module';
 import { ProjectModule } from '../project/project.module';
 import { JwtCacheModule } from '../jwt-cache/jwt-cache.module';
 import { Menu } from 'src/auth/menu/menu.model';
+import { InterceptorModule } from 'src/interceptor/interceptor.module';
+import { TelemetryLogService } from 'src/interceptor/telemetry-log.service';
+import { TelemetryLog } from 'src/interceptor/telemetry-log.model';
 
 @Module({
   imports: [
@@ -27,14 +30,16 @@ import { Menu } from 'src/auth/menu/menu.model';
       Project,
       ProjectPackages,
       Menu,
+      TelemetryLog,
     ]),
     UserModule,
     AuthModule,
     ChatModule,
     ProjectModule,
     JwtCacheModule,
+    InterceptorModule,
   ],
-  providers: [DashboardResolver, DashboardService],
+  providers: [DashboardResolver, DashboardService, TelemetryLogService],
   exports: [DashboardService],
 })
 export class DashboardModule {}

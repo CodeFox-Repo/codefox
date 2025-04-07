@@ -264,6 +264,9 @@ type Query {
   dashboardRole(id: ID!): SystemRole!
   dashboardRoles: [SystemRole!]!
   dashboardStats: DashboardStats!
+  dashboardTelemetryLog(id: ID!): TelemetryLog!
+  dashboardTelemetryLogs(filter: TelemetryLogFilterInput): [TelemetryLog!]!
+  dashboardTelemetryLogsCount(filter: TelemetryLogFilterInput): Float!
   dashboardUser(id: ID!): User!
   dashboardUsers(filter: UserFilterInput): [User!]!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
@@ -328,6 +331,32 @@ type SystemRole {
   name: String!
   updatedAt: Date!
   users: [User!]
+}
+
+type TelemetryLog {
+  endpoint: String!
+  handler: String
+  id: ID!
+  input: String
+  inputToken: String
+  output: String
+  outputToken: String
+  requestMethod: String!
+  timeConsumed: Float!
+  timestamp: Date!
+  userId: String
+}
+
+input TelemetryLogFilterInput {
+  endDate: Date
+  endpoint: String
+  handler: String
+  maxTimeConsumed: Float
+  minTimeConsumed: Float
+  requestMethod: String
+  search: String
+  startDate: Date
+  userId: String
 }
 
 input UpdateChatInput {

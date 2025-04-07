@@ -469,6 +469,9 @@ export type Query = {
   dashboardRole: SystemRole;
   dashboardRoles: Array<SystemRole>;
   dashboardStats: DashboardStats;
+  dashboardTelemetryLog: TelemetryLog;
+  dashboardTelemetryLogs: Array<TelemetryLog>;
+  dashboardTelemetryLogsCount: Scalars['Float']['output'];
   dashboardUser: User;
   dashboardUsers: Array<User>;
   fetchPublicProjects: Array<Project>;
@@ -514,6 +517,18 @@ export type QueryDashboardProjectsArgs = {
 
 export type QueryDashboardRoleArgs = {
   id: Scalars['ID']['input'];
+};
+
+export type QueryDashboardTelemetryLogArgs = {
+  id: Scalars['ID']['input'];
+};
+
+export type QueryDashboardTelemetryLogsArgs = {
+  filter?: InputMaybe<TelemetryLogFilterInput>;
+};
+
+export type QueryDashboardTelemetryLogsCountArgs = {
+  filter?: InputMaybe<TelemetryLogFilterInput>;
 };
 
 export type QueryDashboardUserArgs = {
@@ -601,6 +616,33 @@ export type SystemRole = {
   name: Scalars['String']['output'];
   updatedAt: Scalars['Date']['output'];
   users?: Maybe<Array<User>>;
+};
+
+export type TelemetryLog = {
+  __typename: 'TelemetryLog';
+  endpoint: Scalars['String']['output'];
+  handler?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  input?: Maybe<Scalars['String']['output']>;
+  inputToken?: Maybe<Scalars['String']['output']>;
+  output?: Maybe<Scalars['String']['output']>;
+  outputToken?: Maybe<Scalars['String']['output']>;
+  requestMethod: Scalars['String']['output'];
+  timeConsumed: Scalars['Float']['output'];
+  timestamp: Scalars['Date']['output'];
+  userId?: Maybe<Scalars['String']['output']>;
+};
+
+export type TelemetryLogFilterInput = {
+  endDate?: InputMaybe<Scalars['Date']['input']>;
+  endpoint?: InputMaybe<Scalars['String']['input']>;
+  handler?: InputMaybe<Scalars['String']['input']>;
+  maxTimeConsumed?: InputMaybe<Scalars['Float']['input']>;
+  minTimeConsumed?: InputMaybe<Scalars['Float']['input']>;
+  requestMethod?: InputMaybe<Scalars['String']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+  startDate?: InputMaybe<Scalars['Date']['input']>;
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateChatInput = {
@@ -827,6 +869,8 @@ export type ResolversTypes = ResolversObject<{
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Subscription: ResolverTypeWrapper<{}>;
   SystemRole: ResolverTypeWrapper<SystemRole>;
+  TelemetryLog: ResolverTypeWrapper<TelemetryLog>;
+  TelemetryLogFilterInput: TelemetryLogFilterInput;
   UpdateChatInput: UpdateChatInput;
   UpdateChatTitleInput: UpdateChatTitleInput;
   UpdateMenuInput: UpdateMenuInput;
@@ -880,6 +924,8 @@ export type ResolversParentTypes = ResolversObject<{
   String: Scalars['String']['output'];
   Subscription: {};
   SystemRole: SystemRole;
+  TelemetryLog: TelemetryLog;
+  TelemetryLogFilterInput: TelemetryLogFilterInput;
   UpdateChatInput: UpdateChatInput;
   UpdateChatTitleInput: UpdateChatTitleInput;
   UpdateMenuInput: UpdateMenuInput;
@@ -1430,6 +1476,24 @@ export type QueryResolvers<
     ParentType,
     ContextType
   >;
+  dashboardTelemetryLog?: Resolver<
+    ResolversTypes['TelemetryLog'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDashboardTelemetryLogArgs, 'id'>
+  >;
+  dashboardTelemetryLogs?: Resolver<
+    Array<ResolversTypes['TelemetryLog']>,
+    ParentType,
+    ContextType,
+    Partial<QueryDashboardTelemetryLogsArgs>
+  >;
+  dashboardTelemetryLogsCount?: Resolver<
+    ResolversTypes['Float'],
+    ParentType,
+    ContextType,
+    Partial<QueryDashboardTelemetryLogsCountArgs>
+  >;
   dashboardUser?: Resolver<
     ResolversTypes['User'],
     ParentType,
@@ -1585,6 +1649,33 @@ export type SystemRoleResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type TelemetryLogResolvers<
+  ContextType = any,
+  ParentType extends
+    ResolversParentTypes['TelemetryLog'] = ResolversParentTypes['TelemetryLog'],
+> = ResolversObject<{
+  endpoint?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  handler?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  input?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  inputToken?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  output?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  outputToken?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  requestMethod?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  timeConsumed?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  timestamp?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
+  userId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export interface UploadScalarConfig
   extends GraphQLScalarTypeConfig<ResolversTypes['Upload'], any> {
   name: 'Upload';
@@ -1656,6 +1747,7 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   RefreshTokenResponse?: RefreshTokenResponseResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
   SystemRole?: SystemRoleResolvers<ContextType>;
+  TelemetryLog?: TelemetryLogResolvers<ContextType>;
   Upload?: GraphQLScalarType;
   User?: UserResolvers<ContextType>;
 }>;

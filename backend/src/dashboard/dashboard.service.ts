@@ -27,6 +27,7 @@ import { Menu } from 'src/auth/menu/menu.model';
 import { ProjectService } from 'src/project/project.service';
 import { CreateProjectInput } from 'src/project/dto/project.input';
 import { DashboardStats } from './dashboard-stat.model';
+import { TelemetryLog } from 'src/interceptor/telemetry-log.model';
 
 @Injectable()
 export class DashboardService {
@@ -43,6 +44,8 @@ export class DashboardService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(ProjectPackages)
     private readonly packageRepository: Repository<ProjectPackages>,
+    @InjectRepository(TelemetryLog)
+    private readonly telemetryLogRepository: Repository<ProjectPackages>,
     private readonly projectService: ProjectService,
   ) {}
 

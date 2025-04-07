@@ -4,6 +4,7 @@ import { DashboardService } from './dashboard.service';
 import { User } from '../user/user.model';
 import { Chat } from '../chat/chat.model';
 import { Project } from '../project/project.model';
+import { TelemetryLog } from '../interceptor/telemetry-log.model';
 import {
   CreateUserInput,
   UpdateUserInput,
@@ -15,22 +16,23 @@ import {
   UpdateChatInput,
 } from './dto/chat-input';
 import { ProjectFilterInput, UpdateProjectInput } from './dto/project-input';
+import { TelemetryLogFilterInput } from './dto/telemetry-log-input';
 import { RequireRoles } from '../decorator/auth.decorator';
 import { JWTAuthGuard } from '../guard/jwt-auth.guard';
-import { AuthService } from 'src/auth/auth.service';
 import { CreateRoleInput } from 'src/auth/role/dto/create-role.input';
 import { UpdateRoleInput } from 'src/auth/role/dto/update-role.input';
 import { Role } from 'src/auth/role/role.model';
 import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
 import { CreateProjectInput } from 'src/project/dto/project.input';
 import { DashboardStats } from './dashboard-stat.model';
+import { TelemetryLogService } from 'src/interceptor/telemetry-log.service';
 
 @Resolver()
 @UseGuards(JWTAuthGuard)
 export class DashboardResolver {
   constructor(
     private readonly dashboardService: DashboardService,
-    private readonly authService: AuthService,
+    private readonly telemetryLogService: TelemetryLogService,
   ) {}
 
   @RequireRoles('Admin')
@@ -205,5 +207,30 @@ export class DashboardResolver {
   @Query(() => DashboardStats)
   async dashboardStats(): Promise<DashboardStats> {
     return this.dashboardService.getDashboardStats();
+  }
+
+  // Telemetry Log Management
+  @RequireRoles('Admin')
+  @Query(() => [TelemetryLog])
+  async dashboardTelemetryLogs(
+    @Args('filter', { nullable: true }) filter?: TelemetryLogFilterInput,
+  ): Promise<TelemetryLog[]> {
+    return this.telemetryLogService.findFiltered(filter);
+  }
+
+  @RequireRoles('Admin')
+  @Query(() => TelemetryLog)
+  async dashboardTelemetryLog(
+    @Args('id', { type: () => ID }) id: number,
+  ): Promise<TelemetryLog> {
+    return this.telemetryLogService.findById(id);
+  }
+
+  @RequireRoles('Admin')
+  @Query(() => Number)
+  async dashboardTelemetryLogsCount(
+    @Args('filter', { nullable: true }) filter?: TelemetryLogFilterInput,
+  ): Promise<number> {
+    return this.telemetryLogService.countTelemetryLogs(filter);
   }
 }
