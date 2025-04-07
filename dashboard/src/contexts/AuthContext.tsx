@@ -126,13 +126,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshTokenMutation]);
 
   const login = useCallback(
-    (accessToken: string, refreshToken: string) => {
+    async (accessToken: string, refreshToken: string) => {
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       setToken(accessToken);
       setIsAuthorized(true);
-      fetchUserInfo();
-      navigate('/dashboards/crypto');
+      await fetchUserInfo();
+      navigate('/dashboard/overview');
     },
     [fetchUserInfo, navigate]
   );
@@ -150,35 +150,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function initAuth() {
       setIsLoading(true);
 
-      const storedToken = localStorage.getItem('accessToken');
-      if (!storedToken) {
+      try {
+        const storedToken = localStorage.getItem('accessToken');
+        if (!storedToken) {
+          setIsAuthorized(false);
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
+
+        let isValid = await validateToken();
+
+        if (!isValid) {
+          isValid = await refreshAccessToken();
+        }
+
+        if (isValid) {
+          const userFetched = await fetchUserInfo();
+          if (userFetched) {
+            setIsAuthorized(true);
+          } else {
+            throw new Error('Failed to fetch user info');
+          }
+        } else {
+          throw new Error('Invalid token');
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
         setIsAuthorized(false);
         setUser(null);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      } finally {
         setIsLoading(false);
-        navigate('/');
-        return;
       }
-
-      let isValid = await validateToken();
-
-      if (!isValid) {
-        isValid = await refreshAccessToken();
-      }
-
-      if (isValid) {
-        setIsAuthorized(true);
-        await fetchUserInfo();
-      } else {
-        setIsAuthorized(false);
-        setUser(null);
-        navigate('/');
-      }
-
-      setIsLoading(false);
     }
 
     initAuth();
-  }, [validateToken, refreshAccessToken, fetchUserInfo, navigate]);
+  }, [validateToken, refreshAccessToken, fetchUserInfo]);
 
   if (isLoading) {
     return <div>Loading...</div>;

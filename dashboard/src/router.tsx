@@ -7,6 +7,7 @@ import BaseLayout from './layouts/BaseLayout';
 
 import SuspenseLoader from './components/SuspenseLoader';
 import Login from './content/login/Login';
+import { LoginPage } from './content/login';
 
 const Loader = (Component) => (props) =>
   (
@@ -83,7 +84,7 @@ const routes: RouteObject[] = [
     children: [
       {
         path: '/',
-        element: <Login />
+        element: <LoginPage />
       },
       {
         path: '*',

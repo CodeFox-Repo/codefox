@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 
 import { styled } from '@mui/material/styles';
 import Logo from 'src/components/LogoSign';
-import Hero from './Login';
+import Login from './Login';
 
 const OverviewWrapper = styled(Box)(
   () => `
@@ -14,7 +14,7 @@ const OverviewWrapper = styled(Box)(
 `
 );
 
-function Overview() {
+export const LoginPage = () => {
   return (
     <OverviewWrapper>
       <Helmet>
@@ -25,11 +25,9 @@ function Overview() {
           <Logo />
         </Box>
         <Card sx={{ p: 10, mb: 10, borderRadius: 12 }}>
-          <Hero />
+          <Login />
         </Card>
       </Container>
     </OverviewWrapper>
   );
-}
-
-export default Overview;
+};
