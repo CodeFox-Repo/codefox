@@ -404,7 +404,7 @@ export const GET_DASHBOARD_PROJECT = gql`
 `;
 
 export const CREATE_DASHBOARD_PROJECT = gql`
-  mutation CreateDashboardProject($input: DashboardCreateProjectInput!) {
+  mutation CreateDashboardProject($input: CreateProjectInput!) {
     createDashboardProject(input: $input) {
       id
       projectName

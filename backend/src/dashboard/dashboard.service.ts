@@ -20,14 +20,12 @@ import {
   UpdateChatInput,
 } from './dto/chat-input';
 
-import {
-  ProjectFilterInput,
-  DashboardCreateProjectInput,
-  UpdateProjectInput,
-} from './dto/project-input';
+import { ProjectFilterInput, UpdateProjectInput } from './dto/project-input';
 import { CreateRoleInput } from 'src/auth/role/dto/create-role.input';
 import { UpdateRoleInput } from 'src/auth/role/dto/update-role.input';
 import { Menu } from 'src/auth/menu/menu.model';
+import { ProjectService } from 'src/project/project.service';
+import { CreateProjectInput } from 'src/project/dto/project.input';
 
 @Injectable()
 export class DashboardService {
@@ -44,6 +42,7 @@ export class DashboardService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(ProjectPackages)
     private readonly packageRepository: Repository<ProjectPackages>,
+    private readonly projectService: ProjectService,
   ) {}
 
   // User Management
@@ -248,16 +247,11 @@ export class DashboardService {
     return project;
   }
 
-  async createProject(input: DashboardCreateProjectInput): Promise<Project> {
-    const project = this.projectRepository.create(input);
-
-    if (input.packageIds?.length) {
-      project.projectPackages = await this.packageRepository.findByIds(
-        input.packageIds,
-      );
-    }
-
-    return this.projectRepository.save(project);
+  async createProject(
+    input: CreateProjectInput,
+    userId: string,
+  ): Promise<Chat> {
+    return await this.projectService.createProject(input, userId);
   }
 
   async updateProject(id: string, input: UpdateProjectInput): Promise<Project> {

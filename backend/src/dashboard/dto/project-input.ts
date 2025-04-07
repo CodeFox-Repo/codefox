@@ -23,25 +23,6 @@ export class ProjectFilterInput {
   @Field(() => Date, { nullable: true })
   createdBefore?: Date;
 }
-
-@InputType()
-export class DashboardCreateProjectInput {
-  @Field()
-  projectName: string;
-
-  @Field()
-  projectPath: string;
-
-  @Field(() => ID)
-  userId: string;
-
-  @Field({ nullable: true })
-  isPublic?: boolean;
-
-  @Field(() => [ID], { nullable: true })
-  packageIds?: string[];
-}
-
 @InputType()
 export class UpdateProjectInput {
   @Field({ nullable: true })

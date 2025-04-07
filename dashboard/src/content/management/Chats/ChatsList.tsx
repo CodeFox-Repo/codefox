@@ -12,7 +12,8 @@ import {
   Typography,
   Tooltip,
   Box,
-  Chip
+  Chip,
+  Button
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -74,6 +75,12 @@ const ChatsList: FC = () => {
         p={2}
       >
         <Typography variant="h3">Chats Management</Typography>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/management/chats/create')}
+        >
+          Create Chat
+        </Button>
       </Box>
       <Card>
         <TableContainer>

@@ -119,7 +119,7 @@ export type CreateProjectInput = {
   databaseType?: InputMaybe<Scalars['String']['input']>;
   description: Scalars['String']['input'];
   model?: InputMaybe<Scalars['String']['input']>;
-  packages: Array<ProjectPackage>;
+  packages?: InputMaybe<Array<ProjectPackage>>;
   projectName?: InputMaybe<Scalars['String']['input']>;
   public?: InputMaybe<Scalars['Boolean']['input']>;
 };
@@ -135,14 +135,6 @@ export type CreateUserInput = {
   password: Scalars['String']['input'];
   roleIds?: Array<Scalars['String']['input']>;
   username: Scalars['String']['input'];
-};
-
-export type DashboardCreateProjectInput = {
-  isPublic?: InputMaybe<Scalars['Boolean']['input']>;
-  packageIds?: InputMaybe<Array<Scalars['ID']['input']>>;
-  projectName: Scalars['String']['input'];
-  projectPath: Scalars['String']['input'];
-  userId: Scalars['ID']['input'];
 };
 
 export type EmailConfirmationResponse = {
@@ -257,7 +249,7 @@ export type MutationCreateDashboardChatArgs = {
 };
 
 export type MutationCreateDashboardProjectArgs = {
-  input: DashboardCreateProjectInput;
+  input: CreateProjectInput;
 };
 
 export type MutationCreateDashboardRoleArgs = {
@@ -795,7 +787,6 @@ export type ResolversTypes = ResolversObject<{
   CreateProjectInput: CreateProjectInput;
   CreateRoleInput: CreateRoleInput;
   CreateUserInput: CreateUserInput;
-  DashboardCreateProjectInput: DashboardCreateProjectInput;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
   EmailConfirmationResponse: ResolverTypeWrapper<EmailConfirmationResponse>;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -850,7 +841,6 @@ export type ResolversParentTypes = ResolversObject<{
   CreateProjectInput: CreateProjectInput;
   CreateRoleInput: CreateRoleInput;
   CreateUserInput: CreateUserInput;
-  DashboardCreateProjectInput: DashboardCreateProjectInput;
   Date: Scalars['Date']['output'];
   EmailConfirmationResponse: EmailConfirmationResponse;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;

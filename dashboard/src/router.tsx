@@ -54,12 +54,18 @@ const MenuEdit = Loader(
 const ChatsList = Loader(
   lazy(() => import('./content/management/Chats/ChatsList'))
 );
+const ChatCreate = Loader(
+  lazy(() => import('./content/management/Chats/ChatCreate'))
+);
 const ChatView = Loader(
   lazy(() => import('./content/management/Chats/ChatView'))
 );
 
 const ProjectsList = Loader(
   lazy(() => import('./content/management/Projects/ProjectsList'))
+);
+const ProjectCreate = Loader(
+  lazy(() => import('./content/management/Projects/ProjectCreate'))
 );
 const ProjectView = Loader(
   lazy(() => import('./content/management/Projects/ProjectView'))
@@ -166,6 +172,10 @@ const routes: RouteObject[] = [
             element: <ChatsList />
           },
           {
+            path: 'create',
+            element: <ChatCreate />
+          },
+          {
             path: 'view/:id',
             element: <ChatView />
           }
@@ -177,6 +187,10 @@ const routes: RouteObject[] = [
           {
             path: '',
             element: <ProjectsList />
+          },
+          {
+            path: 'create',
+            element: <ProjectCreate />
           },
           {
             path: 'view/:id',

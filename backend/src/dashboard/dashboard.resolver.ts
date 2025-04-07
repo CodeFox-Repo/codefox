@@ -14,17 +14,15 @@ import {
   CreateChatInput,
   UpdateChatInput,
 } from './dto/chat-input';
-import {
-  ProjectFilterInput,
-  DashboardCreateProjectInput,
-  UpdateProjectInput,
-} from './dto/project-input';
+import { ProjectFilterInput, UpdateProjectInput } from './dto/project-input';
 import { RequireRoles } from '../decorator/auth.decorator';
 import { JWTAuthGuard } from '../guard/jwt-auth.guard';
 import { AuthService } from 'src/auth/auth.service';
 import { CreateRoleInput } from 'src/auth/role/dto/create-role.input';
 import { UpdateRoleInput } from 'src/auth/role/dto/update-role.input';
 import { Role } from 'src/auth/role/role.model';
+import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
+import { CreateProjectInput } from 'src/project/dto/project.input';
 
 @Resolver()
 @UseGuards(JWTAuthGuard)
@@ -124,9 +122,10 @@ export class DashboardResolver {
 
   @Mutation(() => Project)
   async createDashboardProject(
-    @Args('input') input: DashboardCreateProjectInput,
-  ): Promise<Project> {
-    return this.dashboardService.createProject(input);
+    @GetUserIdFromToken() userId: string,
+    @Args('input') input: CreateProjectInput,
+  ): Promise<Chat> {
+    return await this.dashboardService.createProject(input, userId);
   }
 
   @Mutation(() => Project)

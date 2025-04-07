@@ -44,7 +44,7 @@ export class CreateProjectInput {
   @Field()
   description: string;
 
-  @Field(() => [ProjectPackage])
+  @Field(() => [ProjectPackage], { nullable: true })
   packages: ProjectPackage[];
 
   @Field(() => String, { nullable: true })

@@ -76,7 +76,7 @@ input CreateProjectInput {
   databaseType: String
   description: String!
   model: String = "gpt-4o-mini"
-  packages: [ProjectPackage!]!
+  packages: [ProjectPackage!]
   projectName: String
   public: Boolean
 }
@@ -92,14 +92,6 @@ input CreateUserInput {
   password: String!
   roleIds: [String!]! = []
   username: String!
-}
-
-input DashboardCreateProjectInput {
-  isPublic: Boolean
-  packageIds: [ID!]
-  projectName: String!
-  projectPath: String!
-  userId: ID!
 }
 
 """Date custom scalar type"""
@@ -159,7 +151,7 @@ type Mutation {
   confirmEmail(token: String!): EmailConfirmationResponse!
   createChat(newChatInput: NewChatInput!): Chat!
   createDashboardChat(input: CreateChatInput!): Chat!
-  createDashboardProject(input: DashboardCreateProjectInput!): Project!
+  createDashboardProject(input: CreateProjectInput!): Project!
   createDashboardRole(input: CreateRoleInput!): SystemRole!
   createDashboardUser(input: CreateUserInput!): User!
   createMenu(createMenuInput: CreateMenuInput!): Menu!
