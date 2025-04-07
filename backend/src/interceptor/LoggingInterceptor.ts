@@ -10,6 +10,7 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { TelemetryLogService } from './telemetry-log.service';
+import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -38,6 +39,7 @@ export class LoggingInterceptor implements NestInterceptor {
   ): Observable<any> {
     const ctx = GqlExecutionContext.create(context);
     const info = ctx.getInfo();
+    const userId = ctx.getContext().req.user?.userId;
     if (!info) {
       this.logger.warn(
         'GraphQL request detected, but ctx.getInfo() is undefined.',
@@ -49,7 +51,6 @@ export class LoggingInterceptor implements NestInterceptor {
     let variables = '';
     const startTime = Date.now();
     const request = ctx.getContext().req;
-    const userId = request?.user?.id;
 
     try {
       variables = JSON.stringify(ctx.getContext()?.req?.body?.variables ?? {});

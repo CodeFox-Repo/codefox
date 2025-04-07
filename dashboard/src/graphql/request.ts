@@ -467,3 +467,41 @@ export const GET_DASHBOARD_STATS = gql`
     }
   }
 `;
+
+export const GET_DASHBOARD_TELEMETRY_LOGS = gql`
+  query DashboardTelemetryLogs($filter: TelemetryLogFilterInput) {
+    dashboardTelemetryLogs(filter: $filter) {
+      id
+      timestamp
+      requestMethod
+      endpoint
+      input
+      output
+      timeConsumed
+      userId
+      handler
+    }
+  }
+`;
+
+export const GET_DASHBOARD_TELEMETRY_LOG = gql`
+  query DashboardTelemetryLog($id: ID!) {
+    dashboardTelemetryLog(id: $id) {
+      id
+      timestamp
+      requestMethod
+      endpoint
+      input
+      output
+      timeConsumed
+      userId
+      handler
+    }
+  }
+`;
+
+export const GET_DASHBOARD_TELEMETRY_LOGS_COUNT = gql`
+  query DashboardTelemetryLogsCount($filter: TelemetryLogFilterInput) {
+    dashboardTelemetryLogsCount(filter: $filter)
+  }
+`;

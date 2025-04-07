@@ -60,6 +60,11 @@ const menuItems: MenuItems[] = [
         name: 'Projects',
         icon: FolderOpenIcon,
         link: '/management/projects'
+      },
+      {
+        name: 'API logs',
+        icon: FolderOpenIcon,
+        link: '/management/api-logs'
       }
     ]
   },

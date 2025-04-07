@@ -202,6 +202,17 @@ function SidebarMenu() {
                   Projects
                 </Button>
               </ListItem>
+              <ListItem component="div">
+                <Button
+                  disableRipple
+                  component={RouterLink}
+                  onClick={closeSidebar}
+                  to="/management/api-logs"
+                  startIcon={<FolderOpenIcon />}
+                >
+                  API Logs
+                </Button>
+              </ListItem>
             </List>
           </SubMenuWrapper>
         </List>

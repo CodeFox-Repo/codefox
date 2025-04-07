@@ -6,8 +6,8 @@ import SidebarLayout from './layouts/SidebarLayout';
 import BaseLayout from './layouts/BaseLayout';
 
 import SuspenseLoader from './components/SuspenseLoader';
-import Login from './content/login/Login';
 import { LoginPage } from './content/login';
+import TelemetryLogs from './content/management/telemetry/TelemetryLogs';
 
 const Loader = (Component) => (props) =>
   (
@@ -198,6 +198,10 @@ const routes: RouteObject[] = [
             element: <ProjectView />
           }
         ]
+      },
+      {
+        path: 'api-logs',
+        element: <TelemetryLogs />
       }
     ]
   }
