@@ -16,7 +16,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ChatModule } from '../chat/chat.module';
 import { ProjectModule } from '../project/project.module';
 import { JwtCacheModule } from '../jwt-cache/jwt-cache.module';
-import { Menu } from 'src/decorator/menu.decorator';
+import { Menu } from 'src/auth/menu/menu.model';
 
 @Module({
   imports: [

@@ -136,6 +136,18 @@ export type CreateUserInput = {
   username: Scalars['String']['input'];
 };
 
+export type DashboardStats = {
+  __typename: 'DashboardStats';
+  activeChats: Scalars['Int']['output'];
+  activeProjects: Scalars['Int']['output'];
+  activeUsers: Scalars['Int']['output'];
+  totalChats: Scalars['Int']['output'];
+  totalMenus: Scalars['Int']['output'];
+  totalProjects: Scalars['Int']['output'];
+  totalRoles: Scalars['Int']['output'];
+  totalUsers: Scalars['Int']['output'];
+};
+
 export type EmailConfirmationResponse = {
   __typename: 'EmailConfirmationResponse';
   message: Scalars['String']['output'];
@@ -456,6 +468,7 @@ export type Query = {
   dashboardProjects: Array<Project>;
   dashboardRole: SystemRole;
   dashboardRoles: Array<SystemRole>;
+  dashboardStats: DashboardStats;
   dashboardUser: User;
   dashboardUsers: Array<User>;
   fetchPublicProjects: Array<Project>;
@@ -787,6 +800,7 @@ export type ResolversTypes = ResolversObject<{
   CreateProjectInput: CreateProjectInput;
   CreateRoleInput: CreateRoleInput;
   CreateUserInput: CreateUserInput;
+  DashboardStats: ResolverTypeWrapper<DashboardStats>;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
   EmailConfirmationResponse: ResolverTypeWrapper<EmailConfirmationResponse>;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -841,6 +855,7 @@ export type ResolversParentTypes = ResolversObject<{
   CreateProjectInput: CreateProjectInput;
   CreateRoleInput: CreateRoleInput;
   CreateUserInput: CreateUserInput;
+  DashboardStats: DashboardStats;
   Date: Scalars['Date']['output'];
   EmailConfirmationResponse: EmailConfirmationResponse;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -957,6 +972,22 @@ export type ChatCompletionDeltaTypeResolvers<
     ResolversParentTypes['ChatCompletionDeltaType'] = ResolversParentTypes['ChatCompletionDeltaType'],
 > = ResolversObject<{
   content?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type DashboardStatsResolvers<
+  ContextType = any,
+  ParentType extends
+    ResolversParentTypes['DashboardStats'] = ResolversParentTypes['DashboardStats'],
+> = ResolversObject<{
+  activeChats?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  activeProjects?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  activeUsers?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalChats?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalMenus?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalProjects?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalRoles?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalUsers?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1394,6 +1425,11 @@ export type QueryResolvers<
     ParentType,
     ContextType
   >;
+  dashboardStats?: Resolver<
+    ResolversTypes['DashboardStats'],
+    ParentType,
+    ContextType
+  >;
   dashboardUser?: Resolver<
     ResolversTypes['User'],
     ParentType,
@@ -1607,6 +1643,7 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   ChatCompletionChoiceType?: ChatCompletionChoiceTypeResolvers<ContextType>;
   ChatCompletionChunkType?: ChatCompletionChunkTypeResolvers<ContextType>;
   ChatCompletionDeltaType?: ChatCompletionDeltaTypeResolvers<ContextType>;
+  DashboardStats?: DashboardStatsResolvers<ContextType>;
   Date?: GraphQLScalarType;
   EmailConfirmationResponse?: EmailConfirmationResponseResolvers<ContextType>;
   LoginResponse?: LoginResponseResolvers<ContextType>;

@@ -26,6 +26,7 @@ import { UpdateRoleInput } from 'src/auth/role/dto/update-role.input';
 import { Menu } from 'src/auth/menu/menu.model';
 import { ProjectService } from 'src/project/project.service';
 import { CreateProjectInput } from 'src/project/dto/project.input';
+import { DashboardStats } from './dashboard-stat.model';
 
 @Injectable()
 export class DashboardService {
@@ -337,5 +338,43 @@ export class DashboardService {
     role.isActive = false;
     await this.roleRepository.save(role);
     return true;
+  }
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    const totalUsers = await this.userRepository.count({
+      where: { isDeleted: false },
+    });
+    const activeUsers = await this.userRepository.count({
+      where: { isActive: true, isDeleted: false },
+    });
+    const totalChats = await this.chatRepository.count({
+      where: { isDeleted: false },
+    });
+    const activeChats = await this.chatRepository.count({
+      where: { isActive: true, isDeleted: false },
+    });
+    const totalProjects = await this.projectRepository.count({
+      where: { isDeleted: false },
+    });
+    const activeProjects = await this.projectRepository.count({
+      where: { isActive: true, isDeleted: false },
+    });
+    const totalRoles = await this.roleRepository.count({
+      where: { isDeleted: false },
+    });
+    const totalMenus = await this.menuRepository.count({
+      where: { isDeleted: false },
+    });
+
+    return {
+      totalUsers,
+      activeUsers,
+      totalChats,
+      activeChats,
+      totalProjects,
+      activeProjects,
+      totalRoles,
+      totalMenus,
+    };
   }
 }

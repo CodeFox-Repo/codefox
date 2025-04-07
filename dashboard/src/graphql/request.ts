@@ -428,20 +428,6 @@ export const DELETE_DASHBOARD_PROJECT = gql`
     deleteDashboardProject(id: $id)
   }
 `;
-export const GET_DASHBOARD_STATS = gql`
-  query DashboardStats {
-    dashboardStats {
-      totalUsers
-      totalChats
-      totalProjects
-      totalRoles
-      totalMenus
-      activeUsers
-      activeProjects
-      activeChats
-    }
-  }
-`;
 
 // Query to get chat details
 export const GET_CHAT_DETAILS = gql`
@@ -463,6 +449,21 @@ export const GET_CHAT_DETAILS = gql`
         isPublic
         photoUrl
       }
+    }
+  }
+`;
+
+export const GET_DASHBOARD_STATS = gql`
+  query DashboardStats {
+    dashboardStats {
+      totalUsers
+      activeUsers
+      totalChats
+      activeChats
+      totalProjects
+      activeProjects
+      totalRoles
+      totalMenus
     }
   }
 `;

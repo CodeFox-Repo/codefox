@@ -93,6 +93,17 @@ input CreateUserInput {
   username: String!
 }
 
+type DashboardStats {
+  activeChats: Int!
+  activeProjects: Int!
+  activeUsers: Int!
+  totalChats: Int!
+  totalMenus: Int!
+  totalProjects: Int!
+  totalRoles: Int!
+  totalUsers: Int!
+}
+
 """Date custom scalar type"""
 scalar Date
 
@@ -252,6 +263,7 @@ type Query {
   dashboardProjects(filter: ProjectFilterInput): [Project!]!
   dashboardRole(id: ID!): SystemRole!
   dashboardRoles: [SystemRole!]!
+  dashboardStats: DashboardStats!
   dashboardUser(id: ID!): User!
   dashboardUsers(filter: UserFilterInput): [User!]!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!

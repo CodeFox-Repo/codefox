@@ -23,6 +23,7 @@ import { UpdateRoleInput } from 'src/auth/role/dto/update-role.input';
 import { Role } from 'src/auth/role/role.model';
 import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
 import { CreateProjectInput } from 'src/project/dto/project.input';
+import { DashboardStats } from './dashboard-stat.model';
 
 @Resolver()
 @UseGuards(JWTAuthGuard)
@@ -176,5 +177,10 @@ export class DashboardResolver {
     @Args('id', { type: () => ID }) id: string,
   ): Promise<boolean> {
     return this.dashboardService.deleteRole(id);
+  }
+
+  @Query(() => DashboardStats)
+  async dashboardStats(): Promise<DashboardStats> {
+    return this.dashboardService.getDashboardStats();
   }
 }
