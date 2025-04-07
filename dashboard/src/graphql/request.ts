@@ -478,7 +478,7 @@ export const GET_DASHBOARD_TELEMETRY_LOGS = gql`
       input
       output
       timeConsumed
-      userId
+      email
       handler
     }
   }
@@ -494,7 +494,7 @@ export const GET_DASHBOARD_TELEMETRY_LOG = gql`
       input
       output
       timeConsumed
-      userId
+      email
       handler
     }
   }

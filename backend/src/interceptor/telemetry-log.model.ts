@@ -46,5 +46,9 @@ export class TelemetryLog {
 
   @Column({ nullable: true })
   @Field({ nullable: true })
+  email: string;
+
+  @Column({ nullable: true })
+  @Field({ nullable: true })
   handler: string;
 }

@@ -31,7 +31,7 @@ interface TelemetryLog {
   input?: string;
   output?: string;
   timeConsumed: number;
-  userId?: string;
+  email?: string;
   handler: string;
 }
 
@@ -40,7 +40,7 @@ interface TelemetryLogFilterInput {
   endDate?: Date;
   requestMethod?: string;
   endpoint?: string;
-  userId?: string;
+  email?: string;
   handler?: string;
   minTimeConsumed?: number;
   maxTimeConsumed?: number;
@@ -125,10 +125,10 @@ const TelemetryLogs = () => {
               onChange={handleFilterChange('handler')}
             />
             <TextField
-              label="User ID"
+              label="Email"
               size="small"
-              value={filter.userId || ''}
-              onChange={handleFilterChange('userId')}
+              value={filter.email || ''}
+              onChange={handleFilterChange('email')}
             />
           </Box>
         )}
@@ -142,7 +142,7 @@ const TelemetryLogs = () => {
                 <TableCell>Endpoint</TableCell>
                 <TableCell>Handler</TableCell>
                 <TableCell>Time (ms)</TableCell>
-                <TableCell>User ID</TableCell>
+                <TableCell>Email</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -163,7 +163,7 @@ const TelemetryLogs = () => {
                     <TableCell>{log.endpoint}</TableCell>
                     <TableCell>{log.handler}</TableCell>
                     <TableCell>{log.timeConsumed}</TableCell>
-                    <TableCell>{log.userId || '-'}</TableCell>
+                    <TableCell>{log.email || '-'}</TableCell>
                     <TableCell>
                       <Tooltip title="View Details">
                         <IconButton

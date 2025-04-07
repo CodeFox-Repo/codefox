@@ -620,6 +620,7 @@ export type SystemRole = {
 
 export type TelemetryLog = {
   __typename: 'TelemetryLog';
+  email?: Maybe<Scalars['String']['output']>;
   endpoint: Scalars['String']['output'];
   handler?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
@@ -634,6 +635,7 @@ export type TelemetryLog = {
 };
 
 export type TelemetryLogFilterInput = {
+  email?: InputMaybe<Scalars['String']['input']>;
   endDate?: InputMaybe<Scalars['Date']['input']>;
   endpoint?: InputMaybe<Scalars['String']['input']>;
   handler?: InputMaybe<Scalars['String']['input']>;
@@ -642,7 +644,6 @@ export type TelemetryLogFilterInput = {
   requestMethod?: InputMaybe<Scalars['String']['input']>;
   search?: InputMaybe<Scalars['String']['input']>;
   startDate?: InputMaybe<Scalars['Date']['input']>;
-  userId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateChatInput = {
@@ -1654,6 +1655,7 @@ export type TelemetryLogResolvers<
   ParentType extends
     ResolversParentTypes['TelemetryLog'] = ResolversParentTypes['TelemetryLog'],
 > = ResolversObject<{
+  email?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   endpoint?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   handler?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;

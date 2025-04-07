@@ -15,7 +15,7 @@ export class TelemetryLogFilterInput {
   endpoint?: string;
 
   @Field({ nullable: true })
-  userId?: string;
+  email?: string;
 
   @Field({ nullable: true })
   handler?: string;

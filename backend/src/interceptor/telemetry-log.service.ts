@@ -48,9 +48,6 @@ export class TelemetryLogService {
         endpoint: `%${filter.endpoint}%`,
       });
     }
-    if (filter.userId) {
-      query.andWhere('log.userId = :userId', { userId: filter.userId });
-    }
     if (filter.handler) {
       query.andWhere('log.handler LIKE :handler', {
         handler: `%${filter.handler}%`,
@@ -102,8 +99,8 @@ export class TelemetryLogService {
           endpoint: `%${filter.endpoint}%`,
         });
       }
-      if (filter.userId) {
-        query.andWhere('log.userId = :userId', { userId: filter.userId });
+      if (filter.email) {
+        query.andWhere('log.email = :email', { email: filter.email });
       }
       if (filter.handler) {
         query.andWhere('log.handler LIKE :handler', {

@@ -10,21 +10,30 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { TelemetryLogService } from './telemetry-log.service';
-import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from 'src/user/user.model';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger('RequestLogger');
   private startTime: number;
 
-  constructor(private telemetryLogService: TelemetryLogService) {}
+  constructor(
+    private telemetryLogService: TelemetryLogService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  async intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Promise<Observable<any>> {
     const contextType = context.getType();
     this.logger.debug(`Intercepting request, Context Type: ${contextType}`);
 
     if (contextType === ('graphql' as ContextType)) {
-      return this.handleGraphQLRequest(context, next);
+      return await this.handleGraphQLRequest(context, next);
     } else if (contextType === 'http') {
       return this.handleRestRequest(context, next);
     } else {
@@ -33,13 +42,18 @@ export class LoggingInterceptor implements NestInterceptor {
     }
   }
 
-  private handleGraphQLRequest(
+  private async handleGraphQLRequest(
     context: ExecutionContext,
     next: CallHandler,
-  ): Observable<any> {
+  ): Promise<Observable<any>> {
     const ctx = GqlExecutionContext.create(context);
     const info = ctx.getInfo();
     const userId = ctx.getContext().req.user?.userId;
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: { email: true },
+    });
+    const email = user?.email;
     if (!info) {
       this.logger.warn(
         'GraphQL request detected, but ctx.getInfo() is undefined.',
@@ -76,6 +90,7 @@ export class LoggingInterceptor implements NestInterceptor {
             output: JSON.stringify(value),
             timeConsumed,
             userId,
+            email,
             handler: 'GraphQL',
           });
         },

@@ -334,6 +334,7 @@ type SystemRole {
 }
 
 type TelemetryLog {
+  email: String
   endpoint: String!
   handler: String
   id: ID!
@@ -348,6 +349,7 @@ type TelemetryLog {
 }
 
 input TelemetryLogFilterInput {
+  email: String
   endDate: Date
   endpoint: String
   handler: String
@@ -356,7 +358,6 @@ input TelemetryLogFilterInput {
   requestMethod: String
   search: String
   startDate: Date
-  userId: String
 }
 
 input UpdateChatInput {
