@@ -271,42 +271,6 @@ export const StylesTab: React.FC<StylesTabProps> = ({
             Layout
           </h4>
           
-          {/* Display property */}
-          <div className="mb-3">
-            <h5 className="text-xs font-medium mb-2">Display</h5>
-            <div className="flex flex-wrap gap-1.5">
-              {['block', 'inline', 'inline-block', 'flex', 'grid', 'none'].map(display => (
-                <Button
-                  key={display}
-                  size="sm"
-                  variant={(customStyles.display || computedStyles?.display) === display ? "default" : "outline"}
-                  className={`h-7 text-xs ${(customStyles.display || computedStyles?.display) === display ? 'bg-blue-500 text-white hover:bg-blue-600' : ''}`}
-                  onClick={() => handleStyleChange('display', display)}
-                >
-                  {display}
-                </Button>
-              ))}
-            </div>
-          </div>
-          
-          {/* Position property */}
-          <div className="mb-3">
-            <h5 className="text-xs font-medium mb-2">Position</h5>
-            <div className="flex flex-wrap gap-1.5">
-              {['static', 'relative', 'absolute', 'fixed', 'sticky'].map(position => (
-                <Button
-                  key={position}
-                  size="sm"
-                  variant={(customStyles.position || computedStyles?.position) === position ? "default" : "outline"}
-                  className={`h-7 text-xs ${(customStyles.position || computedStyles?.position) === position ? 'bg-blue-500 text-white hover:bg-blue-600' : ''}`}
-                  onClick={() => handleStyleChange('position', position)}
-                >
-                  {position}
-                </Button>
-              ))}
-            </div>
-          </div>
-          
           {/* Overflow property */}
           <div>
             <h5 className="text-xs font-medium mb-2">Overflow</h5>
