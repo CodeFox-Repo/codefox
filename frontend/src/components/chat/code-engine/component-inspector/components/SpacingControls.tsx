@@ -96,15 +96,22 @@ export const SpacingControls: React.FC<SpacingControlsProps> = ({
             title="Apply to all sides"
             onClick={() => {
               if (displayValue) {
+                // Log to debug the issue
+                console.log(`ALL button clicked for ${property}, value=${displayValue}`);
+                
                 // Apply the same value to all sides (top, right, bottom, left)
                 const sides = property.startsWith('padding') 
                   ? ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']
                   : ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'];
                 
+                // First update each individual side with a direct call
                 sides.forEach(side => {
-                  const pixelValue = addPxUnitIfNeeded(displayValue);
                   onValueChange(side, displayValue, false);
                 });
+                
+                // Then explicitly update the main property separately, telling it *not* to apply
+                // to both sides since we've already done so individually - this is important!
+                onValueChange(property, displayValue, false);
               }
             }}
           >

@@ -10,6 +10,12 @@ export class TailwindConverter {
   static stylesToTailwindClasses(styles: StyleChanges): string[] {
     const tailwindClasses: string[] = [];
 
+    // Special handling for direct className property
+    if (styles.className) {
+      // If className is provided directly, just use it as-is and return
+      return styles.className.split(' ').filter(Boolean);
+    }
+
     // Map common CSS properties to Tailwind utility classes
     for (const [property, value] of Object.entries(styles)) {
       switch (property) {
@@ -122,6 +128,25 @@ export class TailwindConverter {
             case 'baseline':
               tailwindClasses.push('items-baseline');
               break;
+          }
+          break;
+
+        // Overflow
+        case 'overflow':
+          switch (value) {
+            case 'visible':
+              tailwindClasses.push('overflow-visible');
+              break;
+            case 'hidden':
+              tailwindClasses.push('overflow-hidden');
+              break;
+            case 'scroll':
+              tailwindClasses.push('overflow-scroll');
+              break;
+            case 'auto':
+              tailwindClasses.push('overflow-auto');
+              break;
+            // If set to initial or any other value, don't add a class
           }
           break;
 

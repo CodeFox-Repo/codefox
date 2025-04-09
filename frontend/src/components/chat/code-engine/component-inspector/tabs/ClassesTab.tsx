@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, PlusCircle, Save } from 'lucide-react';
+import { X, PlusCircle, Save, RotateCcw } from 'lucide-react';
 import { ClassesTabProps } from '../types';
+import { updateElementStyle } from '../utils/iframe-utils';
 
 /**
  * Classes tab - Displays and manages classes for the selected component
@@ -13,25 +14,159 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
   selectedComponent,
   isStyleEdited,
   applyingChanges,
-  saveClassesToFile
+  saveClassesToFile,
+  setCustomStyles,
+  setIsStyleEdited
 }) => {
   const [newClass, setNewClass] = useState<string>('');
   const [activeClasses, setActiveClasses] = useState<string[]>([]);
   const [removedClasses, setRemovedClasses] = useState<string[]>([]);
+  const [hasChanges, setHasChanges] = useState<boolean>(false);
+  const [pendingSave, setPendingSave] = useState<boolean>(false);
+  
+  // Track original classes for the current component
+  const originalClassesRef = useRef<string[]>([]);
+  // Track the current component ID to detect component changes
+  const previousComponentIdRef = useRef<string | null>(null);
   
   // Initialize the classes when a component is selected
-  React.useEffect(() => {
-    if (selectedComponent?.className) {
-      const classes = selectedComponent.className.split(' ')
-        .filter(Boolean)
-        .map(cls => cls.trim());
-      setActiveClasses(classes);
-      setRemovedClasses([]);
+  useEffect(() => {
+    console.log('Component selected in ClassesTab:', selectedComponent);
+    
+    if (selectedComponent && selectedComponent.id) {
+      // Check if this is a different component than before
+      const isNewComponent = previousComponentIdRef.current !== selectedComponent.id;
+      
+      if (isNewComponent) {
+        console.log('New component selected, resetting state');
+        // Get classes from various possible sources
+        let classString = '';
+        
+        // 1. Try to get from className property directly 
+        if (selectedComponent.className) {
+          classString = selectedComponent.className;
+        } 
+        // 2. Try to get from the data-custom-content which is parsed into the content field
+        else if (selectedComponent.content) {
+          // The content field might have className as part of its parsed JSON object
+          try {
+            // Check if the content field has className data
+            const contentObj = selectedComponent.content as any;
+            if (contentObj && typeof contentObj === 'object' && contentObj.className) {
+              classString = contentObj.className;
+            }
+          } catch (err) {
+            console.error('Error parsing content for className:', err);
+          }
+        }
+        // 3. Try to extract from the attributes
+        else if (selectedComponent.attributes && selectedComponent.attributes.class) {
+          classString = selectedComponent.attributes.class;
+        }
+        
+        console.log('Found class string:', classString);
+        
+        if (classString) {
+          const classes = classString.split(' ')
+            .filter(Boolean)
+            .map(cls => cls.trim());
+          
+          // Store original classes and set active classes
+          originalClassesRef.current = [...classes];
+          setActiveClasses(classes);
+          
+          // Reset removed classes for new component
+          setRemovedClasses([]);
+          setHasChanges(false);
+        } else {
+          // No classes found
+          originalClassesRef.current = [];
+          setActiveClasses([]);
+          setRemovedClasses([]);
+          setHasChanges(false);
+        }
+        
+        // Update the current component ID
+        previousComponentIdRef.current = selectedComponent.id;
+      }
     } else {
+      // No component selected
+      originalClassesRef.current = [];
       setActiveClasses([]);
       setRemovedClasses([]);
+      setHasChanges(false);
+      previousComponentIdRef.current = null;
     }
-  }, [selectedComponent, selectedComponent?.className]);
+  }, [selectedComponent?.id]);
+  
+  // Effect to trigger file save after custom styles are set
+  useEffect(() => {
+    if (pendingSave && selectedComponent) {
+      // Perform the actual save
+      saveClassesToFile();
+      
+      // Update original classes reference to match the current active classes
+      originalClassesRef.current = [...activeClasses];
+      
+      // Reset removed classes as we've committed the changes
+      setRemovedClasses([]);
+      
+      // Reset states
+      setHasChanges(false);
+      setPendingSave(false);
+    }
+  }, [pendingSave, saveClassesToFile, selectedComponent, activeClasses]);
+  
+  // Apply class changes to the component in the iframe
+  const applyClassChanges = () => {
+    if (!selectedComponent || !selectedComponent.id) return;
+    
+    console.log('Applying class changes, new classes:', activeClasses.join(' '));
+    
+    // Update the element's class in the iframe to show visual changes immediately
+    updateElementStyle(selectedComponent.id, {
+      class: activeClasses.join(' ')
+    });
+    
+    // Mark that we have changes that need to be saved
+    setHasChanges(true);
+    setIsStyleEdited(true);
+  };
+  
+  // Handle saving classes to file
+  const handleSaveClasses = () => {
+    if (!selectedComponent || !hasChanges) return;
+    
+    // Get the current active classes as a single string
+    const classString = activeClasses.join(' ');
+    
+    console.log('Saving classes:', classString);
+    
+    // Update customStyles with the className
+    setCustomStyles({
+      className: classString
+    });
+    
+    // Set pendingSave flag to trigger the effect that will save the file
+    setPendingSave(true);
+  };
+  
+  // Reset to original classes
+  const handleResetClasses = () => {
+    if (!selectedComponent || !selectedComponent.id) return;
+    
+    console.log('Resetting to original classes:', originalClassesRef.current);
+    
+    // Restore original classes
+    setActiveClasses([...originalClassesRef.current]);
+    setRemovedClasses([]);
+    setHasChanges(false);
+    
+    // Apply visual change
+    updateElementStyle(selectedComponent.id, {
+      class: originalClassesRef.current.join(' ')
+    });
+  };
   
   // Handle adding a new class
   const handleAddClass = () => {
@@ -39,26 +174,86 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
     
     // Check if class already exists
     if (!activeClasses.includes(newClass)) {
-      setActiveClasses([...activeClasses, newClass]);
+      // Create updated classes array with the new class added
+      const updatedClasses = [...activeClasses, newClass];
+      
+      // Update our state
+      setActiveClasses(updatedClasses);
       
       // If it was previously removed, take it out of removedClasses
       if (removedClasses.includes(newClass)) {
         setRemovedClasses(removedClasses.filter(c => c !== newClass));
       }
+      
+      // Apply changes directly to the component in the DOM
+      if (selectedComponent && selectedComponent.id) {
+        console.log('Adding new class:', newClass);
+        console.log('Updated classes:', updatedClasses.join(' '));
+        
+        // Use the updated array directly to ensure immediate visual update
+        updateElementStyle(selectedComponent.id, {
+          class: updatedClasses.join(' ')
+        });
+        
+        // Mark changes
+        setHasChanges(true);
+        setIsStyleEdited(true);
+      }
     }
     
+    // Clear the input field
     setNewClass('');
   };
   
   // Handle removing a class
   const handleRemoveClass = (classToRemove: string) => {
-    setActiveClasses(activeClasses.filter(c => c !== classToRemove));
+    // Filter out the class to remove
+    const updatedClasses = activeClasses.filter(c => c !== classToRemove);
     
-    // Track original classes that were removed
-    if (selectedComponent && 
-        selectedComponent.className && 
-        selectedComponent.className.includes(classToRemove)) {
+    // Update our state with the filtered classes
+    setActiveClasses(updatedClasses);
+    
+    // Add to removed classes only if it was in the original set
+    if (originalClassesRef.current.includes(classToRemove) && 
+        !removedClasses.includes(classToRemove)) {
       setRemovedClasses([...removedClasses, classToRemove]);
+    }
+    
+    // Apply changes to the component's class directly in the DOM
+    if (selectedComponent && selectedComponent.id) {
+      console.log('Applying class removal, removed class:', classToRemove);
+      console.log('New classes after removal:', updatedClasses.join(' '));
+      
+      // Important: use the updated classes array directly instead of the state
+      // which might not be updated yet due to React's async state updates
+      updateElementStyle(selectedComponent.id, {
+        class: updatedClasses.join(' ') // Note: use 'class' not 'className' for the DOM attribute
+      });
+      
+      // Mark that we have changes that need to be saved
+      setHasChanges(true);
+      setIsStyleEdited(true);
+    }
+  };
+  
+  // Restore a removed class
+  const handleRestoreClass = (classToRestore: string) => {
+    // Remove from removedClasses
+    setRemovedClasses(removedClasses.filter(c => c !== classToRestore));
+    
+    // Add back to activeClasses
+    const updatedClasses = [...activeClasses, classToRestore];
+    setActiveClasses(updatedClasses);
+    
+    // Apply changes directly using the updated classes array
+    if (selectedComponent && selectedComponent.id) {
+      updateElementStyle(selectedComponent.id, {
+        class: updatedClasses.join(' ') // Note: use 'class' not 'className' for the DOM attribute
+      });
+      
+      // Mark that we have changes
+      setHasChanges(true);
+      setIsStyleEdited(true);
     }
   };
   
@@ -136,16 +331,28 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
             </h3>
             <p className="text-xs text-muted-foreground">Manage component classes</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-8"
-            onClick={saveClassesToFile}
-            disabled={applyingChanges}
-          >
-            <Save className="w-3.5 h-3.5 mr-1.5" />
-            Save Classes
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-8"
+              onClick={handleResetClasses}
+              disabled={applyingChanges || !hasChanges}
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Reset
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="text-xs h-8"
+              onClick={handleSaveClasses}
+              disabled={applyingChanges || !hasChanges}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              Save Classes
+            </Button>
+          </div>
         </div>
         
         {/* Add new class */}
@@ -221,10 +428,7 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
                   <span className="line-through">{cls}</span>
                   <button
                     className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                    onClick={() => {
-                      setRemovedClasses(removedClasses.filter(c => c !== cls));
-                      setActiveClasses([...activeClasses, cls]);
-                    }}
+                    onClick={() => handleRestoreClass(cls)}
                   >
                     <PlusCircle className="w-3 h-3" />
                   </button>

@@ -69,12 +69,16 @@ export const haveStylesChanged = (
   customStyles: Record<string, string>,
   computedStyles: Record<string, string> | null
 ): boolean => {
-  if (!computedStyles) return Object.keys(customStyles).length > 0;
+  // Check if any custom styles exist at all
+  const hasCustomStyles = Object.keys(customStyles).length > 0;
 
-  // Check if any custom style differs from computed style
-  return Object.entries(customStyles).some(
-    ([key, value]) => computedStyles[key] !== value
+  // Log for debugging
+  console.log(
+    `haveStylesChanged check - customStyles keys: ${Object.keys(customStyles).length}, hasStyles: ${hasCustomStyles}`
   );
+
+  // Return true if there are any custom styles - this always enables the save button
+  return hasCustomStyles;
 };
 
 /**

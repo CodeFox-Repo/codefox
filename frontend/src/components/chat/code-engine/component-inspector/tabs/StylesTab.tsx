@@ -49,18 +49,116 @@ export const StylesTab: React.FC<StylesTabProps> = ({
   
   // Reset styles to original computed values
   const handleResetStyles = () => {
+    // Create reset styles that explicitly set properties back to original values
+    const resetStyles: Record<string, string> = {};
+    
+    // For every custom style that was changed, reset to computed value or empty string
+    Object.keys(customStyles).forEach(property => {
+      if (computedStyles && computedStyles[property]) {
+        // Reset to original computed value
+        resetStyles[property] = computedStyles[property];
+      } else {
+        // If no computed value exists, set to empty to remove it
+        resetStyles[property] = '';
+      }
+      
+      // For padding and margin properties, ensure we reset all related properties
+      if (property === 'padding' || property === 'margin') {
+        console.log(`Resetting ${property} and all its sides`);
+        
+        // Define the individual side properties
+        const sides = property === 'padding' 
+          ? ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']
+          : ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'];
+        
+        // Reset each individual side
+        sides.forEach(side => {
+          if (computedStyles && computedStyles[side]) {
+            resetStyles[side] = computedStyles[side];
+          } else {
+            resetStyles[side] = '';
+          }
+        });
+      }
+    });
+    
+    // Also reset any spacing inputs
+    const resetSpacingInputs: Record<string, string> = {};
+    
+    // Apply the reset styles to visually revert the component
+    if (selectedComponent) {
+      console.log('Resetting styles to:', resetStyles);
+      updateElementStyle(selectedComponent.id, resetStyles);
+    }
+    
     // Clear all custom styles
     setCustomStyles({});
     
-    // Reset spacing inputs
-    setSpacingInputs({});
+    // Reset spacing inputs - we need to explicitly set each one to an empty string
+    // or its original computed value to clear the UI inputs
+    if (computedStyles) {
+      const spacingProperties = [
+        'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+        'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'
+      ];
+      
+      spacingProperties.forEach(prop => {
+        if (computedStyles[prop]) {
+          resetSpacingInputs[prop] = computedStyles[prop].replace('px', '');
+        } else {
+          resetSpacingInputs[prop] = '';
+        }
+      });
+    }
+    
+    setSpacingInputs(resetSpacingInputs);
     
     // Reset edited state
     setIsStyleEdited(false);
+  };
+  
+  // Reset a specific spacing property (padding or margin)
+  const handleResetSpacing = (mainProperty: 'padding' | 'margin') => {
+    console.log(`Specifically resetting ${mainProperty} and all sides`);
     
-    // Revert visual styles in preview if a component is selected
+    // Create reset styles
+    const resetStyles: Record<string, string> = {};
+    
+    // Define the side properties
+    const sides = mainProperty === 'padding' 
+      ? ['padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']
+      : ['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'];
+    
+    // Reset each property
+    sides.forEach(side => {
+      if (computedStyles && computedStyles[side]) {
+        resetStyles[side] = computedStyles[side];
+      } else {
+        resetStyles[side] = '';
+      }
+      
+      // Also remove from customStyles if it exists
+      if (customStyles[side]) {
+        const updatedCustomStyles = { ...customStyles };
+        delete updatedCustomStyles[side];
+        setCustomStyles(updatedCustomStyles);
+      }
+    });
+    
+    // Reset spacing inputs
+    const updatedSpacingInputs = { ...spacingInputs };
+    sides.forEach(side => {
+      if (computedStyles && computedStyles[side]) {
+        updatedSpacingInputs[side] = computedStyles[side].replace('px', '');
+      } else {
+        updatedSpacingInputs[side] = '';
+      }
+    });
+    setSpacingInputs(updatedSpacingInputs);
+    
+    // Apply visual change immediately
     if (selectedComponent) {
-      updateElementStyle(selectedComponent.id, {});
+      updateElementStyle(selectedComponent.id, resetStyles);
     }
   };
   
@@ -79,19 +177,26 @@ export const StylesTab: React.FC<StylesTabProps> = ({
   const getSpacingDisplayValue = (property: string): string => {
     // First show what the user is actively typing
     if (spacingInputs[property] !== undefined) {
+      // Log for debugging
+      console.log(`Display value for ${property}: ${spacingInputs[property]} (from input)`);
       return spacingInputs[property];
     }
     
     // Then show what's in the style application queue
     if (customStyles[property]) {
-      return customStyles[property].replace('px', '');
+      const value = customStyles[property].replace('px', '');
+      console.log(`Display value for ${property}: ${value} (from customStyles)`);
+      return value;
     }
     
     // Finally fall back to computed styles if available
     if (computedStyles && computedStyles[property]) {
-      return computedStyles[property].replace('px', '');
+      const value = computedStyles[property].replace('px', '');
+      console.log(`Display value for ${property}: ${value} (from computedStyles)`);
+      return value;
     }
     
+    console.log(`No display value found for ${property}`);
     return '';
   };
   
@@ -144,7 +249,7 @@ export const StylesTab: React.FC<StylesTabProps> = ({
             <ColorPicker
               style="backgroundColor"
               label="Background"
-              color={customStyles.backgroundColor || (computedStyles?.backgroundColor || '#ffffff')}
+              color={customStyles.backgroundColor || (computedStyles && computedStyles.backgroundColor ? computedStyles.backgroundColor : '#ffffff')}
               onChange={handleStyleChange}
             />
           </div>
@@ -179,6 +284,21 @@ export const StylesTab: React.FC<StylesTabProps> = ({
             >
               Margin
             </button>
+            
+            {/* Add a reset button for just padding/margin */}
+            <div className="ml-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => handleResetSpacing(activeSpacingSection)}
+                title={`Reset ${activeSpacingSection} values`}
+              >
+                <RotateCcw className="w-3 h-3 mr-1" />
+                Reset {activeSpacingSection}
+              </Button>
+            </div>
           </div>
           
           {/* Padding controls */}
@@ -282,6 +402,30 @@ export const StylesTab: React.FC<StylesTabProps> = ({
                   variant={(customStyles.overflow || computedStyles?.overflow) === overflow ? "default" : "outline"}
                   className={`h-7 text-xs ${(customStyles.overflow || computedStyles?.overflow) === overflow ? 'bg-blue-500 text-white hover:bg-blue-600' : ''}`}
                   onClick={() => handleStyleChange('overflow', overflow)}
+                  onDoubleClick={() => {
+                    // On double-click, clear the overflow property if it's currently selected
+                    if (customStyles.overflow === overflow) {
+                      console.log('Double-clicked to clear overflow', overflow);
+                      
+                      // Create a new customStyles object without the overflow property
+                      const newCustomStyles = { ...customStyles };
+                      delete newCustomStyles.overflow;
+                      
+                      // Update the styles
+                      setCustomStyles(newCustomStyles);
+                      
+                      // Apply the change visually
+                      if (selectedComponent) {
+                        updateElementStyle(selectedComponent.id, {
+                          ...newCustomStyles,
+                          overflow: 'initial' // Set to initial to clear the property
+                        });
+                      }
+                      
+                      // Mark as edited if there are still other custom styles
+                      setIsStyleEdited(Object.keys(newCustomStyles).length > 0);
+                    }
+                  }}
                 >
                   {overflow}
                 </Button>

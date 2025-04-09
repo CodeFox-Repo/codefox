@@ -10,9 +10,24 @@ import { useMessageHandler } from './hooks/useMessageHandler';
 import { getElementStyles, updateElementStyle, updateElementContent } from './utils/iframe-utils';
 import { StyleUpdateService, ComponentData as StyleComponentData } from '../style-update/index';
 import { ComponentData, ComputedStyles, CustomStyles, SpacingInputs } from './types';
-import { Code } from 'lucide-react';
+import { Code, HelpCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
-export function ComponentInspector() {
+interface ComponentInspectorProps {
+  setIsInspectMode?: React.Dispatch<React.SetStateAction<boolean>>;
+  populateChatInput?: (content: string) => void;
+}
+
+export function ComponentInspector({
+  setIsInspectMode,
+  populateChatInput
+}: ComponentInspectorProps = {}) {
   // Component selection state
   const [selectedComponent, setSelectedComponent] = useState<ComponentData | null>(null);
   const [computedStyles, setComputedStyles] = useState<ComputedStyles | null>(null);
@@ -74,6 +89,9 @@ export function ComponentInspector() {
     bothSides = false,
     pairedProperty?: string
   ) => {
+    // Add debug logging
+    console.log(`Updating spacing: ${property}=${value}, bothSides=${bothSides}, paired=${pairedProperty}`);
+    
     // Update the input value immediately for responsive UI
     setSpacingInputs(prev => ({
       ...prev,
@@ -83,27 +101,28 @@ export function ComponentInspector() {
     // Add px unit if needed
     const valueWithUnit = value ? (value.endsWith('px') ? value : `${value}px`) : value;
     
-    // Update paired property if specified
+    // Create a copy of customStyles to update
     let updatedStyles = { ...customStyles };
     
+    // Always update the current property
+    updatedStyles[property] = valueWithUnit;
+    
+    // If both sides flag is set and paired property provided, update that too
     if (bothSides && pairedProperty) {
-      updatedStyles = {
-        ...updatedStyles,
-        [property]: valueWithUnit,
-        [pairedProperty]: valueWithUnit
-      };
+      updatedStyles[pairedProperty] = valueWithUnit;
       
+      // Also update the input display for paired property
       setSpacingInputs(prev => ({
         ...prev,
         [pairedProperty]: value
       }));
-    } else {
-      // Normal single property update
-      updatedStyles[property] = valueWithUnit;
     }
     
-    // Update custom styles
+    // Update custom styles - this should trigger isStyleEdited in the effect
+    console.log('Setting customStyles to:', updatedStyles);
     setCustomStyles(updatedStyles);
+    
+    // Force set isStyleEdited true regardless of other checks
     setIsStyleEdited(true);
     
     // Apply visual change immediately
@@ -208,9 +227,14 @@ export function ComponentInspector() {
 
   // Save classes to a CSS file
   const saveClassesToFile = () => {
-    if (!selectedComponent || !selectedComponent?.className) return;
+    if (!selectedComponent) return;
+    
+    console.log('Saving classes to file, selectedComponent:', selectedComponent);
     
     try {
+      // Set applying changes to true to show loading state
+      setApplyingChanges(true);
+      
       // Use direct component properties
       const filePath = selectedComponent.path || 'src/pages/Index.tsx';
       const lineNumber = selectedComponent.line || '0';
@@ -227,9 +251,18 @@ export function ComponentInspector() {
         file: fileName
       };
       
+      // Get the className value from customStyles
+      if (!customStyles.className) {
+        console.error('No className found in customStyles');
+        setApplyingChanges(false);
+        return;
+      }
+      
+      console.log('Saving className:', customStyles.className);
+      
       // Create styles with className
       const classStyles = {
-        className: selectedComponent.className
+        className: customStyles.className
       };
       
       // Use StyleUpdateService to persist changes
@@ -237,12 +270,15 @@ export function ComponentInspector() {
         .then(() => {
           console.log('Successfully saved class changes to file');
           setIsStyleEdited(false);
+          setApplyingChanges(false);
         })
         .catch(err => {
           console.error('Error saving classes:', err);
+          setApplyingChanges(false);
         });
     } catch (error) {
       console.error('Error in saveClassesToFile:', error);
+      setApplyingChanges(false);
     }
   };
 
@@ -285,6 +321,41 @@ export function ComponentInspector() {
               </Badge>
             )}
           </div>
+          
+          {/* Ask AI Button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => {
+                    if (populateChatInput && selectedComponent) {
+                      const componentSummary = `Help me modify this component:
+
+Element: ${selectedComponent.tagName?.toLowerCase() || 'component'}
+ID: ${selectedComponent.id || 'none'}
+${selectedComponent.attributes && Object.keys(selectedComponent.attributes).length > 0 ? 
+  `Attributes: ${Object.entries(selectedComponent.attributes).map(([key, value]) => `${key}="${value}"`).join(', ')}` : ''}
+What I want to change: `;
+                      
+                      populateChatInput(componentSummary);
+                      if (setIsInspectMode) {
+                        setIsInspectMode(false);
+                      }
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:hover:bg-blue-800/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 h-7"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  <span className="text-xs">Ask AI</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">Ask AI to help modify this component</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <p className="text-xs text-muted-foreground mt-0.5 truncate" title={elementPath}>
           {elementPath}
@@ -377,6 +448,8 @@ export function ComponentInspector() {
               setCustomStyles={setCustomStyles}
               applyStyleChanges={applyStyleChanges}
               applyContentChanges={applyContentChanges}
+              setIsInspectMode={setIsInspectMode}
+              populateChatInput={populateChatInput}
             />
           </TabsContent>
         </div>

@@ -38,6 +38,12 @@ export const getColorValue = (
   fallback: string = '#000000'
 ): string => {
   if (!style) return fallback;
+
+  // Handle 'transparent' or 'rgba(0,0,0,0)' as transparent
+  if (style === 'transparent' || style === 'rgba(0, 0, 0, 0)') {
+    return fallback;
+  }
+
   return rgbToHex(style);
 };
 

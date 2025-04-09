@@ -63,13 +63,18 @@ export const useMessageHandler = ({
           setEditableContent('');
           setOriginalContent('');
         }
-      } else if (event.data.type === 'ELEMENT_STYLES') {
+      }
+      // Handle styles data received from iframe
+      else if (event.data.type === 'ELEMENT_STYLES') {
         console.log("Processing element styles response:", event.data.payload);
         if (event.data.payload && event.data.payload.success) {
           console.log("Received computed styles:", event.data.payload.styles);
           
           // Process received styles
           const styles = event.data.payload.styles;
+          
+          // Log background color specifically for debugging
+          console.log("Background color from computed styles:", styles.backgroundColor);
           
           // Initialize spacing inputs from computed styles
           const initialSpacingInputs = initializeSpacingInputs(styles);

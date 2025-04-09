@@ -42,7 +42,22 @@ export function updateElementStyle(
     return;
   }
 
-  return originalUpdateElementStyle(iframeElement, elementId, styles);
+  // Special handling for 'className' property
+  const hasClassName = styles.className !== undefined;
+  let className = hasClassName ? styles.className : null;
+
+  // Create a copy of styles without the className property
+  const stylesWithoutClassName = { ...styles };
+  if (hasClassName) {
+    delete stylesWithoutClassName.className;
+  }
+
+  // Use the original function but with modified styles if needed
+  return originalUpdateElementStyle(
+    iframeElement,
+    elementId,
+    hasClassName ? { ...stylesWithoutClassName, class: className } : styles
+  );
 }
 
 /**

@@ -8,7 +8,11 @@ import { InfoTabProps } from '../types';
 /**
  * Info tab - Displays information about the selected component
  */
-export const InfoTab: React.FC<InfoTabProps> = ({ selectedComponent }) => {
+export const InfoTab: React.FC<InfoTabProps> = ({ 
+  selectedComponent,
+  setIsInspectMode,
+  populateChatInput 
+}) => {
   if (!selectedComponent) return null;
   
   // Extract details - with safe defaults
@@ -70,60 +74,6 @@ export const InfoTab: React.FC<InfoTabProps> = ({ selectedComponent }) => {
                     </Badge>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-        
-        {/* CSS Selector */}
-        <div>
-          <h3 className="text-sm font-semibold">CSS Selector</h3>
-          <Card className="mt-2 overflow-hidden">
-            <CardContent className="p-3 text-xs font-mono bg-gray-50 dark:bg-zinc-900 overflow-x-auto">
-              {selector}
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Element Size */}
-        <div>
-          <h3 className="text-sm font-semibold">Element Size</h3>
-          <Card className="mt-2 overflow-hidden">
-            <CardContent className="p-3 grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-xs text-muted-foreground block">Width</span>
-                <span className="font-mono">{Math.round(rect?.width || 0)}px</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Height</span>
-                <span className="font-mono">{Math.round(rect?.height || 0)}px</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Left</span>
-                <span className="font-mono">{Math.round(rect?.left || 0)}px</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Top</span>
-                <span className="font-mono">{Math.round(rect?.top || 0)}px</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Attributes */}
-        {attributes && Object.keys(attributes).length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold">Attributes</h3>
-            <Card className="mt-2 overflow-hidden">
-              <CardContent className="p-3 space-y-1.5 text-sm">
-                {Object.entries(attributes)
-                  .filter(([key]) => key !== 'class' && key !== 'id') // Filter out class and id as they're shown above
-                  .map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="font-mono text-xs text-muted-foreground">{key}</span>
-                      <span className="font-mono text-xs truncate max-w-[200px]">{value}</span>
-                    </div>
-                  ))}
               </CardContent>
             </Card>
           </div>

@@ -83,7 +83,10 @@ export interface ClassesTabProps extends InspectorProps {
   saveClassesToFile: () => void;
 }
 
-export interface InfoTabProps extends InspectorProps {}
+export interface InfoTabProps extends InspectorProps {
+  setIsInspectMode?: React.Dispatch<React.SetStateAction<boolean>>;
+  populateChatInput?: (content: string) => void;
+}
 
 // Utility component props
 export interface SpacingControlsProps {
