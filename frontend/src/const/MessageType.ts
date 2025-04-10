@@ -14,4 +14,5 @@ export interface ChatRequestOptions {
   selectedModel?: string;
   images?: string[];
   attachments?: Attachment[];
+  content?: string;
 }

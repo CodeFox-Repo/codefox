@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import TextareaAutosize from 'react-textarea-autosize';
 import { PaperclipIcon, Send, X, Code, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Message } from '../../const/MessageType';
+import { Message, ChatRequestOptions } from '../../const/MessageType';
 import Image from 'next/image';
 import {
   Tooltip,
@@ -19,7 +19,10 @@ interface ChatBottombarProps {
   messages: Message[];
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  handleSubmit: (
+    e: React.FormEvent<HTMLFormElement>,
+    chatRequestOptions?: ChatRequestOptions
+  ) => void;
   stop: () => void;
   formRef: React.RefObject<HTMLFormElement>;
   setInput?: React.Dispatch<React.SetStateAction<string>>;
@@ -59,6 +62,7 @@ export default function ChatBottombar({
   const [isFocused, setIsFocused] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isComponentMode, setIsComponentMode] = useState(false);
+  const [componentData, setComponentData] = useState<string>('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,16 +102,12 @@ export default function ChatBottombar({
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const submitWithAttachments = (e: React.FormEvent<HTMLFormElement>) => {
-    // Here you would normally handle attachments with your form submission
-    // For this example, we'll just clear them after submission
-    handleSubmit(e);
-    setAttachments([]);
-  };
-
   const populateChatInput = (content: string) => {
     if (setInput) {
-      setInput(content);
+      // Store the component data in state instead of showing it in the input
+      setComponentData(content);
+      // Keep input clean - don't prefill any text
+      setInput("");
       setIsComponentMode(true);
       // Focus the input after populating
       setTimeout(() => {
@@ -116,12 +116,11 @@ export default function ChatBottombar({
     }
   };
 
-  // Check if input still contains component text
+  // Check if we're still in component mode
   useEffect(() => {
-    if (input.includes('Help me modify this component:')) {
-      setIsComponentMode(true);
-    } else {
+    if (!input || input === "") {
       setIsComponentMode(false);
+      setComponentData('');
     }
   }, [input]);
 
@@ -130,7 +129,41 @@ export default function ChatBottombar({
     if (setInput) {
       setInput('');
       setIsComponentMode(false);
+      setComponentData('');
     }
+  };
+
+  // Modify submit to include component data if in component mode
+  const submitWithAttachments = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    // If in component mode, append the hidden component data
+    if (isComponentMode && componentData && setInput) {
+      // Get user input
+      const userInput = input || "";
+      
+      // Create the full prompt with component data first, then user input
+      const fullPrompt = componentData + "\n\n" + userInput;
+      
+      // Call handleSubmit with the content in ChatRequestOptions
+      handleSubmit(e, { content: fullPrompt });
+      
+      // Reset component mode
+      setIsComponentMode(false);
+      setComponentData('');
+      setAttachments([]);
+      
+      // Clean up input after submission
+      setTimeout(() => {
+        setInput("");
+      }, 50);
+      
+      return;
+    }
+    
+    // Regular submission flow
+    handleSubmit(e);
+    setAttachments([]);
   };
 
   useEffect(() => {
@@ -252,8 +285,8 @@ export default function ChatBottombar({
                 className="flex items-center gap-1 text-[10px] py-0.5 px-2 bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800/50 shadow-sm"
               >
                 <Wand2 className="w-2.5 h-2.5" />
-                <span>Component Mode</span>
-              </Badge>
+                <span>Component Selected</span>
+              </Badge>  
             </motion.div>
             <button
               type="button"
@@ -420,11 +453,8 @@ export default function ChatBottombar({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               name="message"
-              placeholder={isComponentMode ? "Describe what you want to change..." : "Message Agent..."}
-              className={cn(
-                "resize-none px-2 w-full focus:outline-none bg-transparent text-gray-800 dark:text-zinc-200 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-400",
-                isComponentMode ? "pt-4 pb-2.5" : "py-2.5"
-              )}
+              placeholder={isComponentMode ? "Message Agent... (component details will be included)" : "Message Agent..."}
+              className="resize-none px-2 w-full focus:outline-none bg-transparent text-gray-800 dark:text-zinc-200 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-400 py-2.5"
               maxRows={5}
             />
           </div>

@@ -329,13 +329,11 @@ export function ComponentInspector({
                 <Button
                   onClick={() => {
                     if (populateChatInput && selectedComponent) {
-                      const componentSummary = `Help me modify this component:
-
-Element: ${selectedComponent.tagName?.toLowerCase() || 'component'}
-ID: ${selectedComponent.id || 'none'}
-${selectedComponent.attributes && Object.keys(selectedComponent.attributes).length > 0 ? 
-  `Attributes: ${Object.entries(selectedComponent.attributes).map(([key, value]) => `${key}="${value}"`).join(', ')}` : ''}
-What I want to change: `;
+                      const componentSummary = `
+\`\`\`User Selected Component
+File path: ${selectedComponent.path || 'none'}
+\`\`\`
+                      `;
                       
                       populateChatInput(componentSummary);
                       if (setIsInspectMode) {
