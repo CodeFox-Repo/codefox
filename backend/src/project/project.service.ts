@@ -198,37 +198,27 @@ export class ProjectService {
         this.logger.debug(`Generated project name: ${projectName}`);
       }
 
-      // Create project entity with "(Generating...)" suffix
-      const project = new Project();
-      project.projectName = `${projectName} (Generating...)`;
-      project.projectPath = ''; // Will be updated when actual project is generated
-      project.userId = userId;
-      project.isPublic = input.public || false;
-      project.uniqueProjectId = uuidv4();
-      project.projectPackages = [];
-
-      // Save project
-      const savedProject = await this.projectsRepository.save(project);
-
       // Create chat with proper title
       const defaultChat = await this.chatService.createChatWithMessage(userId, {
         title: projectName || 'New Project Chat',
         message: input.description,
       });
 
-      // Bind chat to project
-      await this.bindProjectAndChat(savedProject, defaultChat);
-
-      // Perform project creation asynchronously
-      this.createProjectInBackground(input, projectName, userId, defaultChat, savedProject);
+      // Perform the rest of project creation asynchronously
+      this.createProjectInBackground(input, projectName, userId, defaultChat);
 
       // Return chat immediately so user can start interacting
       return defaultChat;
     } catch (error) {
-      this.logger.error(`Error creating project: ${error.message}`, error.stack);
-      throw new InternalServerErrorException(
-        `Failed to create project: ${error.message}`,
+      if (error instanceof ProjectRateLimitException) {
+        throw error.getGraphQLError(); // Throw as a GraphQL error for the client
+      }
+
+      this.logger.error(
+        `Error in createProject: ${error.message}`,
+        error.stack,
       );
+      throw new InternalServerErrorException('Error creating the project.');
     }
   }
 
@@ -238,7 +228,6 @@ export class ProjectService {
     projectName: string,
     userId: string,
     chat: Chat,
-    project: Project,
   ): Promise<void> {
     try {
       // Build project sequence and execute
@@ -249,9 +238,13 @@ export class ProjectService {
       const context = new BuilderContext(sequence, sequence.id);
       const projectPath = await context.execute();
 
-      // Update project with actual data
-      project.projectName = projectName; // Remove "(Generating...)" suffix
+      // Create project entity and set properties
+      const project = new Project();
+      project.projectName = projectName;
       project.projectPath = projectPath;
+      project.userId = userId;
+      project.isPublic = input.public || false;
+      project.uniqueProjectId = uuidv4();
 
       // Set project packages
       try {
@@ -260,13 +253,25 @@ export class ProjectService {
         );
       } catch (packageError) {
         this.logger.error(`Error processing packages: ${packageError.message}`);
+        // Continue even if packages processing fails
         project.projectPackages = [];
       }
 
-      // Save updated project
+      // Save project
       const savedProject = await this.projectsRepository.save(project);
-      this.logger.debug(`Project updated: ${savedProject.id}`);
+      this.logger.debug(`Project created: ${savedProject.id}`);
 
+      // Bind chat to project
+      const bindSuccess = await this.bindProjectAndChat(savedProject, chat);
+      if (!bindSuccess) {
+        this.logger.error(
+          `Failed to bind project and chat: ${savedProject.id} -> ${chat.id}`,
+        );
+      } else {
+        this.logger.debug(
+          `Project and chat bound: ${savedProject.id} -> ${chat.id}`,
+        );
+      }
     } catch (error) {
       this.logger.error(
         `Error in background project creation: ${error.message}`,
@@ -803,7 +808,7 @@ export class ProjectService {
     this.logger.log(
       'check if the github project exist: ' + project.isSyncedWithGitHub,
     );
-    // 2) Check user's GitHub installation
+    // 2) Check user’s GitHub installation
     if (!user.githubInstallationId) {
       throw new Error('GitHub App not installed for this user');
     }
@@ -814,7 +819,7 @@ export class ProjectService {
     );
     const userOAuthToken = user.githubAccessToken;
 
-    // 4) Create the repo if the project doesn't have it yet
+    // 4) Create the repo if the project doesn’t have it yet
     if (!project.githubRepoName || !project.githubOwner) {
       // Use project.projectName or generate a safe name
 

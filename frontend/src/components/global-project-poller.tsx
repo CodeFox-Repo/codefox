@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ProjectContext } from './chat/code-engine/project-context';
 import { logger } from '@/app/log/logger';
 import { ProjectReadyToast } from './project-ready-toast';
+import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 
 const COMPLETED_CACHE_KEY = 'completedChatIds';
 
@@ -38,6 +39,8 @@ const GlobalToastListener = () => {
     refreshProjects,
     refetchPublicProjects,
     setTempLoadingProjectId,
+    getWebUrl,
+    takeProjectScreenshot
   } = useContext(ProjectContext);
   const router = useRouter();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -56,6 +59,26 @@ const GlobalToastListener = () => {
           await refreshProjects();
           await refetchPublicProjects();
           setTempLoadingProjectId(null);
+          
+          // 确保为项目截图
+          try {
+            if (project.id && project.projectPath) {
+              logger.info(`Taking screenshot for project ${project.id}`);
+              // 获取项目URL并进行截图
+              const { domain } = await getWebUrl(project.projectPath);
+              const baseUrl = `${URL_PROTOCOL_PREFIX}://${domain}`;
+              
+              // 等待5秒钟让服务完全启动
+              logger.info(`Waiting for service to fully start before taking screenshot for project ${project.id}`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              
+              await takeProjectScreenshot(project.id, baseUrl);
+              logger.info(`Screenshot taken for project ${project.id}`);
+            }
+          } catch (screenshotError) {
+            logger.error('Error taking project screenshot:', screenshotError);
+          }
+          
           toast.custom(
             (t) => (
               <ProjectReadyToast
@@ -88,7 +111,8 @@ const GlobalToastListener = () => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [recentlyCompletedProjectId]);
+  }, [recentlyCompletedProjectId, pollChatProject, refreshProjects, refetchPublicProjects, 
+      setTempLoadingProjectId, getWebUrl, takeProjectScreenshot, router, setChatId]);
 
   return null;
 };

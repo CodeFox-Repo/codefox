@@ -267,6 +267,13 @@ export const UPDATE_PROJECT_PHOTO_URL = gql`
   }
 `;
 
+// Mutation to delete a project
+export const DELETE_PROJECT = gql`
+  mutation DeleteProject($projectId: String!) {
+    deleteProject(projectId: $projectId)
+  }
+`;
+
 // Query to get subscribed/forked projects
 export const GET_SUBSCRIBED_PROJECTS = gql`
   query GetSubscribedProjects {

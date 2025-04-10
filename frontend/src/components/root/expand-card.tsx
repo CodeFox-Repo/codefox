@@ -119,7 +119,7 @@ export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
         ) : null}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4">
         {projects.map((project) => (
           <motion.div
             key={project.id}
@@ -153,16 +153,17 @@ export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
               </motion.div>
             </motion.div>
 
-            <motion.div layoutId={`content-${project.id}`} className="mt-3">
+            <motion.div layoutId={`content-${project.id}`} className="mt-2">
               <motion.h3
                 layoutId={`title-${project.id}`}
-                className="font-medium text-gray-900 dark:text-gray-100"
+                className="font-medium text-gray-900 dark:text-gray-100 flex items-center text-sm truncate"
               >
                 {project.name}
+              
               </motion.h3>
               <motion.div
                 layoutId={`meta-${project.id}`}
-                className="mt-1 text-sm text-gray-500"
+                className="mt-0.5 text-xs text-gray-500 truncate"
               >
                 {project.author}
               </motion.div>

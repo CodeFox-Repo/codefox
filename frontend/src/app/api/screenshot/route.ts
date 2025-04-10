@@ -49,7 +49,22 @@ export async function GET(req: Request) {
       timeout: 60000, // Increased timeout to 60 seconds
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 2000)); // Waits for 2 seconds
+    // 等待额外的时间让页面完全渲染
+    await page.waitForTimeout(3000);
+
+    // 尝试等待页面上的内容加载，如果失败也继续处理
+    try {
+      // 等待页面上可能存在的主要内容元素
+      await Promise.race([
+        page.waitForSelector('main', { timeout: 2000 }),
+        page.waitForSelector('#root', { timeout: 2000 }),
+        page.waitForSelector('.app', { timeout: 2000 }),
+        page.waitForSelector('h1', { timeout: 2000 }),
+      ]);
+    } catch (waitError) {
+      // 忽略等待选择器的错误，继续截图
+      logger.info('Unable to find common page elements, continuing with screenshot');
+    }
 
     // Take screenshot
     const screenshot = await page.screenshot({

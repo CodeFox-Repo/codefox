@@ -118,7 +118,7 @@ export function ProjectsSection() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((project) => ({
       id: project.id,
-      name: project.projectName || project.title || 'Untitled Project',
+      name: project.projectName || 'Untitled Project',
       path: project.projectPath ?? '',
       isReady: !!project.projectPath,
       createDate: project.createdAt
@@ -126,10 +126,45 @@ export function ProjectsSection() {
         : 'N/A',
       author: project.user?.username || user?.username || 'Unknown',
       forkNum: project.subNumber || 0,
-      image: project.projectPath
-        ? project.photoUrl || `https://picsum.photos/500/250?random=${project.id}`
-        : null,
+      image: project.photoUrl || (project.projectPath 
+        ? `https://picsum.photos/500/250?random=${project.id}` 
+        : null),
     }));
+
+  // 添加临时生成中的项目
+  const allProjects = [...transformedProjects];
+
+  // 添加当前正在加载的项目（如果有且不在已有列表中）
+  if (view === 'my' && tempLoadingProjectId && !allProjects.some(p => p.id === tempLoadingProjectId)) {
+    allProjects.unshift({
+      id: tempLoadingProjectId,
+      name: 'Generating Project...',
+      path: '',
+      isReady: false,
+      createDate: new Date().toISOString().split('T')[0],
+      author: user?.username || 'Unknown',
+      forkNum: 0,
+      image: null,
+    });
+  }
+
+  // 添加其他待处理项目
+  if (view === 'my') {
+    pendingProjects
+      .filter(p => !p.projectPath && p.id !== tempLoadingProjectId && !allProjects.some(proj => proj.id === p.id))
+      .forEach(project => {
+        allProjects.unshift({
+          id: project.id,
+          name: project.projectName || 'Generating Project...',
+          path: '',
+          isReady: false,
+          createDate: project.createdAt || new Date().toISOString().split('T')[0],
+          author: user?.username || 'Unknown',
+          forkNum: 0,
+          image: null,
+        });
+      });
+  }
 
   const handleOpenChat = (chatId: string) => {
     redirectChatPage(chatId, setCurrentChatid, setChatId, router);
@@ -169,36 +204,9 @@ export function ProjectsSection() {
           </div>
         ) : (
           <>
-            {/* {view === 'my' && tempLoadingProjectId && (
-              <ExpandableCard
-                key={`loading-${tempLoadingProjectId}`}
-                projects={[
-                  {
-                    id: tempLoadingProjectId,
-                    name: 'Generating Project...',
-                    image: null,
-                    isReady: false,
-                    createDate: new Date().toISOString().split('T')[0],
-                    author: user?.username || 'Unknown',
-                    forkNum: 0,
-                    path: '',
-                  },
-                ]}
-                isGenerating={true}
-                onOpenChat={() =>
-                  redirectChatPage(
-                    tempLoadingProjectId,
-                    setCurrentChatid,
-                    setChatId,
-                    router
-                  )
-                }
-              />
-            )} */}
-
-            {transformedProjects.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {transformedProjects.map((project) => (
+            {allProjects.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pr-2">
+                {allProjects.map((project) => (
                   <ExpandableCard
                     key={project.id}
                     projects={[project]}
