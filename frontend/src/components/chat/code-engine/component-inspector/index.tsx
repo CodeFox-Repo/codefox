@@ -63,6 +63,15 @@ export function ComponentInspector({
   useEffect(() => {
     if (selectedComponent) {
       getElementStyles(selectedComponent.id);
+      
+      // Reset content editing state when component changes
+      setIsContentEdited(false);
+      
+      // If there's no content or it's empty, make sure we initialize properly
+      if (!selectedComponent.textContent || selectedComponent.textContent.trim() === '') {
+        setEditableContent('');
+        setOriginalContent('');
+      }
     }
   }, [selectedComponent]);
 

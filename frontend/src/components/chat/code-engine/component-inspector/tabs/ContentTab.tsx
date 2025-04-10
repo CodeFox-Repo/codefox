@@ -26,6 +26,9 @@ export const ContentTab: React.FC<ContentTabProps> = ({
   // Check if content has changed from original
   const hasContentChanged = editableContent !== originalContent;
   
+  // Check if the component has text content to edit
+  const hasTextContent = originalContent !== undefined && originalContent !== null && originalContent.trim() !== '';
+  
   // Reset content to original
   const resetContent = () => {
     setEditableContent(originalContent);
@@ -92,7 +95,7 @@ export const ContentTab: React.FC<ContentTabProps> = ({
               size="sm"
               className="text-xs h-8"
               onClick={resetContent}
-              disabled={!hasContentChanged || applyingChanges}
+              disabled={!hasContentChanged || applyingChanges || !hasTextContent}
             >
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
               Reset
@@ -102,7 +105,7 @@ export const ContentTab: React.FC<ContentTabProps> = ({
               size="sm"
               className="text-xs h-8"
               onClick={handleContentSave}
-              disabled={!hasContentChanged || applyingChanges}
+              disabled={!hasContentChanged || applyingChanges || !hasTextContent}
             >
               <Save className="w-3.5 h-3.5 mr-1.5" />
               Save Content
@@ -112,13 +115,20 @@ export const ContentTab: React.FC<ContentTabProps> = ({
         
         {/* Content editor */}
         <div className="mb-4">
-          <Textarea
-            value={editableContent}
-            onChange={handleContentChange}
-            placeholder="Enter content text..."
-            className="min-h-[120px] text-sm font-mono"
-            disabled={applyingChanges}
-          />
+          {hasTextContent ? (
+            <Textarea
+              value={editableContent}
+              onChange={handleContentChange}
+              placeholder="Enter content text..."
+              className="min-h-[120px] text-sm font-mono"
+              disabled={applyingChanges}
+            />
+          ) : (
+            <div className="border rounded-md p-4 bg-gray-50 dark:bg-zinc-900/50 text-center">
+              <p className="text-muted-foreground text-sm">This component doesn't have editable text content.</p>
+              <p className="text-xs text-muted-foreground mt-1">You can still edit styles and classes for this element.</p>
+            </div>
+          )}
         </div>
         
         {/* Typography section */}
