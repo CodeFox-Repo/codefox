@@ -77,6 +77,7 @@ export interface ContentTabProps extends InspectorProps {
   originalContent: string;
   setEditableContent: (content: string) => void;
   handleStyleChange: (property: string, value: string) => void;
+  setIsStyleEdited: (edited: boolean) => void;
 }
 
 export interface ClassesTabProps extends InspectorProps {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,12 +15,15 @@ export const ContentTab: React.FC<ContentTabProps> = ({
   customStyles,
   computedStyles,
   isContentEdited,
+  isStyleEdited,
   applyingChanges,
   editableContent,
   originalContent,
   setEditableContent,
   setIsContentEdited,
+  setIsStyleEdited,
   applyContentChanges,
+  applyStyleChanges,
   handleStyleChange
 }) => {
   // Check if content has changed from original
@@ -45,15 +48,20 @@ export const ContentTab: React.FC<ContentTabProps> = ({
       console.error('No component selected for content save');
       return;
     }
-
-    console.log('Saving content for component:', {
-      id: selectedComponent.id,
-      selector: selectedComponent.selector,
-      tagName: selectedComponent.tagName,
-      content: editableContent.substring(0, 50) + (editableContent.length > 50 ? '...' : '')
-    });
     
-    applyContentChanges(editableContent);
+    // Save content changes if needed
+    if (hasContentChanged) {
+      applyContentChanges(editableContent);
+    }
+    
+    // Always save typography style changes when we have custom styles
+    if (Object.keys(customStyles).length > 0) {
+      console.log("Applying style changes as we have custom styles");
+      applyStyleChanges();
+    } else if (isStyleEdited) {
+      console.log("Applying style changes based on isStyleEdited flag");
+      applyStyleChanges();
+    }
   };
   
   // Handle content changes with real-time preview updates
@@ -66,6 +74,17 @@ export const ContentTab: React.FC<ContentTabProps> = ({
     if (selectedComponent) {
       updateElementContent(selectedComponent.id, newContent);
     }
+  };
+  
+  // Wrapper for handleStyleChange that also sets isStyleEdited flag
+  const handleTypographyStyleChange = (property: string, value: string) => {
+    console.log("Typography style change:", property, value);
+    
+    // Call the original style change handler
+    handleStyleChange(property, value);
+    
+    // Force isStyleEdited to true
+    setIsStyleEdited(true);
   };
   
   if (!selectedComponent) {
@@ -103,11 +122,14 @@ export const ContentTab: React.FC<ContentTabProps> = ({
               variant="default"
               size="sm"
               className="text-xs h-8"
-              onClick={handleContentSave}
-              disabled={!hasContentChanged || applyingChanges}
+              onClick={() => {
+                console.log("Save button clicked, isStyleEdited:", isStyleEdited, "hasContentChanged:", hasContentChanged);
+                handleContentSave();
+              }}
+              disabled={(!hasContentChanged && !isStyleEdited && Object.keys(customStyles).length === 0) || applyingChanges}
             >
               <Save className="w-3.5 h-3.5 mr-1.5" />
-              Save Content
+              Save Changes
             </Button>
           </div>
         </div>
@@ -134,7 +156,9 @@ export const ContentTab: React.FC<ContentTabProps> = ({
         <TypographyControls 
           customStyles={customStyles}
           computedStyles={computedStyles}
-          onChange={handleStyleChange}
+          onChange={(property, value) => {
+            handleTypographyStyleChange(property, value);
+          }}
         />
       </div>
     </ScrollArea>

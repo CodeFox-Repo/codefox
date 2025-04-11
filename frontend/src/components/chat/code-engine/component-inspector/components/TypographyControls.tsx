@@ -18,9 +18,6 @@ export const TypographyControls: React.FC<TypographyControlsProps> = ({
           <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
           Typography
         </div>
-        <div className="text-xs text-muted-foreground">
-          <span>Saved with style changes</span>
-        </div>
       </h4>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
