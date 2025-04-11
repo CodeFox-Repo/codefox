@@ -25,9 +25,8 @@ export const ContentTab: React.FC<ContentTabProps> = ({
 }) => {
   // Check if content has changed from original
   const hasContentChanged = editableContent !== originalContent;
-  
-  // Check if the component has text content to edit
-  const hasTextContent = originalContent !== undefined && originalContent !== null && originalContent.trim() !== '';
+  // Either the tag is text-editable or it actually has text content
+  const hasTextContent = Boolean(originalContent.trim());
   
   // Reset content to original
   const resetContent = () => {
@@ -95,7 +94,7 @@ export const ContentTab: React.FC<ContentTabProps> = ({
               size="sm"
               className="text-xs h-8"
               onClick={resetContent}
-              disabled={!hasContentChanged || applyingChanges || !hasTextContent}
+              disabled={!hasContentChanged || applyingChanges}
             >
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
               Reset
@@ -105,7 +104,7 @@ export const ContentTab: React.FC<ContentTabProps> = ({
               size="sm"
               className="text-xs h-8"
               onClick={handleContentSave}
-              disabled={!hasContentChanged || applyingChanges || !hasTextContent}
+              disabled={!hasContentChanged || applyingChanges}
             >
               <Save className="w-3.5 h-3.5 mr-1.5" />
               Save Content
