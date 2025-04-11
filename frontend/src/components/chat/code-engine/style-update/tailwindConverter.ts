@@ -42,6 +42,42 @@ export class TailwindConverter {
           tailwindClasses.push(`text-${value}`);
           break;
 
+        // Typography - Additional properties
+        case 'textDecoration':
+          switch (value) {
+            case 'underline':
+              tailwindClasses.push('underline');
+              break;
+            case 'line-through':
+              tailwindClasses.push('line-through');
+              break;
+            case 'overline':
+              tailwindClasses.push('overline');
+              break;
+            case 'none':
+              tailwindClasses.push('no-underline');
+              break;
+          }
+          break;
+        case 'lineHeight':
+          if (value === '1') tailwindClasses.push('leading-none');
+          else if (value === '1.25') tailwindClasses.push('leading-tight');
+          else if (value === '1.375') tailwindClasses.push('leading-snug');
+          else if (value === '1.5') tailwindClasses.push('leading-normal');
+          else if (value === '1.625') tailwindClasses.push('leading-relaxed');
+          else if (value === '2') tailwindClasses.push('leading-loose');
+          else tailwindClasses.push(`leading-[${value}]`);
+          break;
+        case 'letterSpacing':
+          if (value === '-0.05em') tailwindClasses.push('tracking-tighter');
+          else if (value === '-0.025em') tailwindClasses.push('tracking-tight');
+          else if (value === '0') tailwindClasses.push('tracking-normal');
+          else if (value === '0.025em') tailwindClasses.push('tracking-wide');
+          else if (value === '0.05em') tailwindClasses.push('tracking-wider');
+          else if (value === '0.1em') tailwindClasses.push('tracking-widest');
+          else tailwindClasses.push(`tracking-[${value}]`);
+          break;
+
         // Spacing
         case 'margin':
         case 'padding':
