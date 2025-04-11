@@ -65,8 +65,17 @@ const GlobalToastListener = () => {
             if (project.id && project.projectPath) {
               logger.info(`Taking screenshot for project ${project.id}`);
               // 获取项目URL并进行截图
-              const { domain } = await getWebUrl(project.projectPath);
-              const baseUrl = `${URL_PROTOCOL_PREFIX}://${domain}`;
+              const { domain, port } = await getWebUrl(project.projectPath);
+              
+              // 使用端口直接访问
+              let baseUrl;
+              if (port) {
+                baseUrl = `${URL_PROTOCOL_PREFIX}://localhost:${port}`;
+              } else {
+                baseUrl = `${URL_PROTOCOL_PREFIX}://${domain}`;
+              }
+              
+              logger.info(`Using URL for screenshot: ${baseUrl}`);
               
               // 等待5秒钟让服务完全启动
               logger.info(`Waiting for service to fully start before taking screenshot for project ${project.id}`);

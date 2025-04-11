@@ -33,25 +33,9 @@ export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
   }, [active]);
 
   const handleCardClick = async (project) => {
-    if (isGenerating && onOpenChat) {
+    if (onOpenChat) {
       onOpenChat();
       return;
-    }
-
-    setActive(project);
-    setIframeUrl('');
-    if (cachedUrls.current.has(project.id)) {
-      setIframeUrl(cachedUrls.current.get(project.id));
-      return;
-    }
-
-    try {
-      const data = await getWebUrl(project.path);
-      const url = `${URL_PROTOCOL_PREFIX}://${data.domain}`;
-      cachedUrls.current.set(project.id, url);
-      setIframeUrl(url);
-    } catch (error) {
-      logger.error('Error fetching project URL:', error);
     }
   };
 
@@ -148,7 +132,7 @@ export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
                 className="absolute inset-0 bg-black/40 flex items-center justify-center"
               >
                 <span className="text-white font-medium px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                  {isGenerating ? 'Open Chat' : 'View Project'}
+                  {isGenerating ? 'Open Chat' : 'Open Project'}
                 </span>
               </motion.div>
             </motion.div>

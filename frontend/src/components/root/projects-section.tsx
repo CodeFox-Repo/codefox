@@ -34,7 +34,7 @@ export function ProjectsSection() {
     error: publicError,
     refetch: refetchPublic,
   } = useQuery(FETCH_PUBLIC_PROJECTS, {
-    variables: { input: { size: 100, strategy: 'latest' } },
+    variables: { input: { size: 100, strategy: 'latest', currentUserId: user?.id || '' } },
     fetchPolicy: 'network-only',
   });
 
@@ -114,7 +114,7 @@ export function ProjectsSection() {
 
   const displayProjects = view === 'my' ? mergedMyProjects : publicProjects;
 
-  const transformedProjects = displayProjects
+  const transformedProjects = [...displayProjects]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((project) => ({
       id: project.id,
@@ -126,9 +126,7 @@ export function ProjectsSection() {
         : 'N/A',
       author: project.user?.username || user?.username || 'Unknown',
       forkNum: project.subNumber || 0,
-      image: project.photoUrl || (project.projectPath 
-        ? `https://picsum.photos/500/250?random=${project.id}` 
-        : null),
+      image: project.photoUrl || null,
     }));
 
   // 添加临时生成中的项目
