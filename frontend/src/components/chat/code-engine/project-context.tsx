@@ -603,33 +603,36 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const takeProjectScreenshot = useCallback(
     async (projectId: string, url: string): Promise<void> => {
-      // Check if this screenshot operation is already in progress
       const operationKey = `screenshot_${projectId}`;
       if (pendingOperations.current.get(operationKey)) {
+        logger.debug(`[screenshot] Project ${projectId} is already being processed`);
         return;
       }
-
+  
       pendingOperations.current.set(operationKey, true);
-
+      logger.debug(`[screenshot] Start for Project ${projectId}, URL: ${url}`);
+  
       try {
-        // Check if the URL is accessible
+        logger.debug(`[screenshot] Checking accessibility for ${url}`);
         const isUrlAccessible = await checkUrlStatus(url);
         if (!isUrlAccessible) {
-          logger.warn(`URL ${url} is not accessible after multiple retries`);
+          logger.warn(`[screenshot] URL ${url} is not accessible after retries`);
           return;
         }
-
-        // Add a cache buster to avoid previous screenshot caching
+  
         const screenshotUrl = `/api/screenshot?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+        logger.debug(`[screenshot] Sending request to ${screenshotUrl}`);
         const screenshotResponse = await fetch(screenshotUrl);
-
+  
         if (!screenshotResponse.ok) {
           throw new Error(
-            `Failed to capture screenshot: ${screenshotResponse.status} ${screenshotResponse.statusText}`
+            `[screenshot] Failed to capture: ${screenshotResponse.status} ${screenshotResponse.statusText}`
           );
         }
-
+  
         const arrayBuffer = await screenshotResponse.arrayBuffer();
+        logger.debug(`[screenshot] Screenshot captured for Project ${projectId}, uploading...`);
+  
         const blob = new Blob([arrayBuffer], { type: 'image/png' });
         const file = new File([blob], 'screenshot.png', { type: 'image/png' });
 
@@ -642,13 +645,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           },
         });
       } catch (error) {
-        logger.error('Error taking screenshot:', error);
+        logger.error(`[screenshot] Error for Project ${projectId}:`, error);
       } finally {
+        logger.debug(`[screenshot] Finished process for Project ${projectId}`);
         pendingOperations.current.delete(operationKey);
       }
     },
     [updateProjectPhotoMutation]
   );
+  
 
   const getWebUrl = useCallback(
     async (

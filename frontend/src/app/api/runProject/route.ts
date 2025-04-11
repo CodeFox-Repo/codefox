@@ -517,12 +517,10 @@ export async function GET(req: Request) {
       existingContainer.containerId
     );
     if (isRunning) {
-      logger.info(`Using existing container with port: ${existingContainer.port}`);
       return NextResponse.json({
         message: 'Docker container already running',
         domain: existingContainer.domain,
         containerId: existingContainer.containerId,
-        port: existingContainer.port,
       });
     } else {
       // Remove non-running container from state
@@ -549,14 +547,12 @@ export async function GET(req: Request) {
   processingRequests.add(projectPath);
 
   try {
-    const { domain, containerId, port } = await runDockerContainer(projectPath);
-    logger.info(`Successfully started container on port: ${port}`);
+    const { domain, containerId } = await runDockerContainer(projectPath);
 
     return NextResponse.json({
       message: 'Docker container started',
       domain,
       containerId,
-      port,
     });
   } catch (error: any) {
     logger.error(`Failed to start Docker container:`, error);

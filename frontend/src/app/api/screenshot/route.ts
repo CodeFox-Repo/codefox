@@ -22,7 +22,6 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const url = searchParams.get('url');
   let page = null;
-  const MAX_RETRIES = 3;
 
   if (!url) {
     return NextResponse.json(
@@ -31,15 +30,12 @@ export async function GET(req: Request) {
     );
   }
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      logger.info(`Screenshot attempt ${attempt + 1} for ${url}`);
-      
-      // Get browser instance
-      const browser = await getBrowser();
+  try {
+    // Get browser instance
+    const browser = await getBrowser();
 
-      // Create a new page
-      page = await browser.newPage();
+    // Create a new page
+    page = await browser.newPage();
 
     // Set viewport to a reasonable size
     await page.setViewport({
@@ -77,66 +73,51 @@ export async function GET(req: Request) {
       fullPage: true,
     });
 
-      // Always close the page when done
-      if (page) {
-        await page.close();
-      }
-
-      // Return the screenshot as a PNG image
-      return new Response(screenshot, {
-        headers: {
-          'Content-Type': 'image/png',
-          'Cache-Control': 's-maxage=3600',
-        },
-      });
-    } catch (error: any) {
-      logger.error(`Screenshot error on attempt ${attempt + 1}:`, error);
-
-      // Ensure page is closed even if an error occurs
-      if (page) {
-        try {
-          await page.close();
-        } catch (closeError) {
-          logger.error('Error closing page:', closeError);
-        }
-      }
-
-      // If browser seems to be in a bad state, recreate it
-      if (
-        error.message.includes('Target closed') ||
-        error.message.includes('Protocol error') ||
-        error.message.includes('Target.createTarget')
-      ) {
-        try {
-          if (browserInstance) {
-            await browserInstance.close();
-            browserInstance = null;
-          }
-        } catch (closeBrowserError) {
-          logger.error('Error closing browser:', closeBrowserError);
-        }
-      }
-
-      // 如果这不是最后一次尝试，则继续
-      if (attempt < MAX_RETRIES - 1) {
-        // 等待一会儿再重试
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        continue;
-      }
-
-      // 最后一次尝试失败
-      return NextResponse.json(
-        { error: error.message || 'Failed to capture screenshot after multiple attempts' },
-        { status: 500 }
-      );
+    // Always close the page when done
+    if (page) {
+      await page.close();
     }
-  }
 
-  // 如果重试都失败
-  return NextResponse.json(
-    { error: 'Failed to capture screenshot after exhausting all retries' },
-    { status: 500 }
-  );
+    // Return the screenshot as a PNG image
+    return new Response(screenshot, {
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 's-maxage=3600',
+      },
+    });
+  } catch (error: any) {
+    logger.error('Screenshot error:', error);
+
+    // Ensure page is closed even if an error occurs
+    if (page) {
+      try {
+        await page.close();
+      } catch (closeError) {
+        logger.error('Error closing page:', closeError);
+      }
+    }
+
+    // If browser seems to be in a bad state, recreate it
+    if (
+      error.message.includes('Target closed') ||
+      error.message.includes('Protocol error') ||
+      error.message.includes('Target.createTarget')
+    ) {
+      try {
+        if (browserInstance) {
+          await browserInstance.close();
+          browserInstance = null;
+        }
+      } catch (closeBrowserError) {
+        logger.error('Error closing browser:', closeBrowserError);
+      }
+    }
+
+    return NextResponse.json(
+      { error: error.message || 'Failed to capture screenshot' },
+      { status: 500 }
+    );
+  }
 }
 
 // Handle process termination to close browser
