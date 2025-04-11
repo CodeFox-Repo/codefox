@@ -29,11 +29,7 @@ export class CodeManipulator {
     let currentClasses = '';
 
     // Look for className in the component line and nearby lines
-    for (
-      let i = componentLineIndex;
-      i < Math.min(componentLineIndex + 5, lines.length);
-      i++
-    ) {
+    for (let i = componentLineIndex; i < lines.length; i++) {
       const line = lines[i];
       const classNameMatch = line.match(/className\s*=\s*["']([^"']*)["']/);
 
@@ -860,17 +856,6 @@ export class CodeManipulator {
 
       // Fix arbitrary values in className attributes that might contain problematic characters
       line = this.sanitizeArbitraryValuesInClassNames(line);
-
-      // Fix missing closing brackets in JSX tags
-      // Example: <h1 className="class"Text</h1> → <h1 className="class">Text</h1>
-      /*
-      const missingClosingBracketRegex =
-        /(<[a-zA-Z][a-zA-Z0-9]*[^<>]*"[^<>]*)([a-zA-Z0-9])/g;
-      if (missingClosingBracketRegex.test(line)) {
-        line = line.replace(missingClosingBracketRegex, '$1>$2');
-        console.log(`Fixed missing '>' in JSX tag at line ${i + 1}`);
-      }
-      */
 
       // Fix incorrect closing tags
       // Look for patterns where closing tag doesn't match opening tag
