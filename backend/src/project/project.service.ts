@@ -204,8 +204,36 @@ export class ProjectService {
         message: input.description,
       });
 
+      // Create project entity and set properties
+      const project = new Project();
+      project.projectName = projectName;
+      project.projectPath = '';
+      project.userId = userId;
+      project.isPublic = input.public || false;
+      project.uniqueProjectId = uuidv4();
+
+      // Set project packages
+      try {
+        project.projectPackages = await this.transformInputToProjectPackages(
+          input.packages,
+        );
+      } catch (packageError) {
+        this.logger.error(`Error processing packages: ${packageError.message}`);
+        // Continue even if packages processing fails
+        project.projectPackages = [];
+      }
+
+      // Save project
+      const savedProject = await this.projectsRepository.save(project);
+      this.logger.debug(`Project created: ${savedProject.id}`);
+
       // Perform the rest of project creation asynchronously
-      this.createProjectInBackground(input, projectName, userId, defaultChat);
+      this.createProjectInBackground(
+        input,
+        projectName,
+        savedProject,
+        defaultChat,
+      );
 
       // Return chat immediately so user can start interacting
       return defaultChat;
@@ -226,7 +254,7 @@ export class ProjectService {
   private async createProjectInBackground(
     input: CreateProjectInput,
     projectName: string,
-    userId: string,
+    savedProject: Project,
     chat: Chat,
   ): Promise<void> {
     try {
@@ -236,30 +264,21 @@ export class ProjectService {
         projectName,
       });
       const context = new BuilderContext(sequence, sequence.id);
+
+      // Execute the context and update projectPath
       const projectPath = await context.execute();
 
-      // Create project entity and set properties
-      const project = new Project();
-      project.projectName = projectName;
-      project.projectPath = projectPath;
-      project.userId = userId;
-      project.isPublic = input.public || false;
-      project.uniqueProjectId = uuidv4();
-
-      // Set project packages
-      try {
-        project.projectPackages = await this.transformInputToProjectPackages(
-          input.packages,
+      if (projectPath) {
+        savedProject.projectPath = projectPath;
+        await this.projectsRepository.save(savedProject); // Update the project with path
+        this.logger.debug(
+          `Updated project path: ${savedProject.id} -> ${projectPath}`,
         );
-      } catch (packageError) {
-        this.logger.error(`Error processing packages: ${packageError.message}`);
-        // Continue even if packages processing fails
-        project.projectPackages = [];
+      } else {
+        this.logger.error(
+          `Failed to retrieve project path for: ${savedProject.id}`,
+        );
       }
-
-      // Save project
-      const savedProject = await this.projectsRepository.save(project);
-      this.logger.debug(`Project created: ${savedProject.id}`);
 
       // Bind chat to project
       const bindSuccess = await this.bindProjectAndChat(savedProject, chat);

@@ -7,22 +7,36 @@ import { AuthChoiceModal } from '@/components/auth-choice-modal';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { ProjectsSection } from '@/components/root/projects-section';
 import { PromptForm, PromptFormRef } from '@/components/root/prompt-form';
-import { ProjectContext } from '@/components/chat/code-engine/project-context';
+import {
+  CreateProjectResult,
+  ProjectContext,
+} from '@/components/chat/code-engine/project-context';
 import { SignInModal } from '@/components/sign-in-modal';
 import { SignUpModal } from '@/components/sign-up-modal';
 import { useRouter } from 'next/navigation';
 import { logger } from '../log/logger';
 import { AuroraText } from '@/components/magicui/aurora-text';
+import { RateLimitModal } from '@/components/rate-limit-modal';
 export default function HomePage() {
   // States for AuthChoiceModal
   const [showAuthChoice, setShowAuthChoice] = useState(false);
   const router = useRouter();
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
+  const [showRateLimitModal, setShowRateLimitModal] = useState(false);
+  const [rateLimiNumber, setRateLimiNumber] = useState<number | undefined>(
+    undefined
+  );
 
   const promptFormRef = useRef<PromptFormRef>(null);
   const { isAuthorized } = useAuthContext();
   const { createProjectFromPrompt, isLoading } = useContext(ProjectContext);
+
+  function isRateLimitResult(
+    result: CreateProjectResult
+  ): result is { success: false; rateLimit?: boolean; limitNumber?: number } {
+    return result.success === false;
+  }
 
   const handleSubmit = async () => {
     if (!promptFormRef.current) return;
@@ -31,10 +45,16 @@ export default function HomePage() {
     if (!message.trim()) return;
 
     try {
-      const chatId = await createProjectFromPrompt(message, isPublic, model);
+      const result = await createProjectFromPrompt(message, isPublic, model);
 
-      promptFormRef.current.clearMessage();
-      router.push(`/chat?id=${chatId}`);
+      if (result.success && result.chatId) {
+        promptFormRef.current.clearMessage();
+        router.push(`/chat?id=${result.chatId}`);
+      } else if (isRateLimitResult(result) && result.rateLimit) {
+        setShowRateLimitModal(true);
+        setRateLimiNumber(result.limitNumber);
+        console.log('Rate limit reached ' + result.limitNumber);
+      }
     } catch (error) {
       logger.error('Error creating project:', error);
     }
@@ -178,6 +198,12 @@ export default function HomePage() {
 
         <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} />
         <SignUpModal isOpen={showSignUp} onClose={() => setShowSignUp(false)} />
+
+        <RateLimitModal
+          isOpen={showRateLimitModal}
+          limit={rateLimiNumber ?? 3}
+          onClose={() => setShowRateLimitModal(false)}
+        />
       </div>
     </div>
   );
