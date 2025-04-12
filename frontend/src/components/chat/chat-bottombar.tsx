@@ -182,7 +182,7 @@ export default function ChatBottombar({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 10, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-full left-4 right-4 z-50 bg-background border border-input rounded-lg flex flex-col"
+            className="absolute bottom-full left-4 right-4 z-50 bg-background border border-input rounded-lg flex flex-col overflow-hidden"
             style={{ 
               height: "min(600px, 70vh)",
               maxHeight: "calc(100vh - 150px)" 
@@ -255,7 +255,7 @@ export default function ChatBottombar({
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto relative border-t border-input/30">
               <ComponentInspector 
                 setIsInspectMode={setIsInspectMode}
                 populateChatInput={populateChatInput}
