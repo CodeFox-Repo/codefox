@@ -182,7 +182,7 @@ export default function ChatBottombar({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 10, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-full left-0 right-0 z-50 bg-background border border-input shadow-xl flex flex-col"
+            className="absolute bottom-full left-4 right-4 z-50 bg-background border border-input rounded-lg flex flex-col"
             style={{ 
               height: "min(600px, 70vh)",
               maxHeight: "calc(100vh - 150px)" 
@@ -231,7 +231,7 @@ export default function ChatBottombar({
               }}
             />
             
-            <div className="border-b px-3 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 flex-shrink-0">
+            <div className="border-b px-3 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 flex-shrink-0 rounded-t-lg">
               <div className="flex items-center gap-2 overflow-hidden">
                 <Code className="h-4 w-4 text-blue-500 flex-shrink-0" />
                 <h3 className="font-medium text-blue-700 dark:text-blue-300 text-sm whitespace-nowrap overflow-hidden text-ellipsis">UI Inspector</h3>
