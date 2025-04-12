@@ -111,15 +111,10 @@ export function setupIframeComm(iframe: HTMLIFrameElement) {
         if (iframe.contentDocument) {
           // Check if customInspector.js is already loaded
           if (
-            !iframe.contentDocument.querySelector(
+            iframe.contentDocument.querySelector(
               'script[src*="customInspector.js"]'
             )
           ) {
-            const script = document.createElement('script');
-            script.src = '/customInspector.js'; // Assumes the script is in the public directory
-            iframe.contentDocument.head.appendChild(script);
-            console.log('Injected custom inspector script');
-          } else {
             console.log('Custom inspector script already loaded');
           }
         } else {
