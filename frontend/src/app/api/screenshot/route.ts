@@ -14,6 +14,8 @@ async function getBrowser(): Promise<Browser> {
       protocolTimeout: 240000,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
+  } else {
+    logger.info('Reusing existing browser instance...');
   }
   return browserInstance;
 }
@@ -24,24 +26,27 @@ export async function GET(req: Request) {
   let page = null;
 
   if (!url) {
+    logger.warn('No URL provided in query parameters');
     return NextResponse.json(
       { error: 'URL parameter is required' },
       { status: 400 }
     );
   }
 
+  logger.info(`Starting screenshot for URL: ${url}`);
+
   try {
     // Get browser instance
     const browser = await getBrowser();
+    logger.info('Browser instance acquired');
 
     // Create a new page
     page = await browser.newPage();
+    logger.info('New page created');
 
-    // Set viewport to a reasonable size
-    await page.setViewport({
-      width: 1600,
-      height: 900,
-    });
+    // Set viewport
+    await page.setViewport({ width: 1600, height: 900 });
+    logger.info('Viewport set to 1600x900');
 
       // Navigate to URL with increased timeout and more reliable wait condition
       await page.goto(url, {
@@ -72,13 +77,12 @@ export async function GET(req: Request) {
       type: 'png',
       fullPage: true,
     });
+    logger.info('Screenshot captured');
 
-    // Always close the page when done
-    if (page) {
-      await page.close();
-    }
+    // Clean up
+    if (page) await page.close();
+    logger.info('Page closed');
 
-    // Return the screenshot as a PNG image
     return new Response(screenshot, {
       headers: {
         'Content-Type': 'image/png',
@@ -88,24 +92,24 @@ export async function GET(req: Request) {
   } catch (error: any) {
     logger.error('Screenshot error:', error);
 
-    // Ensure page is closed even if an error occurs
     if (page) {
       try {
         await page.close();
+        logger.info('Closed page after error');
       } catch (closeError) {
         logger.error('Error closing page:', closeError);
       }
     }
 
-    // If browser seems to be in a bad state, recreate it
     if (
-      error.message.includes('Target closed') ||
-      error.message.includes('Protocol error') ||
-      error.message.includes('Target.createTarget')
+      error.message?.includes('Target closed') ||
+      error.message?.includes('Protocol error') ||
+      error.message?.includes('Target.createTarget')
     ) {
       try {
         if (browserInstance) {
           await browserInstance.close();
+          logger.warn('Browser instance was closed due to protocol error');
           browserInstance = null;
         }
       } catch (closeBrowserError) {
@@ -120,10 +124,10 @@ export async function GET(req: Request) {
   }
 }
 
-// Handle process termination to close browser
+// Gracefully close the browser when the process exits
 process.on('SIGINT', async () => {
   if (browserInstance) {
-    logger.info('Closing browser instance...');
+    logger.info('SIGINT received. Closing browser instance...');
     await browserInstance.close();
     browserInstance = null;
   }
