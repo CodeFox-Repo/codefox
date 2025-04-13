@@ -4,7 +4,6 @@ import path from 'path';
 import { getMediaDir } from 'codefox-common';
 import { logger } from '@/app/log/logger';
 
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { path: string[] } }
@@ -15,7 +14,7 @@ export async function GET(
     const filePath = path.join(mediaDir, ...params.path);
     const normalizedPath = path.normalize(filePath);
     logger.info(`📁 getMediaDir = ${mediaDir}`);
-logger.info(`📂 full filePath = ${filePath}`);
+    logger.info(`📂 full filePath = ${filePath}`);
     logger.debug(`Requested path: ${params.path.join('/')}`);
     logger.debug(`Full resolved path: ${filePath}`);
 

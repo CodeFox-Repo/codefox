@@ -624,6 +624,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         logger.debug(`[screenshot] Sending request to ${screenshotUrl}`);
         const screenshotResponse = await fetch(screenshotUrl);
   
+        // 添加响应头调试
+        logger.debug(`[screenshot] Response status: ${screenshotResponse.status}`);
+        logger.debug(`[screenshot] Response content-type: ${screenshotResponse.headers.get('content-type')}`);
+  
         if (!screenshotResponse.ok) {
           throw new Error(
             `[screenshot] Failed to capture: ${screenshotResponse.status} ${screenshotResponse.statusText}`
