@@ -9,7 +9,7 @@ import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
 import { Button } from '@/components/ui/button';
 
-export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
+export function ExpandableCard({ projects, isGenerating = false, onOpenChat, isCommunityProject = false }) {
   const [active, setActive] = useState(null);
   const [iframeUrl, setIframeUrl] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -33,9 +33,10 @@ export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
   }, [active]);
 
   const handleCardClick = async (project) => {
-    if (onOpenChat) {
+    if (isCommunityProject) {
+      setActive(project);
+    } else if (onOpenChat) {
       onOpenChat();
-      return;
     }
   };
 
@@ -143,7 +144,6 @@ export function ExpandableCard({ projects, isGenerating = false, onOpenChat }) {
                 className="font-medium text-gray-900 dark:text-gray-100 flex items-center text-sm truncate"
               >
                 {project.name}
-              
               </motion.h3>
               <motion.div
                 layoutId={`meta-${project.id}`}

@@ -210,6 +210,7 @@ export function ProjectsSection() {
                     projects={[project]}
                     isGenerating={!project.isReady}
                     onOpenChat={() => handleOpenChat(project.id)}
+                    isCommunityProject={view === 'community'}
                   />
                 ))}
               </div>
