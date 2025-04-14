@@ -29,7 +29,7 @@ export function normalizeAvatarUrl(
   // Handle paths that might not have the media/ prefix
   if (avatarUrl.includes('avatars/')) {
     const parts = avatarUrl.split('avatars/');
-    return `/api/media/avatars/${parts[parts.length - 1]}`;
+    return `/media/avatars/${parts[parts.length - 1]}`;
   }
 
   // Return as is for other cases
