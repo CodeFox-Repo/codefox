@@ -105,7 +105,7 @@ function SideBarItemComponent({
           await deleteProject({
             variables: { projectId },
             update: (cache) => {
-              // 清除项目缓存
+              // Clear project cache
               cache.evict({ id: `Project:${projectId}` });
               cache.gc();
             }

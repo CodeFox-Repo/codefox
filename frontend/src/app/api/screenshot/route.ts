@@ -33,20 +33,23 @@ export async function GET(req: Request) {
     );
   }
 
-  logger.info(`Starting screenshot for URL: ${url}`);
+  logger.info(`[SCREENSHOT] Starting screenshot for URL: ${url}`);
 
   try {
     // Get browser instance
+    logger.info(`[SCREENSHOT] Attempting to get browser instance`);
     const browser = await getBrowser();
-    logger.info('Browser instance acquired');
+    logger.info(`[SCREENSHOT] Browser instance acquired successfully`);
 
     // Create a new page
+    logger.info(`[SCREENSHOT] Creating new page`);
     page = await browser.newPage();
-    logger.info('New page created');
+    logger.info(`[SCREENSHOT] New page created successfully`);
 
     // Set viewport
+    logger.info(`[SCREENSHOT] Setting viewport`);
     await page.setViewport({ width: 1600, height: 900 });
-    logger.info('Viewport set to 1600x900');
+    logger.info(`[SCREENSHOT] Viewport set successfully`);
 
       // Navigate to URL with increased timeout and more reliable wait condition
       await page.goto(url, {
@@ -73,31 +76,40 @@ export async function GET(req: Request) {
       }
 
     // Take screenshot
+    logger.info(`[SCREENSHOT] Taking screenshot`);
     const screenshot = await page.screenshot({
       type: 'png',
       fullPage: true,
     });
-    logger.info('Screenshot captured');
+    logger.info(`[SCREENSHOT] Screenshot captured successfully, size: ${screenshot.length} bytes`);
 
     // Clean up
-    if (page) await page.close();
-    logger.info('Page closed');
+    if (page) {
+      logger.info(`[SCREENSHOT] Closing page`);
+      await page.close();
+      logger.info(`[SCREENSHOT] Page closed successfully`);
+    }
 
+    logger.info(`[SCREENSHOT] Returning screenshot response`);
     return new Response(screenshot, {
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 's-maxage=3600',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
     });
   } catch (error: any) {
-    logger.error('Screenshot error:', error);
+    logger.error(`[SCREENSHOT] Error capturing screenshot: ${error.message}`, error);
+    logger.error(`[SCREENSHOT] Error stack: ${error.stack}`);
 
     if (page) {
       try {
+        logger.info(`[SCREENSHOT] Attempting to close page after error`);
         await page.close();
-        logger.info('Closed page after error');
+        logger.info(`[SCREENSHOT] Successfully closed page after error`);
       } catch (closeError) {
-        logger.error('Error closing page:', closeError);
+        logger.error(`[SCREENSHOT] Error closing page: ${closeError.message}`);
       }
     }
 
@@ -108,12 +120,13 @@ export async function GET(req: Request) {
     ) {
       try {
         if (browserInstance) {
+          logger.warn(`[SCREENSHOT] Resetting browser instance due to protocol error`);
           await browserInstance.close();
-          logger.warn('Browser instance was closed due to protocol error');
           browserInstance = null;
+          logger.warn(`[SCREENSHOT] Browser instance reset successfully`);
         }
       } catch (closeBrowserError) {
-        logger.error('Error closing browser:', closeBrowserError);
+        logger.error(`[SCREENSHOT] Error closing browser: ${closeBrowserError.message}`);
       }
     }
 

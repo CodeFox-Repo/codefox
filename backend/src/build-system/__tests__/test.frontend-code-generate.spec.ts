@@ -12,7 +12,7 @@ describe('FrontendCodeHandler', () => {
     name: 'Spotify-like Music Web',
     description: 'Users can play music',
     databaseType: 'SQLite',
-    model: 'o3-mini-high',
+    model: 'o4-mini',
     nodes: [
       {
         handler: FrontendCodeHandler,

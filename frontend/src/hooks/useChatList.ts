@@ -26,7 +26,7 @@ export function useChatList() {
     setChatListUpdated(value);
   }, []);
 
-  // 监听用户变化和新聊天事件
+  // Listen for user changes and new chat events
   useEffect(() => {
     const handleNewChat = () => {
       handleRefetch();
@@ -38,7 +38,7 @@ export function useChatList() {
     };
   }, [handleRefetch]);
 
-  // 当用户ID变化时，强制刷新聊天列表
+  // When the user ID changes, force refresh the chat list
   useEffect(() => {
     if (user?.id) {
       handleRefetch();

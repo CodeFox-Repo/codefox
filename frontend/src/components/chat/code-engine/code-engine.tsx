@@ -371,7 +371,7 @@ export function CodeEngine({
     return () => interval && clearInterval(interval);
   }, [timerActive]);
 
-  // 获取带用户ID的localStorage键
+  // Get localStorage key with user ID
   const getUserStorageKey = (key: string) => {
     return user?.id ? `${key}_${user.id}` : key;
   };

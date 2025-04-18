@@ -139,16 +139,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    // 清除当前用户的数据
+    // Clear current user data
     if (user?.id) {
-      // 清除所有与当前用户相关的 localStorage 数据
+      // Clear all localStorage data related to the current user
       localStorage.removeItem(`completedChatIds_${user.id}`);
       localStorage.removeItem(`pendingChatId_${user.id}`);
       localStorage.removeItem(`pendingProjects_${user.id}`);
       localStorage.removeItem(`tempLoadingProjectId_${user.id}`);
       localStorage.removeItem(`lastProjectId_${user.id}`);
-      
-      // 清除当前用户的所有项目完成状态
+
+      // Clear all project completion status for the current user
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith(`project-completed-${user.id}-`)) {
@@ -156,8 +156,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-    
-    // 清除认证相关的 localStorage
+
+    // Clear authentication related localStorage
     setToken(null);
     setIsAuthorized(false);
     setUser(null);

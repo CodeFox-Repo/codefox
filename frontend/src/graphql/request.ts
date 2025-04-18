@@ -248,7 +248,6 @@ export const UPDATE_PROJECT_PUBLIC_STATUS = gql`
     updateProjectPublicStatus(projectId: $projectId, isPublic: $isPublic) {
       id
       projectName
-      path
       projectPackages {
         id
         content

@@ -46,7 +46,7 @@ export interface ProjectContextType {
   isLoading: boolean;
   getWebUrl: (
     projectPath: string
-  ) => Promise<{ domain: string; containerId: string }>;
+  ) => Promise<{ domain: string; containerId: string; port?: string }>;
   takeProjectScreenshot: (projectId: string, url: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
   editorRef?: React.MutableRefObject<any>;
@@ -117,12 +117,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const editorRef = useRef<any>(null);
-  
-  // 获取带用户ID的localStorage键
+
+  // Get localStorage key with user ID
   const getUserStorageKey = (key: string) => {
     return user?.id ? `${key}_${user.id}` : key;
   };
-  
+
   const [pendingProjects, setPendingProjects] = useState<Project[]>(() => {
     if (typeof window !== 'undefined' && user?.id) {
       try {
@@ -136,7 +136,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
     return [];
   });
-  
+
   const setRecentlyCompletedProjectId = (id: string | null) => {
     if (typeof window !== 'undefined' && user?.id) {
       if (id) {
@@ -154,17 +154,20 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         ? localStorage.getItem(getUserStorageKey('pendingChatId'))
         : null
     );
-    
+
   useEffect(() => {
     if (typeof window === 'undefined' || !user?.id) return;
     try {
-      localStorage.setItem(getUserStorageKey('pendingProjects'), JSON.stringify(pendingProjects));
+      localStorage.setItem(
+        getUserStorageKey('pendingProjects'),
+        JSON.stringify(pendingProjects)
+      );
     } catch (e) {
       logger.warn('Failed to store pendingProjects in localStorage');
     }
   }, [pendingProjects, user?.id]);
-  
-  // setter：更新 state + localStorage
+
+  // Setter: Update state + localStorage
   const setTempLoadingProjectId = (id: string | null) => {
     if (typeof window !== 'undefined' && user?.id) {
       if (id) {
@@ -175,7 +178,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
     setTempLoadingProjectIdRaw(id);
   };
-  
+
   const [chatId, setChatId] = useState<string | null>(null);
   const [pollTime, setPollTime] = useState(Date.now());
   const [isCreateButtonClicked, setIsCreateButtonClicked] = useState(false);
@@ -605,38 +608,48 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     async (projectId: string, url: string): Promise<void> => {
       const operationKey = `screenshot_${projectId}`;
       if (pendingOperations.current.get(operationKey)) {
-        logger.debug(`[screenshot] Project ${projectId} is already being processed`);
+        logger.debug(
+          `[screenshot] Project ${projectId} is already being processed`
+        );
         return;
       }
-  
+
       pendingOperations.current.set(operationKey, true);
       logger.debug(`[screenshot] Start for Project ${projectId}, URL: ${url}`);
-  
+
       try {
         logger.debug(`[screenshot] Checking accessibility for ${url}`);
         const isUrlAccessible = await checkUrlStatus(url);
         if (!isUrlAccessible) {
-          logger.warn(`[screenshot] URL ${url} is not accessible after retries`);
+          logger.warn(
+            `[screenshot] URL ${url} is not accessible after retries`
+          );
           return;
         }
-  
+
         const screenshotUrl = `/api/screenshot?url=${encodeURIComponent(url)}&t=${Date.now()}`;
         logger.debug(`[screenshot] Sending request to ${screenshotUrl}`);
         const screenshotResponse = await fetch(screenshotUrl);
-  
+
         // 添加响应头调试
-        logger.debug(`[screenshot] Response status: ${screenshotResponse.status}`);
-        logger.debug(`[screenshot] Response content-type: ${screenshotResponse.headers.get('content-type')}`);
-  
+        logger.debug(
+          `[screenshot] Response status: ${screenshotResponse.status}`
+        );
+        logger.debug(
+          `[screenshot] Response content-type: ${screenshotResponse.headers.get('content-type')}`
+        );
+
         if (!screenshotResponse.ok) {
           throw new Error(
             `[screenshot] Failed to capture: ${screenshotResponse.status} ${screenshotResponse.statusText}`
           );
         }
-  
+
         const arrayBuffer = await screenshotResponse.arrayBuffer();
-        logger.debug(`[screenshot] Screenshot captured for Project ${projectId}, uploading...`);
-  
+        logger.debug(
+          `[screenshot] Screenshot captured for Project ${projectId}, uploading...`
+        );
+
         const blob = new Blob([arrayBuffer], { type: 'image/png' });
         const file = new File([blob], 'screenshot.png', { type: 'image/png' });
 
@@ -657,12 +670,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     },
     [updateProjectPhotoMutation]
   );
-  
 
   const getWebUrl = useCallback(
     async (
       projectPath: string
-    ): Promise<{ domain: string; containerId: string }> => {
+    ): Promise<{ domain: string; containerId: string; port?: string }> => {
       // Check if this operation is already in progress
       const operationKey = `getWebUrl_${projectPath}`;
       if (pendingOperations.current.get(operationKey)) {
@@ -704,6 +716,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           );
         }
 
+        // Extract port from domain if it's in the format domain:port
+        let port: string | undefined = undefined;
+        const domainParts = data.domain.split(':');
+        if (domainParts.length > 1) {
+          port = domainParts[domainParts.length - 1];
+        }
+
         const baseUrl = `${URL_PROTOCOL_PREFIX}://${data.domain}`;
 
         // Find project and take screenshot if needed
@@ -718,6 +737,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         return {
           domain: data.domain,
           containerId: data.containerId,
+          port: port, // Include port in the returned object
         };
       } catch (error) {
         logger.error('Error getting web URL:', error);
@@ -812,7 +832,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         if (createdChat?.id) {
           setChatId(createdChat.id);
           setIsCreateButtonClicked(true);
-          localStorage.setItem(getUserStorageKey('pendingChatId'), createdChat.id);
+          localStorage.setItem(
+            getUserStorageKey('pendingChatId'),
+            createdChat.id
+          );
           setTempLoadingProjectId(createdChat.id);
           return createdChat.id;
         } else {
@@ -1027,7 +1050,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setPollTime(Date.now()); // 每6秒更新时间，触发下面的 useEffect
+      setPollTime(Date.now()); // Update time every 6 seconds to trigger the useEffect below
     }, 6000);
 
     return () => clearInterval(interval);

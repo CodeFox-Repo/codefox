@@ -366,8 +366,8 @@ export class FrontendCodeHandler implements BuildHandler<string> {
         context,
         {
           model: isSPAFlag
-            ? 'claude-3.7-sonnet' // Use Claude for SPAs
-            : 'o3-mini-high', // Use default or fallback for non-SPAs
+            ? 'gpt-4o-mini' // Use Claude for SPAs
+            : 'o4-mini', // Use default or fallback for non-SPAs
           messages,
         },
         'generate frontend code',

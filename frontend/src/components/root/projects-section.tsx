@@ -34,7 +34,9 @@ export function ProjectsSection() {
     error: publicError,
     refetch: refetchPublic,
   } = useQuery(FETCH_PUBLIC_PROJECTS, {
-    variables: { input: { size: 100, strategy: 'latest', currentUserId: user?.id || '' } },
+    variables: {
+      input: { size: 100, strategy: 'latest', currentUserId: user?.id || '' },
+    },
     fetchPolicy: 'network-only',
   });
 
@@ -56,7 +58,7 @@ export function ProjectsSection() {
       refetchUser();
       refetchPublic();
       // Clean up any deleted projects from pendingProjects
-      setPendingProjects((prev) => 
+      setPendingProjects((prev) =>
         prev.filter((p) => userProjects.some((up) => up.id === p.id))
       );
     };
@@ -97,7 +99,7 @@ export function ProjectsSection() {
 
     // Only add pending projects that are not in userProjects (not yet completed)
     pendingProjects
-      .filter(p => !userProjects.some(up => up.id === p.id))
+      .filter((p) => !userProjects.some((up) => up.id === p.id))
       .forEach((p) =>
         map.set(p.id, {
           ...p,
@@ -105,7 +107,7 @@ export function ProjectsSection() {
           createdAt: p.createdAt || new Date().toISOString(),
         })
       );
-    
+
     // Add all user projects
     userProjects.forEach((p) => map.set(p.id, p));
 
@@ -115,7 +117,10 @@ export function ProjectsSection() {
   const displayProjects = view === 'my' ? mergedMyProjects : publicProjects;
 
   const transformedProjects = [...displayProjects]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
     .map((project) => ({
       id: project.id,
       name: project.projectName || 'Untitled Project',
@@ -129,11 +134,15 @@ export function ProjectsSection() {
       image: project.photoUrl || null,
     }));
 
-  // 添加临时生成中的项目
+  // Add temporary generating projects
   const allProjects = [...transformedProjects];
 
-  // 添加当前正在加载的项目（如果有且不在已有列表中）
-  if (view === 'my' && tempLoadingProjectId && !allProjects.some(p => p.id === tempLoadingProjectId)) {
+  // Add currently loading project (if exists and not already in the list)
+  if (
+    view === 'my' &&
+    tempLoadingProjectId &&
+    !allProjects.some((p) => p.id === tempLoadingProjectId)
+  ) {
     allProjects.unshift({
       id: tempLoadingProjectId,
       name: 'Generating Project...',
@@ -146,17 +155,23 @@ export function ProjectsSection() {
     });
   }
 
-  // 添加其他待处理项目
+  // Add other pending projects
   if (view === 'my') {
     pendingProjects
-      .filter(p => !p.projectPath && p.id !== tempLoadingProjectId && !allProjects.some(proj => proj.id === p.id))
-      .forEach(project => {
+      .filter(
+        (p) =>
+          !p.projectPath &&
+          p.id !== tempLoadingProjectId &&
+          !allProjects.some((proj) => proj.id === p.id)
+      )
+      .forEach((project) => {
         allProjects.unshift({
           id: project.id,
           name: project.projectName || 'Generating Project...',
           path: '',
           isReady: false,
-          createDate: project.createdAt || new Date().toISOString().split('T')[0],
+          createDate:
+            project.createdAt || new Date().toISOString().split('T')[0],
           author: user?.username || 'Unknown',
           forkNum: 0,
           image: null,

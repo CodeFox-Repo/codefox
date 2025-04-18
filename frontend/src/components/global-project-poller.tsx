@@ -40,7 +40,7 @@ const GlobalToastListener = () => {
     refetchPublicProjects,
     setTempLoadingProjectId,
     getWebUrl,
-    takeProjectScreenshot
+    takeProjectScreenshot,
   } = useContext(ProjectContext);
   const router = useRouter();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -59,35 +59,48 @@ const GlobalToastListener = () => {
           await refreshProjects();
           await refetchPublicProjects();
           setTempLoadingProjectId(null);
-          
-          // 确保为项目截图
+
+          // Make sure it's for project screenshot
           try {
             if (project.id && project.projectPath) {
-              logger.info(`Taking screenshot for project ${project.id}`);
-              // 获取项目URL并进行截图
+              logger.info(
+                `[PROJECT_POLLER] Taking screenshot for project ${project.id}`
+              );
+              // Get project URL and take screenshot
               const { domain, port } = await getWebUrl(project.projectPath);
-              
-              // 使用端口直接访问
+
+              // Access directly using port
               let baseUrl;
               if (port) {
                 baseUrl = `${URL_PROTOCOL_PREFIX}://localhost:${port}`;
+                logger.info(
+                  `[PROJECT_POLLER] Using localhost URL with port: ${baseUrl}`
+                );
               } else {
                 baseUrl = `${URL_PROTOCOL_PREFIX}://${domain}`;
+                logger.info(`[PROJECT_POLLER] Using domain URL: ${baseUrl}`);
               }
-              
-              logger.info(`Using URL for screenshot: ${baseUrl}`);
-              
-              // 等待5秒钟让服务完全启动
-              logger.info(`Waiting for service to fully start before taking screenshot for project ${project.id}`);
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              
-              await takeProjectScreenshot(project.id, baseUrl);
-              logger.info(`Screenshot taken for project ${project.id}`);
+
+              logger.info(
+                `[PROJECT_POLLER] Waiting for service to fully start before taking screenshot`
+              );
+              await new Promise((resolve) => setTimeout(resolve, 10000)); // Increase wait time to 10 seconds
+              logger.info(
+                `[PROJECT_POLLER] Wait completed, proceeding with screenshot`
+              );
+
+              const result = await takeProjectScreenshot(project.id, baseUrl);
+              logger.info(
+                `[PROJECT_POLLER] Screenshot taken for project ${project.id}, result: ${JSON.stringify(result)}`
+              );
             }
           } catch (screenshotError) {
-            logger.error('Error taking project screenshot:', screenshotError);
+            logger.error(
+              `[PROJECT_POLLER] Error taking project screenshot: ${screenshotError.message}`,
+              screenshotError
+            );
           }
-          
+
           toast.custom(
             (t) => (
               <ProjectReadyToast
@@ -120,8 +133,17 @@ const GlobalToastListener = () => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [recentlyCompletedProjectId, pollChatProject, refreshProjects, refetchPublicProjects, 
-      setTempLoadingProjectId, getWebUrl, takeProjectScreenshot, router, setChatId]);
+  }, [
+    recentlyCompletedProjectId,
+    pollChatProject,
+    refreshProjects,
+    refetchPublicProjects,
+    setTempLoadingProjectId,
+    getWebUrl,
+    takeProjectScreenshot,
+    router,
+    setChatId,
+  ]);
 
   return null;
 };

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -106,5 +107,70 @@ export class UserService {
     }
 
     return true;
+  }
+
+  /**
+   * Checks if a username already exists in the database
+   * @param username Username to check
+   * @param excludeUserId Optional user ID to exclude from the check (for updates)
+   * @returns Boolean indicating if the username exists
+   */
+  async isUsernameExists(
+    username: string,
+    excludeUserId?: string,
+  ): Promise<boolean> {
+    const query = this.userRepository
+      .createQueryBuilder('user')
+      .where('LOWER(user.username) = LOWER(:username)', {
+        username: username.toLowerCase(),
+      });
+
+    if (excludeUserId) {
+      query.andWhere('user.id != :userId', { userId: excludeUserId });
+    }
+
+    const count = await query.getCount();
+    return count > 0;
+  }
+
+  /**
+   * Updates a user's username with uniqueness validation
+   * @param userId User ID
+   * @param newUsername New username to set
+   * @returns Updated user object
+   */
+  async updateUsername(userId: string, newUsername: string): Promise<User> {
+    if (!newUsername || newUsername.trim().length < 3) {
+      throw new BadRequestException(
+        'Username must be at least 3 characters long',
+      );
+    }
+
+    // Check if the username is already taken
+    const exists = await this.isUsernameExists(newUsername, userId);
+    if (exists) {
+      throw new ConflictException(
+        `Username '${newUsername}' is already taken. Please choose another one.`,
+      );
+    }
+
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.username = newUsername;
+
+    try {
+      return await this.userRepository.save(user);
+    } catch (error) {
+      // Check for unique constraint error (just in case of race condition)
+      if (error.code === '23505' || error.message.includes('duplicate')) {
+        throw new ConflictException(
+          `Username '${newUsername}' is already taken. Please choose another one.`,
+        );
+      }
+      throw error;
+    }
   }
 }
