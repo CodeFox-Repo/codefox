@@ -103,7 +103,7 @@ export class ProjectsResolver {
     const { buffer, mimetype } = await validateAndBufferFile(file);
 
     // Call the service with the extracted buffer and mimetype
-    const project1= await this.projectService.updateProjectPhotoUrl(
+    const project1 = await this.projectService.updateProjectPhotoUrl(
       userId,
       projectId,
       buffer,

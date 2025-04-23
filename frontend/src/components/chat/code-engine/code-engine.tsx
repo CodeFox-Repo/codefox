@@ -332,7 +332,10 @@ export function CodeEngine({
           setProjectCompleted(true);
           isProjectLoadedRef.current = true;
           try {
-            localStorage.setItem(getUserStorageKey(`project-completed-${chatId}`), 'true');
+            localStorage.setItem(
+              getUserStorageKey(`project-completed-${chatId}`),
+              'true'
+            );
           } catch (e) {
             logger.error('Failed to save project completion status:', e);
           }
@@ -390,7 +393,10 @@ export function CodeEngine({
       isProjectLoadedRef.current = true;
 
       try {
-        localStorage.setItem(getUserStorageKey(`project-completed-${chatId}`), 'true');
+        localStorage.setItem(
+          getUserStorageKey(`project-completed-${chatId}`),
+          'true'
+        );
       } catch (e) {
         logger.error('Failed to save project completion status:', e);
       }

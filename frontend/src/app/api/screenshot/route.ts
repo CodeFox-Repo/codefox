@@ -51,29 +51,31 @@ export async function GET(req: Request) {
     await page.setViewport({ width: 1600, height: 900 });
     logger.info(`[SCREENSHOT] Viewport set successfully`);
 
-      // Navigate to URL with increased timeout and more reliable wait condition
-      await page.goto(url, {
-        waitUntil: 'networkidle2', // 更改为等待网络空闲状态，确保页面完全加载
-        timeout: 90000, // 增加超时时间到90秒
-      });
+    // Navigate to URL with increased timeout and more reliable wait condition
+    await page.goto(url, {
+      waitUntil: 'networkidle2', // 更改为等待网络空闲状态，确保页面完全加载
+      timeout: 90000, // 增加超时时间到90秒
+    });
 
-      // 等待额外的时间让页面完全渲染
-      await page.waitForTimeout(8000); // 增加等待时间到8秒
+    // 等待额外的时间让页面完全渲染
+    await page.waitForTimeout(8000); // 增加等待时间到8秒
 
-      // 尝试等待页面上的内容加载，如果失败也继续处理
-      try {
-        // 等待页面上可能存在的主要内容元素
-        await Promise.race([
-          page.waitForSelector('main', { timeout: 5000 }),
-          page.waitForSelector('#root', { timeout: 5000 }),
-          page.waitForSelector('.app', { timeout: 5000 }),
-          page.waitForSelector('h1', { timeout: 5000 }),
-          page.waitForSelector('div', { timeout: 5000 }), // 添加更通用的选择器
-        ]);
-      } catch (waitError) {
-        // 忽略等待选择器的错误，继续截图
-        logger.info('Unable to find common page elements, continuing with screenshot');
-      }
+    // 尝试等待页面上的内容加载，如果失败也继续处理
+    try {
+      // 等待页面上可能存在的主要内容元素
+      await Promise.race([
+        page.waitForSelector('main', { timeout: 5000 }),
+        page.waitForSelector('#root', { timeout: 5000 }),
+        page.waitForSelector('.app', { timeout: 5000 }),
+        page.waitForSelector('h1', { timeout: 5000 }),
+        page.waitForSelector('div', { timeout: 5000 }), // 添加更通用的选择器
+      ]);
+    } catch (waitError) {
+      // 忽略等待选择器的错误，继续截图
+      logger.info(
+        'Unable to find common page elements, continuing with screenshot'
+      );
+    }
 
     // Take screenshot
     logger.info(`[SCREENSHOT] Taking screenshot`);
@@ -81,7 +83,9 @@ export async function GET(req: Request) {
       type: 'png',
       fullPage: true,
     });
-    logger.info(`[SCREENSHOT] Screenshot captured successfully, size: ${screenshot.length} bytes`);
+    logger.info(
+      `[SCREENSHOT] Screenshot captured successfully, size: ${screenshot.length} bytes`
+    );
 
     // Clean up
     if (page) {
@@ -95,12 +99,15 @@ export async function GET(req: Request) {
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
+        Pragma: 'no-cache',
+        Expires: '0',
       },
     });
   } catch (error: any) {
-    logger.error(`[SCREENSHOT] Error capturing screenshot: ${error.message}`, error);
+    logger.error(
+      `[SCREENSHOT] Error capturing screenshot: ${error.message}`,
+      error
+    );
     logger.error(`[SCREENSHOT] Error stack: ${error.stack}`);
 
     if (page) {
@@ -120,13 +127,17 @@ export async function GET(req: Request) {
     ) {
       try {
         if (browserInstance) {
-          logger.warn(`[SCREENSHOT] Resetting browser instance due to protocol error`);
+          logger.warn(
+            `[SCREENSHOT] Resetting browser instance due to protocol error`
+          );
           await browserInstance.close();
           browserInstance = null;
           logger.warn(`[SCREENSHOT] Browser instance reset successfully`);
         }
       } catch (closeBrowserError) {
-        logger.error(`[SCREENSHOT] Error closing browser: ${closeBrowserError.message}`);
+        logger.error(
+          `[SCREENSHOT] Error closing browser: ${closeBrowserError.message}`
+        );
       }
     }
 

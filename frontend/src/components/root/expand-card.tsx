@@ -9,7 +9,12 @@ import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
 import { Button } from '@/components/ui/button';
 
-export function ExpandableCard({ projects, isGenerating = false, onOpenChat, isCommunityProject = false }) {
+export function ExpandableCard({
+  projects,
+  isGenerating = false,
+  onOpenChat,
+  isCommunityProject = false,
+}) {
   const [active, setActive] = useState(null);
   const [iframeUrl, setIframeUrl] = useState('');
   const ref = useRef<HTMLDivElement>(null);

@@ -14,7 +14,11 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DELETE_CHAT, DELETE_PROJECT, GET_CHAT_DETAILS } from '@/graphql/request';
+import {
+  DELETE_CHAT,
+  DELETE_PROJECT,
+  GET_CHAT_DETAILS,
+} from '@/graphql/request';
 import { cn } from '@/lib/utils';
 import { useMutation, useLazyQuery } from '@apollo/client';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
@@ -44,13 +48,14 @@ function SideBarItemComponent({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
-  const { recentlyCompletedProjectId, setPendingProjects } = useContext(ProjectContext);
+  const { recentlyCompletedProjectId, setPendingProjects } =
+    useContext(ProjectContext);
   const isGenerating = id === recentlyCompletedProjectId;
   const isSelected = currentChatId === id;
   const variant = isSelected ? 'secondary' : 'ghost';
 
   const [getChatDetails] = useLazyQuery(GET_CHAT_DETAILS);
-  
+
   const [deleteProject] = useMutation(DELETE_PROJECT, {
     onCompleted: () => {
       logger.info('Project deleted successfully');
@@ -84,11 +89,11 @@ function SideBarItemComponent({
   const handleDeleteChat = async () => {
     try {
       const chatDetailsResult = await getChatDetails({
-        variables: { chatId: id }
+        variables: { chatId: id },
       });
-      
+
       const projectId = chatDetailsResult?.data?.getChatDetails?.project?.id;
-      
+
       await deleteChat({
         variables: {
           chatId: id,
@@ -99,7 +104,7 @@ function SideBarItemComponent({
           cache.gc();
         },
       });
-      
+
       if (projectId) {
         try {
           await deleteProject({
@@ -108,13 +113,13 @@ function SideBarItemComponent({
               // Clear project cache
               cache.evict({ id: `Project:${projectId}` });
               cache.gc();
-            }
+            },
           });
         } catch (projectError) {
           logger.error('Error deleting associated project:', projectError);
         }
       }
-      
+
       setIsDialogOpen(false);
     } catch (error) {
       logger.error('Error deleting chat:', error);

@@ -100,7 +100,7 @@ export const DELETE_CHAT = gql`
 export const GET_USER_INFO = gql`
   query me {
     me {
-      id,
+      id
       username
       email
       avatarUrl

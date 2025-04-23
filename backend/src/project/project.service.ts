@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, IsNull, Not, Repository } from 'typeorm';
+import { Between, In, Not, Repository } from 'typeorm';
 import { Project } from './project.model';
 import { ProjectPackages } from './project-packages.model';
 import {
