@@ -4,6 +4,14 @@
 
 Welcome to CODEFOX! A next generation AI sequence full stack project generator with interactive chatbot.
 
+## ⚠️ Experimental Stage
+
+> **Note**: This project is currently in experimental stage and will start workflow to agent mode refactoring.
+
+## Demo
+
+https://github.com/user-attachments/assets/8c588e83-b155-445c-bfa7-ed67fb57e77f
+
 ## Key Features
 
 💻 **Transforming Ideas into Projects**
