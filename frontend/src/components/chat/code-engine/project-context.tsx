@@ -36,7 +36,7 @@ export interface ProjectContextType {
     prompt: string,
     isPublic: boolean,
     model?: string
-  ) => Promise<boolean>;
+  ) => Promise<string | false>;
   forkProject: (projectId: string) => Promise<void>;
   setProjectPublicStatus: (
     projectId: string,
@@ -46,10 +46,22 @@ export interface ProjectContextType {
   isLoading: boolean;
   getWebUrl: (
     projectPath: string
-  ) => Promise<{ domain: string; containerId: string }>;
+  ) => Promise<{ domain: string; containerId: string; port?: string }>;
   takeProjectScreenshot: (projectId: string, url: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
   editorRef?: React.MutableRefObject<any>;
+  recentlyCompletedProjectId: string | null;
+  setRecentlyCompletedProjectId: (id: string | null) => void;
+  chatId: string | null;
+  setChatId: (chatId: string | null) => void;
+  pendingProjects: Project[];
+  setPendingProjects: React.Dispatch<React.SetStateAction<Project[]>>;
+  refetchPublicProjects: () => Promise<any>;
+  setRefetchPublicProjects: React.Dispatch<
+    React.SetStateAction<() => Promise<any>>
+  >;
+  tempLoadingProjectId: string | null;
+  setTempLoadingProjectId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 export const ProjectContext = createContext<ProjectContextType | undefined>(
@@ -98,7 +110,7 @@ const checkUrlStatus = async (
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { isAuthorized } = useAuthContext();
+  const { isAuthorized, user } = useAuthContext();
   const [projects, setProjects] = useState<Project[]>([]);
   const [curProject, setCurProject] = useState<Project | undefined>(undefined);
   const [projectLoading, setProjectLoading] = useState<boolean>(true);
@@ -106,6 +118,78 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const editorRef = useRef<any>(null);
 
+  // Get localStorage key with user ID
+  const getUserStorageKey = (key: string) => {
+    return user?.id ? `${key}_${user.id}` : key;
+  };
+
+  const [pendingProjects, setPendingProjects] = useState<Project[]>(() => {
+    if (typeof window !== 'undefined' && user?.id) {
+      try {
+        const raw = localStorage.getItem(getUserStorageKey('pendingProjects'));
+        if (raw) {
+          return JSON.parse(raw) as Project[];
+        }
+      } catch (e) {
+        logger.warn('Failed to parse pendingProjects from localStorage');
+      }
+    }
+    return [];
+  });
+
+  const setRecentlyCompletedProjectId = (id: string | null) => {
+    if (typeof window !== 'undefined' && user?.id) {
+      if (id) {
+        localStorage.setItem(getUserStorageKey('pendingChatId'), id);
+      } else {
+        localStorage.removeItem(getUserStorageKey('pendingChatId'));
+      }
+    }
+    setRecentlyCompletedProjectIdRaw(id);
+  };
+
+  const [recentlyCompletedProjectIdRaw, setRecentlyCompletedProjectIdRaw] =
+    useState<string | null>(() =>
+      typeof window !== 'undefined' && user?.id
+        ? localStorage.getItem(getUserStorageKey('pendingChatId'))
+        : null
+    );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user?.id) return;
+    try {
+      localStorage.setItem(
+        getUserStorageKey('pendingProjects'),
+        JSON.stringify(pendingProjects)
+      );
+    } catch (e) {
+      logger.warn('Failed to store pendingProjects in localStorage');
+    }
+  }, [pendingProjects, user?.id]);
+
+  // Setter: Update state + localStorage
+  const setTempLoadingProjectId = (id: string | null) => {
+    if (typeof window !== 'undefined' && user?.id) {
+      if (id) {
+        localStorage.setItem(getUserStorageKey('tempLoadingProjectId'), id);
+      } else {
+        localStorage.removeItem(getUserStorageKey('tempLoadingProjectId'));
+      }
+    }
+    setTempLoadingProjectIdRaw(id);
+  };
+
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [pollTime, setPollTime] = useState(Date.now());
+  const [isCreateButtonClicked, setIsCreateButtonClicked] = useState(false);
+  const [tempLoadingProjectIdRaw, setTempLoadingProjectIdRaw] = useState<
+    string | null
+  >(() => {
+    if (typeof window !== 'undefined' && user?.id) {
+      return localStorage.getItem(getUserStorageKey('tempLoadingProjectId'));
+    }
+    return null;
+  });
   interface ChatProjectCacheEntry {
     project: Project | null;
     timestamp: number;
@@ -131,7 +215,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const MAX_RETRIES = 30;
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes TTL for cache
   const SYNC_DEBOUNCE_TIME = 1000; // 1 second debounce for sync operations
-
+  const [refetchPublicProjects, setRefetchPublicProjects] = useState<
+    () => Promise<any>
+  >(() => async () => {});
   // Mounted ref to prevent state updates after unmount
   const isMounted = useRef(true);
 
@@ -270,6 +356,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
     loadInitialData();
   }, [isAuthorized]);
+  useEffect(() => {
+    const valid = pendingProjects.filter((p) => !p.projectPath);
+    if (valid.length !== pendingProjects.length) {
+      setPendingProjects(valid);
+    }
+  }, [pendingProjects]);
 
   // Initialization and update effects
   useEffect(() => {
@@ -514,33 +606,50 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const takeProjectScreenshot = useCallback(
     async (projectId: string, url: string): Promise<void> => {
-      // Check if this screenshot operation is already in progress
       const operationKey = `screenshot_${projectId}`;
       if (pendingOperations.current.get(operationKey)) {
+        logger.debug(
+          `[screenshot] Project ${projectId} is already being processed`
+        );
         return;
       }
 
       pendingOperations.current.set(operationKey, true);
+      logger.debug(`[screenshot] Start for Project ${projectId}, URL: ${url}`);
 
       try {
-        // Check if the URL is accessible
+        logger.debug(`[screenshot] Checking accessibility for ${url}`);
         const isUrlAccessible = await checkUrlStatus(url);
         if (!isUrlAccessible) {
-          logger.warn(`URL ${url} is not accessible after multiple retries`);
+          logger.warn(
+            `[screenshot] URL ${url} is not accessible after retries`
+          );
           return;
         }
 
-        // Add a cache buster to avoid previous screenshot caching
         const screenshotUrl = `/api/screenshot?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+        logger.debug(`[screenshot] Sending request to ${screenshotUrl}`);
         const screenshotResponse = await fetch(screenshotUrl);
+
+        // 添加响应头调试
+        logger.debug(
+          `[screenshot] Response status: ${screenshotResponse.status}`
+        );
+        logger.debug(
+          `[screenshot] Response content-type: ${screenshotResponse.headers.get('content-type')}`
+        );
 
         if (!screenshotResponse.ok) {
           throw new Error(
-            `Failed to capture screenshot: ${screenshotResponse.status} ${screenshotResponse.statusText}`
+            `[screenshot] Failed to capture: ${screenshotResponse.status} ${screenshotResponse.statusText}`
           );
         }
 
         const arrayBuffer = await screenshotResponse.arrayBuffer();
+        logger.debug(
+          `[screenshot] Screenshot captured for Project ${projectId}, uploading...`
+        );
+
         const blob = new Blob([arrayBuffer], { type: 'image/png' });
         const file = new File([blob], 'screenshot.png', { type: 'image/png' });
 
@@ -553,8 +662,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           },
         });
       } catch (error) {
-        logger.error('Error taking screenshot:', error);
+        logger.error(`[screenshot] Error for Project ${projectId}:`, error);
       } finally {
+        logger.debug(`[screenshot] Finished process for Project ${projectId}`);
         pendingOperations.current.delete(operationKey);
       }
     },
@@ -564,7 +674,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const getWebUrl = useCallback(
     async (
       projectPath: string
-    ): Promise<{ domain: string; containerId: string }> => {
+    ): Promise<{ domain: string; containerId: string; port?: string }> => {
       // Check if this operation is already in progress
       const operationKey = `getWebUrl_${projectPath}`;
       if (pendingOperations.current.get(operationKey)) {
@@ -606,6 +716,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           );
         }
 
+        // Extract port from domain if it's in the format domain:port
+        let port: string | undefined = undefined;
+        const domainParts = data.domain.split(':');
+        if (domainParts.length > 1) {
+          port = domainParts[domainParts.length - 1];
+        }
+
         const baseUrl = `${URL_PROTOCOL_PREFIX}://${data.domain}`;
 
         // Find project and take screenshot if needed
@@ -620,6 +737,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         return {
           domain: data.domain,
           containerId: data.containerId,
+          port: port, // Include port in the returned object
         };
       } catch (error) {
         logger.error('Error getting web URL:', error);
@@ -684,20 +802,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       prompt: string,
       isPublic: boolean,
       model = 'gpt-4o-mini'
-    ): Promise<boolean> => {
+    ): Promise<string> => {
       if (!prompt.trim()) {
-        if (isMounted.current) {
-          toast.error('Please enter a project description');
-        }
-        return false;
+        toast.error('Please enter a project description');
+        throw new Error('Invalid prompt');
       }
 
       try {
-        if (isMounted.current) {
-          setIsLoading(true);
-        }
+        setIsLoading(true);
 
-        // Default packages based on typical web project needs
         const defaultPackages = [
           { name: 'react', version: '^18.2.0' },
           { name: 'next', version: '^13.4.0' },
@@ -710,25 +823,32 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               description: prompt,
               packages: defaultPackages,
               public: isPublic,
-              model: model,
+              model,
             },
           },
         });
 
-        return result.data.createProject.id;
+        const createdChat = result.data?.createProject;
+        if (createdChat?.id) {
+          setChatId(createdChat.id);
+          setIsCreateButtonClicked(true);
+          localStorage.setItem(
+            getUserStorageKey('pendingChatId'),
+            createdChat.id
+          );
+          setTempLoadingProjectId(createdChat.id);
+          return createdChat.id;
+        } else {
+          throw new Error('Project creation failed: no chatId');
+        }
       } catch (error) {
-        logger.error('Error creating project:', error);
-        if (isMounted.current) {
-          toast.error('Failed to create project from prompt');
-        }
-        return false;
+        toast.error('Failed to create project from prompt');
+        throw error;
       } finally {
-        if (isMounted.current) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     },
-    [createProject]
+    [createProject, setChatId, user]
   );
 
   // New function to fork a project
@@ -839,6 +959,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
                 retryCount: retries,
               });
 
+              // First update the project list to ensure it exists in allProjects
+              setProjects((prev) => {
+                const exists = prev.find((p) => p.id === project.id);
+                return exists ? prev : [...prev, project];
+              });
+
+              // Then more aggressively clean up pending projects
+              setPendingProjects((prev) => {
+                const filtered = prev.filter((p) => p.id !== project.id);
+                if (filtered.length !== prev.length) {
+                  logger.info(
+                    `Removed project ${project.id} from pending projects`
+                  );
+                }
+                return filtered;
+              });
+
+              // Then trigger the public projects refetch
+              await refetchPublicProjects();
+              console.log(
+                '[pollChatProject] refetchPublicProjects triggered after project is ready:',
+                project.id
+              );
+
               // Trigger state sync if needed
               if (
                 now - projectSyncState.current.lastSyncTime >=
@@ -851,11 +995,21 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
               // Try to get web URL in background
               if (isMounted.current && project.projectPath) {
-                getWebUrl(project.projectPath).catch((error) => {
-                  logger.warn('Background web URL fetch failed:', error);
-                });
+                setCurProject(project);
+                localStorage.setItem('lastProjectId', project.id);
+                getWebUrl(project.projectPath)
+                  .then(({ domain }) => {
+                    const baseUrl = `${URL_PROTOCOL_PREFIX}://${domain}`;
+                    takeProjectScreenshot(project.id, baseUrl);
+                  })
+                  .catch((error) => {
+                    logger.warn('Background web URL fetch failed:', error);
+                  });
               }
 
+              if (isMounted.current) {
+                setTempLoadingProjectId(null);
+              }
               return project;
             }
           } catch (error) {
@@ -890,9 +1044,32 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       MAX_RETRIES,
       CACHE_TTL,
       SYNC_DEBOUNCE_TIME,
+      refetchPublicProjects,
     ]
   );
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPollTime(Date.now()); // Update time every 6 seconds to trigger the useEffect below
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll project data every 5 seconds
+  useEffect(() => {
+    if (!chatId) return;
+
+    const fetch = async () => {
+      try {
+        await pollChatProject(chatId);
+      } catch (error) {
+        logger.error('Polling error:', error);
+      }
+    };
+
+    fetch();
+  }, [pollTime, chatId, isCreateButtonClicked, pollChatProject]);
   const contextValue = useMemo(
     () => ({
       projects,
@@ -912,6 +1089,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       takeProjectScreenshot,
       refreshProjects,
       editorRef,
+      chatId,
+      setChatId,
+      recentlyCompletedProjectId: recentlyCompletedProjectIdRaw,
+      setRecentlyCompletedProjectId,
+      pendingProjects,
+      setPendingProjects,
+      refetchPublicProjects,
+      setRefetchPublicProjects,
+      tempLoadingProjectId: tempLoadingProjectIdRaw,
+      setTempLoadingProjectId,
     }),
     [
       projects,
@@ -928,6 +1115,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       takeProjectScreenshot,
       refreshProjects,
       editorRef,
+      chatId,
+      setChatId,
+      recentlyCompletedProjectIdRaw,
+      pendingProjects,
+      setPendingProjects,
+      refetchPublicProjects,
+      setRefetchPublicProjects,
+      tempLoadingProjectIdRaw,
+      setTempLoadingProjectId,
     ]
   );
 

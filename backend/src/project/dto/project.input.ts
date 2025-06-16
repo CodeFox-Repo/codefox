@@ -124,6 +124,9 @@ export class FetchPublicProjectsInputs {
 
   @Field()
   size: number;
+
+  @Field()
+  currentUserId: string;
 }
 
 @InputType()

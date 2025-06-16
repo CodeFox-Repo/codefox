@@ -139,6 +139,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    // Clear current user data
+    if (user?.id) {
+      // Clear all localStorage data related to the current user
+      localStorage.removeItem(`completedChatIds_${user.id}`);
+      localStorage.removeItem(`pendingChatId_${user.id}`);
+      localStorage.removeItem(`pendingProjects_${user.id}`);
+      localStorage.removeItem(`tempLoadingProjectId_${user.id}`);
+      localStorage.removeItem(`lastProjectId_${user.id}`);
+
+      // Clear all project completion status for the current user
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(`project-completed-${user.id}-`)) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+
+    // Clear authentication related localStorage
     setToken(null);
     setIsAuthorized(false);
     setUser(null);

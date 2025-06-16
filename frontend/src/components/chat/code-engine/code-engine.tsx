@@ -10,6 +10,7 @@ import ConsoleTab from './tabs/console-tab';
 import ResponsiveToolbar from './responsive-toolbar';
 import SaveChangesBar from './save-changes-bar';
 import { logger } from '@/app/log/logger';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 export function CodeEngine({
   chatId,
@@ -20,8 +21,14 @@ export function CodeEngine({
   isProjectReady?: boolean;
   projectId?: string;
 }) {
-  const { curProject, projectLoading, pollChatProject, editorRef } =
-    useContext(ProjectContext);
+  const {
+    curProject,
+    projectLoading,
+    pollChatProject,
+    editorRef,
+    setRecentlyCompletedProjectId,
+  } = useContext(ProjectContext);
+  const { user } = useAuthContext();
   const [localProject, setLocalProject] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filePath, setFilePath] = useState<string | null>(null);
@@ -37,17 +44,20 @@ export function CodeEngine({
   >({});
   const projectPathRef = useRef(null);
 
-  const [progress, setProgress] = useState(0); // 从0%开始
-  const [estimateTime, setEstimateTime] = useState(6 * 60); // 保留估计时间
+  const [progress, setProgress] = useState(0);
+  const [estimateTime, setEstimateTime] = useState(6 * 60);
   const [timerActive, setTimerActive] = useState(false);
-  const initialTime = 6 * 60; // 初始总时间（6分钟）
+  const initialTime = 6 * 60;
   const [projectCompleted, setProjectCompleted] = useState(false);
-  // 添加一个状态来跟踪完成动画
   const [isCompleting, setIsCompleting] = useState(false);
-  // 添加一个ref来持久跟踪项目状态，避免重新渲染时丢失
   const isProjectLoadedRef = useRef(false);
 
-  // 在组件挂载时从localStorage检查项目是否已完成
+  useEffect(() => {
+    if (projectCompleted) {
+      setRecentlyCompletedProjectId(curProject?.id || localProject?.id);
+    }
+  }, [projectCompleted]);
+
   useEffect(() => {
     try {
       const savedCompletion = localStorage.getItem(
@@ -59,16 +69,33 @@ export function CodeEngine({
         setProgress(100);
       }
     } catch (e) {
-      // 忽略localStorage错误
+      logger.error('Failed to load project completion status:', e);
     }
   }, [chatId]);
 
-  // Poll for project if needed using chatId
   useEffect(() => {
-    // 如果项目已经完成，跳过轮询
-    if (projectCompleted || isProjectLoadedRef.current) {
-      return;
+    if (
+      curProject?.id === chatId &&
+      curProject?.projectPath &&
+      !projectCompleted &&
+      !isProjectLoadedRef.current
+    ) {
+      setProgress(100);
+      setTimerActive(false);
+      setIsCompleting(false);
+      setProjectCompleted(true);
+      isProjectLoadedRef.current = true;
+
+      try {
+        localStorage.setItem(`project-completed-${chatId}`, 'true');
+      } catch (e) {
+        logger.error('Failed to save project completion status:', e);
+      }
     }
+  }, [curProject?.projectPath, chatId, projectCompleted]);
+
+  useEffect(() => {
+    if (projectCompleted || isProjectLoadedRef.current) return;
 
     if (!curProject && chatId && !projectLoading) {
       const loadProjectFromChat = async () => {
@@ -76,11 +103,13 @@ export function CodeEngine({
           setIsLoading(true);
           const project = await pollChatProject(chatId);
           if (project) {
-            setLocalProject(project);
-            // 如果成功加载项目，将状态设置为已完成
             if (project.projectPath) {
+              setLocalProject(project);
               setProjectCompleted(true);
               isProjectLoadedRef.current = true;
+              fetchFiles();
+            } else {
+              setLocalProject(project);
             }
           }
         } catch (error) {
@@ -96,10 +125,8 @@ export function CodeEngine({
     }
   }, [chatId, curProject, projectLoading, pollChatProject, projectCompleted]);
 
-  // Use either curProject from context or locally polled project
   const activeProject = curProject || localProject;
 
-  // Update projectPathRef when project changes
   useEffect(() => {
     if (activeProject?.projectPath) {
       projectPathRef.current = activeProject.projectPath;
@@ -108,22 +135,16 @@ export function CodeEngine({
 
   async function fetchFiles() {
     const projectPath = activeProject?.projectPath || projectPathRef.current;
-    if (!projectPath) {
-      return;
-    }
+    if (!projectPath) return;
 
     try {
       setIsFileStructureLoading(true);
       const response = await fetch(`/api/project?path=${projectPath}`);
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`Failed to fetch file structure: ${response.status}`);
-      }
       const data = await response.json();
-      if (data && data.res) {
-        setFileStructureData(data.res);
-      } else {
-        logger.warn('Empty or invalid file structure data received');
-      }
+      if (data && data.res) setFileStructureData(data.res);
+      else logger.warn('Empty or invalid file structure data received');
     } catch (error) {
       logger.error('Error fetching file structure:', error);
     } finally {
@@ -131,7 +152,6 @@ export function CodeEngine({
     }
   }
 
-  // Effect for loading file structure when project is ready
   useEffect(() => {
     const shouldFetchFiles =
       isProjectReady &&
@@ -139,9 +159,7 @@ export function CodeEngine({
       Object.keys(fileStructureData).length === 0 &&
       !isFileStructureLoading;
 
-    if (shouldFetchFiles) {
-      fetchFiles();
-    }
+    if (shouldFetchFiles) fetchFiles();
   }, [
     isProjectReady,
     activeProject,
@@ -149,7 +167,6 @@ export function CodeEngine({
     fileStructureData,
   ]);
 
-  // Effect for selecting default file once structure is loaded
   useEffect(() => {
     if (
       !isFileStructureLoading &&
@@ -160,10 +177,8 @@ export function CodeEngine({
     }
   }, [isFileStructureLoading, fileStructureData, filePath]);
 
-  // Retry mechanism for fetching files if needed
   useEffect(() => {
     let retryTimeout;
-
     if (
       isProjectReady &&
       activeProject?.projectPath &&
@@ -175,10 +190,7 @@ export function CodeEngine({
         fetchFiles();
       }, 3000);
     }
-
-    return () => {
-      if (retryTimeout) clearTimeout(retryTimeout);
-    };
+    return () => retryTimeout && clearTimeout(retryTimeout);
   }, [
     isProjectReady,
     activeProject,
@@ -197,22 +209,17 @@ export function CodeEngine({
       'index.html',
       'README.md',
     ];
-
     for (const defaultFile of defaultFiles) {
       if (fileStructureData[`root/${defaultFile}`]) {
         setFilePath(defaultFile);
         return;
       }
     }
-
     const firstFile = Object.entries(fileStructureData).find(
       ([key, item]) =>
         key.startsWith('root/') && !item.isFolder && key !== 'root/'
     );
-
-    if (firstFile) {
-      setFilePath(firstFile[0].replace('root/', ''));
-    }
+    if (firstFile) setFilePath(firstFile[0].replace('root/', ''));
   }
 
   const handleReset = () => {
@@ -224,7 +231,6 @@ export function CodeEngine({
   const updateCode = async (value) => {
     const projectPath = activeProject?.projectPath || projectPathRef.current;
     if (!projectPath || !filePath) return;
-
     try {
       const response = await fetch('/api/file', {
         method: 'POST',
@@ -235,11 +241,8 @@ export function CodeEngine({
           newContent: value,
         }),
       });
-
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`Failed to update file: ${response.status}`);
-      }
-
       await response.json();
     } catch (error) {
       logger.error('Error updating file:', error);
@@ -284,22 +287,14 @@ export function CodeEngine({
     async function getCode() {
       const projectPath = activeProject?.projectPath || projectPathRef.current;
       if (!projectPath || !filePath) return;
-
       const file_node = fileStructureData[`root/${filePath}`];
-      if (!file_node) return;
-
-      const isFolder = file_node.isFolder;
-      if (isFolder) return;
-
+      if (!file_node || file_node.isFolder) return;
       try {
         const res = await fetch(
           `/api/file?path=${encodeURIComponent(`${projectPath}/${filePath}`)}`
         );
-
-        if (!res.ok) {
+        if (!res.ok)
           throw new Error(`Failed to fetch file content: ${res.status}`);
-        }
-
         const data = await res.json();
         setCode(data.content);
         setPrecode(data.content);
@@ -307,16 +302,11 @@ export function CodeEngine({
         logger.error('Error loading file content:', error);
       }
     }
-
     getCode();
   }, [filePath, activeProject, fileStructureData]);
 
-  // Determine if we're truly ready to render
   const showLoader = useMemo(() => {
-    // 如果项目已经被标记为完成，不再显示加载器
-    if (projectCompleted || isProjectLoadedRef.current) {
-      return false;
-    }
+    if (projectCompleted || isProjectLoadedRef.current) return false;
     return (
       !isProjectReady ||
       isLoading ||
@@ -340,26 +330,26 @@ export function CodeEngine({
           setTimerActive(false);
           setIsCompleting(false);
           setProjectCompleted(true);
-          // 同时更新ref以持久记住完成状态
           isProjectLoadedRef.current = true;
-
-          // 可选：在完成时将状态保存到localStorage
           try {
-            localStorage.setItem(`project-completed-${chatId}`, 'true');
+            localStorage.setItem(
+              getUserStorageKey(`project-completed-${chatId}`),
+              'true'
+            );
           } catch (e) {
-            // 忽略localStorage错误
+            logger.error('Failed to save project completion status:', e);
           }
         }, 800);
       }, 500);
-
       return () => clearTimeout(completionTimer);
-    } else if (
+    }
+    if (
       showLoader &&
       !timerActive &&
       !projectCompleted &&
-      !isProjectLoadedRef.current
+      !isProjectLoadedRef.current &&
+      estimateTime > 1
     ) {
-      // 只有在项目未被标记为完成时才重置
       setTimerActive(true);
       setEstimateTime(initialTime);
       setProgress(0);
@@ -369,35 +359,49 @@ export function CodeEngine({
 
   useEffect(() => {
     let interval;
-
     if (timerActive) {
       interval = setInterval(() => {
         setEstimateTime((prevTime) => {
-          if (prevTime <= 1) {
-            return initialTime;
-          }
+          if (prevTime <= 1) return 1;
           const elapsedTime = initialTime - prevTime + 1;
-          const newProgress = Math.min(
-            Math.floor((elapsedTime / initialTime) * 100),
-            99
+          setProgress(
+            Math.min(Math.floor((elapsedTime / initialTime) * 100), 99)
           );
-          setProgress(newProgress);
-
           return prevTime - 1;
         });
       }, 1000);
     }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => interval && clearInterval(interval);
   }, [timerActive]);
 
-  const formatTime = (seconds) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  // Get localStorage key with user ID
+  const getUserStorageKey = (key: string) => {
+    return user?.id ? `${key}_${user.id}` : key;
   };
+
+  useEffect(() => {
+    if (
+      curProject?.projectPath &&
+      chatId &&
+      projectCompleted &&
+      !isProjectLoadedRef.current
+    ) {
+      setProgress(100);
+      setTimerActive(false);
+      setIsCompleting(false);
+      setProjectCompleted(true);
+      isProjectLoadedRef.current = true;
+
+      try {
+        localStorage.setItem(
+          getUserStorageKey(`project-completed-${chatId}`),
+          'true'
+        );
+      } catch (e) {
+        logger.error('Failed to save project completion status:', e);
+      }
+    }
+  }, [curProject?.projectPath, chatId, projectCompleted, user?.id]);
 
   return (
     <div className="rounded-lg border shadow-sm overflow-scroll h-full">
@@ -407,7 +411,6 @@ export function CodeEngine({
         setActiveTab={setActiveTab}
         projectId={curProject?.id || projectId}
       />
-
       <div className="relative h-[calc(100vh-48px-4rem)]">
         <AnimatePresence>
           {(showLoader || isCompleting) && (
@@ -441,21 +444,17 @@ export function CodeEngine({
               ) : (
                 <Loader className="w-8 h-8 text-primary animate-spin" />
               )}
-
               <div className="w-64 flex flex-col items-center">
                 <p className="text-sm text-muted-foreground mb-2">
                   {progress === 100
                     ? 'Project ready!'
                     : projectLoading
                       ? 'Loading project...'
-                      : `Initializing project (${progress}%)`}
+                      : `Preparing your project (about 5–6 minutes)…`}
                 </p>
-
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-1">
                   <motion.div
-                    className={`h-2.5 rounded-full ${
-                      progress === 100 ? 'bg-green-500' : 'bg-primary'
-                    }`}
+                    className={`h-2.5 rounded-full ${progress === 100 ? 'bg-green-500' : 'bg-primary'}`}
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
                     transition={{
@@ -464,22 +463,16 @@ export function CodeEngine({
                     }}
                   />
                 </div>
+                {estimateTime <= 1 && !projectCompleted && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Hang tight, almost there...
+                  </p>
+                )}
               </div>
-
-              {/* 添加不同阶段的消息 */}
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-sm text-center max-w-xs text-muted-foreground"
-              ></motion.p>
             </motion.div>
           )}
         </AnimatePresence>
-
         <div className="flex h-full">{renderTabContent()}</div>
-
         {saving && <SaveChangesBar onSave={handleSave} onReset={handleReset} />}
       </div>
     </div>

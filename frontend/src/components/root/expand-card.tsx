@@ -1,4 +1,5 @@
 'use client';
+
 import Image from 'next/image';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -6,12 +7,18 @@ import { X } from 'lucide-react';
 import { ProjectContext } from '../chat/code-engine/project-context';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
+import { Button } from '@/components/ui/button';
 
-export function ExpandableCard({ projects }) {
+export function ExpandableCard({
+  projects,
+  isGenerating = false,
+  onOpenChat,
+  isCommunityProject = false,
+}) {
   const [active, setActive] = useState(null);
   const [iframeUrl, setIframeUrl] = useState('');
   const ref = useRef<HTMLDivElement>(null);
-  const { getWebUrl, takeProjectScreenshot } = useContext(ProjectContext);
+  const { getWebUrl } = useContext(ProjectContext);
   const cachedUrls = useRef(new Map());
 
   useEffect(() => {
@@ -29,23 +36,15 @@ export function ExpandableCard({ projects }) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [active]);
-  const handleCardClick = async (project) => {
-    setActive(project);
-    setIframeUrl('');
-    if (cachedUrls.current.has(project.id)) {
-      setIframeUrl(cachedUrls.current.get(project.id));
-      return;
-    }
 
-    try {
-      const data = await getWebUrl(project.path);
-      const url = `${URL_PROTOCOL_PREFIX}://${data.domain}`;
-      cachedUrls.current.set(project.id, url);
-      setIframeUrl(url);
-    } catch (error) {
-      logger.error('Error fetching project URL:', error);
+  const handleCardClick = async (project) => {
+    if (isCommunityProject) {
+      setActive(project);
+    } else if (onOpenChat) {
+      onOpenChat();
     }
   };
+
   return (
     <>
       <AnimatePresence mode="wait">
@@ -55,10 +54,7 @@ export function ExpandableCard({ projects }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{
-              duration: 0.3,
-              ease: [0.4, 0, 0.2, 1],
-            }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             className="fixed inset-0 backdrop-blur-[2px] bg-black/20 h-full w-full z-50"
             style={{ willChange: 'opacity' }}
           />
@@ -113,20 +109,12 @@ export function ExpandableCard({ projects }) {
         ) : null}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4">
         {projects.map((project) => (
           <motion.div
             key={project.id}
             layoutId={`card-${project.id}`}
-            onClick={async () => {
-              const data = await getWebUrl(project.path);
-
-              logger.info(project.image);
-              const url = `${URL_PROTOCOL_PREFIX}://${data.domain}`;
-              setIframeUrl(url);
-              handleCardClick(project);
-              setActive(project);
-            }}
+            onClick={() => handleCardClick(project)}
             className="group cursor-pointer"
           >
             <motion.div
@@ -135,7 +123,7 @@ export function ExpandableCard({ projects }) {
             >
               <motion.div layoutId={`image-${project.id}`}>
                 <Image
-                  src={project.image}
+                  src={isGenerating ? '/placeholder-black.png' : project.image}
                   alt={project.name}
                   width={600}
                   height={200}
@@ -150,24 +138,38 @@ export function ExpandableCard({ projects }) {
                 className="absolute inset-0 bg-black/40 flex items-center justify-center"
               >
                 <span className="text-white font-medium px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                  View Project
+                  {isGenerating ? 'Open Chat' : 'Open Project'}
                 </span>
               </motion.div>
             </motion.div>
 
-            <motion.div layoutId={`content-${project.id}`} className="mt-3">
+            <motion.div layoutId={`content-${project.id}`} className="mt-2">
               <motion.h3
                 layoutId={`title-${project.id}`}
-                className="font-medium text-gray-900 dark:text-gray-100"
+                className="font-medium text-gray-900 dark:text-gray-100 flex items-center text-sm truncate"
               >
                 {project.name}
               </motion.h3>
               <motion.div
                 layoutId={`meta-${project.id}`}
-                className="mt-1 text-sm text-gray-500"
+                className="mt-0.5 text-xs text-gray-500 truncate"
               >
                 {project.author}
               </motion.div>
+              {isGenerating && onOpenChat && (
+                <div className="mt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenChat();
+                    }}
+                  >
+                    {/* Open Chat */}
+                  </Button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         ))}

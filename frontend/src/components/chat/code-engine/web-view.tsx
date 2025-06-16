@@ -274,11 +274,11 @@ function PreviewContent({
   };
 
   const zoomIn = () => {
-    setScale((prevScale) => Math.min(prevScale + 0.1, 2)); // 最大缩放比例为 2
+    setScale((prevScale) => Math.min(prevScale + 0.1, 2)); // Maximum zoom scale is 2
   };
 
   const zoomOut = () => {
-    setScale((prevScale) => Math.max(prevScale - 0.1, 0.5)); // 最小缩放比例为 0.5
+    setScale((prevScale) => Math.max(prevScale - 0.1, 0.5)); // Minimum zoom scale is 0.5
   };
 
   return (

@@ -75,7 +75,7 @@ export class UIUXLayoutHandler implements BuildHandler<string> {
         context,
         {
           // model: context.defaultModel || 'gpt-4o-mini',
-          model: 'claude-3.7-sonnet',
+          model: 'gpt-4o-mini',
           messages,
         },
         'generateUIUXLayout',

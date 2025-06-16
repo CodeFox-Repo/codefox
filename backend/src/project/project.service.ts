@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, IsNull, Not, Repository } from 'typeorm';
+import { Between, In, Not, Repository } from 'typeorm';
 import { Project } from './project.model';
 import { ProjectPackages } from './project-packages.model';
 import {
@@ -644,9 +644,8 @@ export class ProjectService {
     const limit = input.size > 50 ? 50 : input.size;
 
     const whereCondition = {
-      isPublic: true,
       isDeleted: false,
-      photoUrl: Not(IsNull()),
+      userId: Not(input.currentUserId), // Exclude current user's projects
     };
 
     if (input.strategy === 'latest') {
@@ -808,7 +807,7 @@ export class ProjectService {
     this.logger.log(
       'check if the github project exist: ' + project.isSyncedWithGitHub,
     );
-    // 2) Check user’s GitHub installation
+    // 2) Check user's GitHub installation
     if (!user.githubInstallationId) {
       throw new Error('GitHub App not installed for this user');
     }
@@ -819,7 +818,7 @@ export class ProjectService {
     );
     const userOAuthToken = user.githubAccessToken;
 
-    // 4) Create the repo if the project doesn’t have it yet
+    // 4) Create the repo if the project doesn't have it yet
     if (!project.githubRepoName || !project.githubOwner) {
       // Use project.projectName or generate a safe name
 
