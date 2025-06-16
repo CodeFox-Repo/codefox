@@ -406,7 +406,6 @@ export type User = {
   chats: Array<Chat>;
   createdAt: Scalars['Date']['output'];
   email: Scalars['String']['output'];
-  githubCode?: Maybe<Scalars['String']['output']>;
   githubInstallationId?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActive: Scalars['Boolean']['output'];
@@ -1086,11 +1085,6 @@ export type UserResolvers<
   chats?: Resolver<Array<ResolversTypes['Chat']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  githubCode?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
   githubInstallationId?: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,

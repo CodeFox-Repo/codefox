@@ -1,10 +1,16 @@
 'use client';
 import WebPreview from '../web-view';
+import { Dispatch, SetStateAction } from 'react';
 
-const PreviewTab = () => {
+interface PreviewTabProps {
+  isInspectMode: boolean;
+  setIsInspectMode: Dispatch<SetStateAction<boolean>>;
+}
+
+const PreviewTab = ({ isInspectMode, setIsInspectMode }: PreviewTabProps) => {
   return (
     <div className="w-full h-full">
-      <WebPreview />
+      <WebPreview isInspectMode={isInspectMode} setIsInspectMode={setIsInspectMode} />
     </div>
   );
 };

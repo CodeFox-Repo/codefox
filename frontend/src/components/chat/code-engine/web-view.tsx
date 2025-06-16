@@ -10,16 +10,34 @@ import {
   RefreshCcw,
   ZoomIn,
   ZoomOut,
+  Code,
+  X,
 } from 'lucide-react';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
+import { ComponentInspector } from './component-inspector';
+import { setupIframeComm, toggleInspectMode } from './iframe-click-handler';
+import { StyleUpdateService } from './styleUpdateService';
+import { Card } from '@/components/ui/card';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ZoomIn as LucideZoomIn, ZoomOut as LucideZoomOut, Play, Rotate3d, Undo2 } from 'lucide-react';
+import { setIframeRef } from './component-inspector/utils/iframe-utils';
 
 function PreviewContent({
   curProject,
   getWebUrl,
+  isInspectMode,
+  setIsInspectMode
 }: {
   curProject: any;
   getWebUrl: any;
+  isInspectMode: boolean;
+  setIsInspectMode: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const [baseUrl, setBaseUrl] = useState('');
   const [displayPath, setDisplayPath] = useState('/');
@@ -29,21 +47,20 @@ function PreviewContent({
   const [isServiceReady, setIsServiceReady] = useState(false);
   const [serviceCheckAttempts, setServiceCheckAttempts] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('Loading preview...');
-  const [isLoading, setIsLoading] = useState(true);
-  const iframeRef = useRef(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<{ projectPath: string; domain: string } | null>(
     null
   );
   const lastProjectPathRef = useRef<string | null>(null);
   const serviceCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const MAX_CHECK_ATTEMPTS = 15; // Reduced max attempts since we have progressive intervals
+  const MAX_CHECK_ATTEMPTS = 15;
 
   // Function to check if the frontend service is ready
   const checkServiceReady = async (url: string) => {
     try {
       // Create a new AbortController instance
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500); // Reduced timeout to 1.5 seconds
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
 
       const response = await fetch(url, {
         method: 'HEAD',
@@ -170,6 +187,9 @@ function PreviewContent({
       if (!curProject) return;
       const projectPath = curProject.projectPath;
 
+      // Set the project path in StyleUpdateService for file operations
+      StyleUpdateService.setProjectPath(projectPath);
+      
       if (lastProjectPathRef.current === projectPath) {
         return;
       }
@@ -212,10 +232,46 @@ function PreviewContent({
 
   useEffect(() => {
     if (iframeRef.current && baseUrl && isServiceReady) {
+      // Update the iframe src to the target URL
       const fullUrl = `${baseUrl}${displayPath}`;
       iframeRef.current.src = fullUrl;
+      
+      // Setup communication with the iframe using our custom inspector
+      if (iframeRef.current) {
+        setupIframeComm(iframeRef.current);
+        // Set iframe reference for component inspector
+        setIframeRef(iframeRef.current);
+      }
     }
   }, [baseUrl, displayPath, isServiceReady]);
+
+  // Effect to re-enable inspector mode when inspector is toggled on
+  // The inspection mode is now handled by the useEffect below that sends message to iframe
+  
+  // Check if inspect mode was previously enabled in localStorage
+  useEffect(() => {
+    const savedInspectMode = localStorage.getItem('inspectModeEnabled');
+    if (savedInspectMode !== null) {
+      setIsInspectMode(savedInspectMode === 'true');
+    }
+  }, [setIsInspectMode]);
+
+  // Communicate with iframe when inspect mode changes
+  useEffect(() => {
+    // Safe check to make sure we have the iframe reference
+    if (!iframeRef.current) return;
+    
+    // Use the toggleInspectMode function to properly enable/disable inspect mode
+    toggleInspectMode(iframeRef.current, isInspectMode);
+    
+    // This direct message is no longer needed as toggleInspectMode handles it
+    // if (iframeRef.current.contentWindow) {
+    //  iframeRef.current.contentWindow.postMessage(
+    //    { type: 'toggleInspectMode', value: isInspectMode },
+    //    '*'
+    //  );
+    //}
+  }, [isInspectMode]);
 
   const enterFullScreen = () => {
     if (iframeRef.current) {
@@ -262,23 +318,24 @@ function PreviewContent({
       startServiceReadyCheck(baseUrl);
     }
 
-    const iframe = document.getElementById('myIframe') as HTMLIFrameElement;
-    if (iframe) {
-      const src = iframe.src;
-      iframe.src = 'about:blank';
+    if (iframeRef.current) {
+      const src = iframeRef.current.src;
+      iframeRef.current.src = 'about:blank';
       setTimeout(() => {
-        iframe.src = src;
-        setScale(0.7);
+        if (iframeRef.current) {
+          iframeRef.current.src = src;
+          setScale(0.7);
+        }
       }, 50);
     }
   };
 
-  const zoomIn = () => {
-    setScale((prevScale) => Math.min(prevScale + 0.1, 2)); // 最大缩放比例为 2
+  const zoomOut = () => {
+    setScale((prev) => Math.max(0.1, prev - 0.1));
   };
 
-  const zoomOut = () => {
-    setScale((prevScale) => Math.max(prevScale - 0.1, 0.5)); // 最小缩放比例为 0.5
+  const zoomIn = () => {
+    setScale((prev) => Math.min(2, prev + 0.1));
   };
 
   return (
@@ -310,11 +367,10 @@ function PreviewContent({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
             onClick={reloadIframe}
             disabled={!baseUrl}
           >
-            <RefreshCcw />
+            <RefreshCcw className="h-4 w-4" />
           </Button>
         </div>
 
@@ -339,7 +395,7 @@ function PreviewContent({
             className="h-8 w-8"
             disabled={!baseUrl || !isServiceReady}
           >
-            <ZoomOut className="h-4 w-4" />
+            <LucideZoomOut className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -348,7 +404,7 @@ function PreviewContent({
             className="h-8 w-8"
             disabled={!baseUrl || !isServiceReady}
           >
-            <ZoomIn className="h-4 w-4" />
+            <LucideZoomIn className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -372,52 +428,61 @@ function PreviewContent({
       </div>
 
       {/* Preview Container */}
-      <div className="relative flex-1 w-full h-full">
-        {baseUrl && isServiceReady ? (
-          <iframe
-            id="myIframe"
-            ref={iframeRef}
-            src={`${baseUrl}${displayPath}`}
-            className="absolute inset-0 w-full h-80% border-none bg-background"
-            style={{
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-              width: `calc(100% / ${scale})`,
-              height: `calc(100% / ${scale})`,
-              border: 'none',
-            }}
-          />
-        ) : (
-          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                <p className="text-sm text-muted-foreground">
-                  {loadingMessage}
-                </p>
+      <div className="relative flex-1 w-full h-full flex">
+        {/* Preview Area */}
+        <div className="relative w-full h-full transition-all duration-200">
+          {baseUrl && isServiceReady ? (
+            <iframe
+              id="myIframe"
+              ref={iframeRef}
+              src={`${baseUrl}${displayPath}`}
+              className="absolute inset-0 w-full h-full border-none bg-background"
+              style={{
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                width: `calc(100% / ${scale})`,
+                height: `calc(100% / ${scale})`,
+                border: 'none',
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-background">
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                  <p className="text-sm text-muted-foreground">
+                    {loadingMessage}
+                  </p>
+                </div>
+                {serviceCheckAttempts > 5 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (baseUrl) {
+                        startServiceReadyCheck(baseUrl);
+                      }
+                    }}
+                  >
+                    <RefreshCcw className="h-3 w-3 mr-1" /> Retry Check
+                  </Button>
+                )}
               </div>
-              {serviceCheckAttempts > 5 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (baseUrl) {
-                      startServiceReadyCheck(baseUrl);
-                    }
-                  }}
-                >
-                  <RefreshCcw className="h-3 w-3 mr-1" /> Retry Check
-                </Button>
-              )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-export default function WebPreview() {
+export default function WebPreview({
+  isInspectMode,
+  setIsInspectMode
+}: {
+  isInspectMode: boolean;
+  setIsInspectMode: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
   const { curProject, getWebUrl } = useContext(ProjectContext);
 
   if (!curProject || !getWebUrl) {
@@ -428,5 +493,10 @@ export default function WebPreview() {
     );
   }
 
-  return <PreviewContent curProject={curProject} getWebUrl={getWebUrl} />;
+  return <PreviewContent 
+    curProject={curProject} 
+    getWebUrl={getWebUrl} 
+    isInspectMode={isInspectMode}
+    setIsInspectMode={setIsInspectMode}
+  />;
 }

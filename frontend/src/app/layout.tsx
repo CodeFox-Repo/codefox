@@ -5,6 +5,7 @@ import './globals.css';
 import { BaseProviders } from '@/providers/BaseProvider';
 import NavLayout from '@/components/root/nav-layout';
 import RootLayout from '@/components/root/root-layout';
+import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const playfair = Playfair_Display({
@@ -30,7 +31,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <body className={`${inter.variable} ${playfair.variable}  font-sans`}>
         <BaseProviders>
           <div className="min-h-screen w-full bg-gray-50 dark:bg-gray-900 transition-colors">
-            <RootLayout>{children}</RootLayout>
+            <RootLayout>
+              {children}
+              <Toaster />
+            </RootLayout>
           </div>
         </BaseProviders>
       </body>
