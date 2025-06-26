@@ -86,7 +86,7 @@ Here is dbAnalysis content:
 ${dbAnalysis}
 </GENERATE>
  
-Rules for generation:
+Rules for schema generation:
 1. Use ${databaseType}-specific data types and features.
 2. Ensure all schema operations are idempotent. For example:
    - Use "CREATE TABLE IF NOT EXISTS" for table creation.
@@ -95,6 +95,15 @@ Rules for generation:
 3. Do not include any comments in the output.
 4. Use standardized naming conventions.
 5. Generate schema in the correct creation order for dependencies.
+
+Rules for mock data generation:
+1. After creating each table, add INSERT statements with 5-10 rows of realistic sample data.
+2. Mock data should relate to the purpose of the appliaction.
+3. Ensure referential integrity in the mock data (foreign keys reference valid primary keys).
+4. Use realistic values appropriate for each column type and purpose.
+5. For timestamp fields, use recent dates.
+6. Include a variety of data scenarios to demonstrate different use cases.
+7. Image Assets: If mock requires any images, you can use placeholder image URLs from https://picsum.photos/<width>/<height>. Note that the width and height values (e.g., 500/300) are adjustable as needed.
 
 Example output:
 <GENERATE>
@@ -110,6 +119,12 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+-- Mock data for users
+INSERT INTO users (email, username, password_hash, subscription_type) VALUES
+('user1@example.com', 'user1', 'hash1', 'premium'),
+('user2@example.com', 'user2', 'hash2', 'free'),
+('user3@example.com', 'user3', 'hash3', 'premium'),
 
 CREATE TABLE IF NOT EXISTS playlists (
   id SERIAL PRIMARY KEY,
