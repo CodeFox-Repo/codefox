@@ -20,34 +20,44 @@ export class InitRolesService implements OnApplicationBootstrap {
   private async initializeDefaultRoles() {
     this.logger.log('Checking and initializing default roles...');
 
-    const defaultRoles = Object.values(DefaultRoles);
-
-    for (const roleName of defaultRoles) {
-      const existingRole = await this.roleRepository.findOne({
-        where: { name: roleName },
+    try {
+      // Create Admin role
+      await this.ensureRoleExists({
+        name: DefaultRoles.ADMIN,
+        description: 'Administrator with full system access',
       });
 
-      if (!existingRole) {
-        await this.createDefaultRole(roleName);
-      }
+      this.logger.log('Default roles initialization completed');
+    } catch (error) {
+      this.logger.error('Failed to initialize roles:', error.message);
+      throw error;
     }
-
-    this.logger.log('Default roles initialization completed');
   }
 
-  private async createDefaultRole(roleName: string) {
+  private async ensureRoleExists(roleData: {
+    name: string;
+    description: string;
+  }) {
     try {
-      const newRole = this.roleRepository.create({
-        name: roleName,
-        description: `Default ${roleName} role`,
-        menus: [],
+      let role = await this.roleRepository.findOne({
+        where: { name: roleData.name },
       });
 
-      await this.roleRepository.save(newRole);
-      this.logger.log(`Created default role: ${roleName}`);
+      if (!role) {
+        role = this.roleRepository.create(roleData);
+        await this.roleRepository.save(role);
+        this.logger.log(`Created ${roleData.name} role`);
+      } else {
+        // Update description if needed
+        if (role.description !== roleData.description) {
+          role.description = roleData.description;
+          await this.roleRepository.save(role);
+          this.logger.log(`Updated ${roleData.name} role description`);
+        }
+      }
     } catch (error) {
       this.logger.error(
-        `Failed to create default role ${roleName}:`,
+        `Failed to ensure role ${roleData.name} exists:`,
         error.message,
       );
       throw error;

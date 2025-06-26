@@ -6,10 +6,12 @@ import {
   Column,
   ManyToMany,
   JoinTable,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Menu } from '../menu/menu.model';
 
-@ObjectType()
+@ObjectType('SystemRole')
 @Entity()
 export class Role {
   @Field(() => ID)
@@ -24,8 +26,24 @@ export class Role {
   @Column({ nullable: true })
   description?: string;
 
+  @Field()
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Field()
+  @Column({ default: false })
+  isDeleted: boolean;
+
+  @Field()
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @Field()
+  @UpdateDateColumn()
+  updatedAt: Date;
+
   @Field(() => [Menu], { nullable: true })
-  @ManyToMany(() => Menu, { eager: true })
+  @ManyToMany(() => Menu, (menu) => menu.roles, { cascade: true })
   @JoinTable({
     name: 'role_menus',
     joinColumn: {
@@ -39,17 +57,7 @@ export class Role {
   })
   menus?: Menu[];
 
+  @Field(() => [User], { nullable: true })
   @ManyToMany(() => User, (user) => user.roles)
-  @JoinTable({
-    name: 'user_roles',
-    joinColumn: {
-      name: 'role_id',
-      referencedColumnName: 'id',
-    },
-    inverseJoinColumn: {
-      name: 'user_id',
-      referencedColumnName: 'id',
-    },
-  })
   users?: User[];
 }

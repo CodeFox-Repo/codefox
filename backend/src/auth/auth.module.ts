@@ -13,6 +13,10 @@ import { MailModule } from 'src/mail/mail.module';
 import { GoogleStrategy } from './oauth/GoogleStrategy';
 import { GoogleController } from './google.controller';
 import { AppConfigModule } from 'src/config/config.module';
+import { RoleResolver } from './role/role.resolver';
+import { MenuResolver } from './menu/menu.resolver';
+import { RoleService } from './role/role.service';
+import { MenuService } from './menu/menu.service';
 
 @Module({
   imports: [
@@ -29,8 +33,16 @@ import { AppConfigModule } from 'src/config/config.module';
     JwtCacheModule,
     MailModule,
   ],
+  providers: [
+    AuthService,
+    AuthResolver,
+    RoleResolver,
+    MenuResolver,
+    RoleService,
+    MenuService,
+    GoogleStrategy,
+  ],
+  exports: [AuthService, RoleService, MenuService, JwtModule],
   controllers: [GoogleController],
-  providers: [AuthService, AuthResolver, GoogleStrategy],
-  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
