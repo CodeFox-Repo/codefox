@@ -2,28 +2,18 @@ import { join } from 'path';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { AppConfigService } from './config/config.service';
 
+/**
+ * PostgreSQL database configuration
+ * SQLite support has been removed - use PostgreSQL only
+ */
 export async function getDatabaseConfig(
   config: AppConfigService,
 ): Promise<TypeOrmModuleOptions> {
   const entities = [join(__dirname, '**', '*.model.{ts,js}')];
 
-  // Use SQLite for local development
-  if (!config.useRemoteDb) {
-    return {
-      type: 'sqlite',
-      database: join(process.cwd(), './database.db'),
-      synchronize: config.isDevEnv,
-      entities,
-      migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
-      migrationsRun: !config.isDevEnv,
-      logging: !config.isProduction,
-    };
-  }
-
-  const dbConfig = config.dbConfig;
   return {
     type: 'postgres',
-    ...dbConfig,
+    url: config.databaseUrl,
     synchronize: false,
     entities,
     migrations: [join(__dirname, 'migrations', '*.{ts,js}')],

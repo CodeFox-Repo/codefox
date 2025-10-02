@@ -1,35 +1,9 @@
 import { IsOptional, IsString, IsNumber, IsIn, IsPort } from 'class-validator';
 
 export class EnvironmentVariables {
-  // Database Configuration - all optional
-  @IsOptional()
+  // Database Configuration
   @IsString()
-  DB_HOST?: string;
-
-  @IsOptional()
-  @IsPort()
-  DB_PORT?: string;
-
-  @IsOptional()
-  @IsString()
-  DB_USERNAME?: string;
-
-  @IsOptional()
-  @IsString()
-  DB_PASSWORD?: string;
-
-  @IsOptional()
-  @IsString()
-  DB_DATABASE?: string;
-
-  @IsOptional()
-  @IsString()
-  DB_REGION?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['true', 'false'])
-  USE_REMOTE_DB?: string;
+  DATABASE_URL: string;
 
   @IsNumber()
   PORT: number = 8000;
@@ -46,9 +20,6 @@ export class EnvironmentVariables {
 
   @IsNumber()
   SALT_ROUNDS: number;
-
-  @IsString()
-  OPENAI_BASE_URI: string;
 
   // S3/Cloudflare R2 Configuration - all optional
   @IsOptional()
