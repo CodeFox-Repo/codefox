@@ -1,49 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ChatCompletionChunk, Chat } from './chat.model';
+import { Chat } from './chat.model';
 import { MessageRole } from 'src/chat/message.model';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from 'src/user/user.model';
-import {
-  ChatInput,
-  NewChatInput,
-  UpdateChatTitleInput,
-} from 'src/chat/dto/chat.input';
-import { CustomAsyncIterableIterator } from 'src/common/model-provider/types';
-import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
+import { NewChatInput, UpdateChatTitleInput } from 'src/chat/dto/chat.input';
 import { Project } from 'src/project/project.model';
-
-@Injectable()
-export class ChatProxyService {
-  private readonly logger = new Logger('ChatProxyService');
-  private readonly models: OpenAIModelProvider =
-    OpenAIModelProvider.getInstance();
-
-  constructor() {}
-
-  streamChat(
-    input: ChatInput,
-  ): CustomAsyncIterableIterator<ChatCompletionChunk> {
-    return this.models.chat(
-      {
-        messages: [{ role: MessageRole.User, content: input.message }],
-        model: input.model,
-      },
-      input.model,
-    );
-  }
-
-  async chatSync(input: ChatInput): Promise<string> {
-    return await this.models.chatSync({
-      messages: [{ role: MessageRole.User, content: input.message }],
-      model: input.model,
-    });
-  }
-
-  async fetchModelTags(): Promise<string[]> {
-    return await this.models.fetchModelsName();
-  }
-}
 
 @Injectable()
 export class ChatService {

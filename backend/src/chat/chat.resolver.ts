@@ -1,8 +1,8 @@
 import { Resolver, Subscription, Args, Query, Mutation } from '@nestjs/graphql';
 import { Chat, ChatCompletionChunk, StreamStatus } from './chat.model';
-import { ChatProxyService, ChatService } from './chat.service';
+import { ChatService } from './chat.service';
 import { UserService } from 'src/user/user.service';
-import { Message } from './message.model';
+import { Message, MessageRole } from './message.model';
 import {
   ChatInput,
   NewChatInput,
@@ -13,12 +13,15 @@ import { Inject, Logger } from '@nestjs/common';
 import { JWTAuth } from 'src/decorator/jwt-auth.decorator';
 import { PubSubEngine } from 'graphql-subscriptions';
 import { Project } from 'src/project/project.model';
+import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
+
 @Resolver('Chat')
 export class ChatResolver {
   private readonly logger = new Logger('ChatResolver');
+  private readonly modelProvider: OpenAIModelProvider =
+    OpenAIModelProvider.getInstance();
 
   constructor(
-    private chatProxyService: ChatProxyService,
     private chatService: ChatService,
     private userService: UserService,
     @Inject('PUB_SUB') private pubSub: PubSubEngine,
@@ -56,7 +59,13 @@ export class ChatResolver {
   @JWTAuth()
   async triggerChatStream(@Args('input') input: ChatInput): Promise<boolean> {
     try {
-      const iterator = this.chatProxyService.streamChat(input);
+      const iterator = this.modelProvider.chat(
+        {
+          messages: [{ role: MessageRole.User, content: input.message }],
+          model: input.model,
+        },
+        input.model,
+      );
       let accumulatedContent = '';
 
       try {
@@ -101,7 +110,7 @@ export class ChatResolver {
   @Query(() => [String], { nullable: true })
   async getAvailableModelTags(): Promise<string[]> {
     try {
-      const response = await this.chatProxyService.fetchModelTags();
+      const response = await this.modelProvider.fetchModelsName();
       this.logger.log('Loaded model tags:', response);
       return response;
     } catch (error) {
