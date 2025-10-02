@@ -8,9 +8,9 @@ import {
   NewChatInput,
   UpdateChatTitleInput,
 } from './dto/chat.input';
-import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
+import { GetUserIdFromToken } from 'src/common/decorators/get-auth-token.decorator';
 import { Inject, Logger } from '@nestjs/common';
-import { JWTAuth } from 'src/decorator/jwt-auth.decorator';
+import { JWTAuth } from 'src/common/decorators/jwt-auth.decorator';
 import { PubSubEngine } from 'graphql-subscriptions';
 import { Project } from 'src/project/project.model';
 import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';

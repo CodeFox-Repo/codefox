@@ -8,7 +8,7 @@ import {
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
 
-import { ProjectService } from '../project/project.service';
+import { ProjectService } from '../../project/project.service';
 
 /**
  * This guard checks if the user is authorized to access a project.

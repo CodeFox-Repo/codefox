@@ -3,7 +3,7 @@ import { Column } from 'typeorm';
 import {
   UniversalCreateDateColumn,
   UniversalUpdateDateColumn,
-} from '../common/decorators/universal-date-column';
+} from '../decorators/universal-date-column';
 
 @ObjectType()
 export class SystemBaseModel {

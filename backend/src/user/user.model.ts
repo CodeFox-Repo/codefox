@@ -1,7 +1,7 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 import { IsEmail } from 'class-validator';
-import { Role } from 'src/auth/role/role.model';
-import { SystemBaseModel } from 'src/system-base-model/system-base.model';
+import { Role } from 'src/auth/role.model';
+import { SystemBaseModel } from 'src/common/models/system-base.model';
 import { Chat } from 'src/chat/chat.model';
 import { Project } from 'src/project/project.model';
 import {

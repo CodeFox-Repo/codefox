@@ -1,16 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Menu } from './menu/menu.model';
+import { Menu } from './menu.model';
 import { JwtModule } from '@nestjs/jwt';
-import { Role } from './role/role.model';
+import { Role } from './role.model';
 import { AuthService } from './auth.service';
 import { User } from 'src/user/user.model';
 import { AppConfigService } from 'src/config/config.service';
 import { AuthResolver } from './auth.resolver';
-import { RefreshToken } from './refresh-token/refresh-token.model';
+import { RefreshToken } from './refresh-token.model';
 import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { MailModule } from 'src/mail/mail.module';
-import { GoogleStrategy } from './oauth/GoogleStrategy';
+import { GoogleStrategy } from './google.strategy';
 import { GoogleController } from './google.controller';
 import { AppConfigModule } from 'src/config/config.module';
 

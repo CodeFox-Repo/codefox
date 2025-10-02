@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ROLES_KEY } from 'src/decorator/roles.decorator';
+import { ROLES_KEY } from 'src/common/decorators/roles.decorator';
 import { User } from 'src/user/user.model';
 import { Repository } from 'typeorm';
 

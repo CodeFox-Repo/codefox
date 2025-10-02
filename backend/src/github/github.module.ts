@@ -1,7 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
-import { ProjectGuard } from '../guard/project.guard';
+import { ProjectGuard } from '../common/guards/project.guard';
 import { ChatService } from 'src/chat/chat.service';
 import { User } from 'src/user/user.model';
 import { Chat } from 'src/chat/chat.model';

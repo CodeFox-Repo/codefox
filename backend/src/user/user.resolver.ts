@@ -14,7 +14,7 @@ import { AuthService } from 'src/auth/auth.service';
 import {
   GetAuthToken,
   GetUserIdFromToken,
-} from 'src/decorator/get-auth-token.decorator';
+} from 'src/common/decorators/get-auth-token.decorator';
 import { Logger } from '@nestjs/common';
 import { EmailConfirmationResponse } from 'src/auth/auth.resolver';
 import { ResendEmailInput } from './dto/resend-email.input';

@@ -4,7 +4,7 @@ import { Body, Controller, Logger, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { createNodeMiddleware } from '@octokit/webhooks';
 import { GitHubAppService } from './githubApp.service';
-import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
+import { GetUserIdFromToken } from 'src/common/decorators/get-auth-token.decorator';
 import { UserService } from 'src/user/user.service';
 import { ConfigService } from '@nestjs/config';
 

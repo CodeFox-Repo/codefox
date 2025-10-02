@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
-import { ChatService } from '../chat/chat.service';
+import { ChatService } from '../../chat/chat.service';
 
 @Injectable()
 export class ChatGuard implements CanActivate {

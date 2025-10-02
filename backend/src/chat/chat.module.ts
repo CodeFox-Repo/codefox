@@ -5,7 +5,7 @@ import { ChatService } from './chat.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/user.model';
 import { Chat } from './chat.model';
-import { ChatGuard } from '../guard/chat.guard';
+import { ChatGuard } from '../common/guards/chat.guard';
 import { AuthModule } from '../auth/auth.module';
 import { UserService } from 'src/user/user.service';
 import { PubSub } from 'graphql-subscriptions';

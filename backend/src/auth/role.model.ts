@@ -7,7 +7,7 @@ import {
   ManyToMany,
   JoinTable,
 } from 'typeorm';
-import { Menu } from '../menu/menu.model';
+import { Menu } from './menu.model';
 
 @ObjectType()
 @Entity()

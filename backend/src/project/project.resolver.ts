@@ -18,8 +18,8 @@ import {
   UpdateProjectPhotoInput,
 } from './dto/project.input';
 import { Logger, UseGuards } from '@nestjs/common';
-import { ProjectGuard } from '../guard/project.guard';
-import { GetUserIdFromToken } from '../decorator/get-auth-token.decorator';
+import { ProjectGuard } from '../common/guards/project.guard';
+import { GetUserIdFromToken } from '../common/decorators/get-auth-token.decorator';
 import { Chat } from 'src/chat/chat.model';
 import { User } from 'src/user/user.model';
 import { validateAndBufferFile } from 'src/common/security/file_check';

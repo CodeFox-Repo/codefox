@@ -3,9 +3,9 @@ import { Response } from 'express';
 import { ChatService } from './chat.service';
 import { ChatRestDto } from './dto/chat-rest.dto';
 import { MessageRole } from './message.model';
-import { JWTAuthGuard } from '../guard/jwt-auth.guard';
-import { ChatGuard } from '../guard/chat.guard';
-import { GetAuthToken } from '../decorator/get-auth-token.decorator';
+import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
+import { ChatGuard } from '../common/guards/chat.guard';
+import { GetAuthToken } from '../common/decorators/get-auth-token.decorator';
 import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
 
 @Controller('api/chat')

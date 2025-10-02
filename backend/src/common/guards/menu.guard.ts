@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MENU_PATH_KEY } from 'src/decorator/menu.decorator';
+import { MENU_PATH_KEY } from 'src/common/decorators/menu.decorator';
 import { User } from 'src/user/user.model';
 import { Repository } from 'typeorm';
 @Injectable()

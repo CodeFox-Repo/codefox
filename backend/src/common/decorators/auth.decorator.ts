@@ -13,8 +13,8 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import { Roles } from './roles.decorator';
 import { Menu } from './menu.decorator';
-import { RolesGuard } from 'src/interceptor/roles.guard';
-import { MenuGuard } from 'src/guard/menu.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { MenuGuard } from 'src/common/guards/menu.guard';
 
 export function Auth() {
   return applyDecorators(UseGuards(RolesGuard, MenuGuard));

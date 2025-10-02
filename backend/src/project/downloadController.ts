@@ -1,6 +1,6 @@
 import { Controller, Get, Logger, Param, Res } from '@nestjs/common';
 import { ProjectService } from 'src/project/project.service';
-import { GetUserIdFromToken } from 'src/decorator/get-auth-token.decorator';
+import { GetUserIdFromToken } from 'src/common/decorators/get-auth-token.decorator';
 import { Response } from 'express';
 import * as fs from 'fs';
 

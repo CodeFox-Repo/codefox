@@ -14,7 +14,7 @@ import { InitModule } from './init/init.module';
 import { User } from './user/user.model';
 import { AppResolver } from './app.resolver';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { LoggingInterceptor } from 'src/interceptor/LoggingInterceptor';
+import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { PromptToolModule } from './prompt-tool/prompt-tool.module';
 import { MailModule } from './mail/mail.module';
 import { GitHubModule } from './github/github.module';
