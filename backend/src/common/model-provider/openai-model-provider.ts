@@ -9,7 +9,7 @@ import { Stream } from 'openai/streaming';
 import { ChatCompletionChunk as OpenAIChatCompletionChunk } from 'openai/resources/chat';
 import { ChatCompletionChunk, StreamStatus } from 'src/chat/chat.model';
 import PQueue from 'p-queue-es5';
-// import { ConfigLoader, ModelConfig } from 'codefox-common';
+// import { ConfigLoader, ModelConfig } from '../utils/model-api';
 
 // Hardcoded model configuration
 interface ModelConfig {

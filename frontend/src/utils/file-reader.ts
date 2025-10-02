@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { getProjectsDir } from 'codefox-common';
+import { getProjectsDir } from '../../../backend/src/common/utils/common-path';
 import { logger } from '@/app/log/logger';
 
 export class FileReader {

@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { existsSync, mkdirSync, createWriteStream } from 'fs-extra';
 import { finished } from 'stream/promises';
-import { getRootDir } from 'codefox-common';
+import { getRootDir } from '../common/utils/common-path';
 import { FileUpload } from 'graphql-upload-minimal';
 import * as fs from 'fs';
 import { AppConfigService } from 'src/config/config.service';

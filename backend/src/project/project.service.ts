@@ -34,7 +34,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import archiver from 'archiver';
-import { getProjectPath, getTempDir } from 'codefox-common';
+import { getProjectPath, getTempDir } from '../common/utils/common-path';
 import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 
