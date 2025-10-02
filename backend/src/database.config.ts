@@ -14,10 +14,8 @@ export async function getDatabaseConfig(
   return {
     type: 'postgres',
     url: config.databaseUrl,
-    synchronize: false,
+    synchronize: !config.isProduction, // auto sync for dev only
     entities,
-    migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
-    migrationsRun: true,
     logging: !config.isProduction,
     poolSize: config.isProduction ? 50 : 20,
     connectTimeoutMS: 10000,

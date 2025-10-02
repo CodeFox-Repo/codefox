@@ -151,11 +151,12 @@ export class OpenAIModelProvider implements IModelProvider {
       const modelName = input.model ?? this.defaultModel;
       const queue = this.getQueueForModel(modelName);
       const client = this.getOpenAIClient(modelName);
+      const config = this.getModelConfig(modelName);
 
       const completion = await queue.add(async () => {
         const result = await client.chat.completions.create({
           messages: input.messages,
-          model: input.model || this.baseModel,
+          model: config.model,
           stream: false,
         });
         if (!result) throw new Error('No completion result received');
@@ -179,13 +180,14 @@ export class OpenAIModelProvider implements IModelProvider {
     const modelName = model || input.model;
     const queue = this.getQueueForModel(modelName);
     const client = this.getOpenAIClient(modelName);
+    const config = this.getModelConfig(modelName);
     let oldStreamValue: OpenAIChatCompletionChunk | null = null;
     const createStream = async () => {
       if (!stream) {
         const result = await queue.add(async () => {
           const streamResult = await client.chat.completions.create({
             messages: input.messages,
-            model: modelName,
+            model: config.model,
             stream: true,
           });
           if (!streamResult) throw new Error('No stream result received');
@@ -285,6 +287,7 @@ export class OpenAIModelProvider implements IModelProvider {
           async ([modelName, modelRequests]) => {
             const queue = this.getQueueForModel(modelName);
             const client = this.getOpenAIClient(modelName);
+            const config = this.getModelConfig(modelName);
 
             // Process all requests for this model through its queue
             const modelResults = await Promise.all(
@@ -292,7 +295,7 @@ export class OpenAIModelProvider implements IModelProvider {
                 const result = await queue.add<string>(async () => {
                   const completion = await client.chat.completions.create({
                     messages: request.messages,
-                    model: request.model,
+                    model: config.model,
                     stream: false,
                   });
                   if (!completion || !completion.choices[0]?.message?.content) {

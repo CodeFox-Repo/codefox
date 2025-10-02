@@ -42,6 +42,26 @@ export class UserService {
     });
   }
 
+  async getUserByEmail(email: string): Promise<User | null> {
+    return await this.userRepository.findOne({
+      where: { email },
+    });
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['chats', 'projects'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // Hard delete the user (cascades will handle related entities)
+    await this.userRepository.remove(user);
+  }
+
   /**
    * Updates the user's avatar
    * @param userId User ID

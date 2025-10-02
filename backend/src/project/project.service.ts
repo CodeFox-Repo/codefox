@@ -228,15 +228,6 @@ export class ProjectService {
     chat: Chat,
   ): Promise<void> {
     try {
-      // TODO: Implement new AI streaming project generation
-      // Old build-system approach removed
-      // const sequence = buildProjectSequenceByProject({
-      //   ...input,
-      //   projectName,
-      // });
-      // const context = new BuilderContext(sequence, sequence.id);
-      // const projectPath = await context.execute();
-
       this.logger.log(
         'TODO: Implement AI streaming project generation for: ' + projectName,
       );
