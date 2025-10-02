@@ -16,13 +16,13 @@ import {
   IsValidProjectInput,
   ProjectPackage,
 } from './dto/project.input';
-import {
-  buildProjectSequenceByProject,
-  generateProjectNamePrompt,
-} from './build-system-utils';
+// import {
+//   buildProjectSequenceByProject,
+//   generateProjectNamePrompt,
+// } from './build-system-utils';
 import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
 import { MessageRole } from 'src/chat/message.model';
-import { BuilderContext } from 'src/build-system/context';
+// import { BuilderContext } from 'src/build-system/context';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
 import { v4 as uuidv4 } from 'uuid';
@@ -176,25 +176,22 @@ export class ProjectService {
           'Project name not provided in input, generating project name',
         );
 
-        const nameGenerationPrompt = await generateProjectNamePrompt(
-          input.description,
-        );
         const response = await this.model.chatSync({
           model: input.model || this.model.baseModel,
           messages: [
             {
               role: MessageRole.System,
               content:
-                'You are a specialized project name generator. Respond only with the generated name.',
+                'You are a specialized project name generator. Create a concise, descriptive project title (max 20 words) based on the description. Respond ONLY with the project name, no explanation.',
             },
             {
               role: MessageRole.User,
-              content: nameGenerationPrompt,
+              content: `Generate a project name for: ${input.description}`,
             },
           ],
         });
 
-        projectName = response;
+        projectName = response.trim();
         this.logger.debug(`Generated project name: ${projectName}`);
       }
 
@@ -223,6 +220,7 @@ export class ProjectService {
   }
 
   // Background task for project creation
+  // TODO: Replace with AI streaming approach
   private async createProjectInBackground(
     input: CreateProjectInput,
     projectName: string,
@@ -230,18 +228,23 @@ export class ProjectService {
     chat: Chat,
   ): Promise<void> {
     try {
-      // Build project sequence and execute
-      const sequence = buildProjectSequenceByProject({
-        ...input,
-        projectName,
-      });
-      const context = new BuilderContext(sequence, sequence.id);
-      const projectPath = await context.execute();
+      // TODO: Implement new AI streaming project generation
+      // Old build-system approach removed
+      // const sequence = buildProjectSequenceByProject({
+      //   ...input,
+      //   projectName,
+      // });
+      // const context = new BuilderContext(sequence, sequence.id);
+      // const projectPath = await context.execute();
+
+      this.logger.log(
+        'TODO: Implement AI streaming project generation for: ' + projectName,
+      );
 
       // Create project entity and set properties
       const project = new Project();
       project.projectName = projectName;
-      project.projectPath = projectPath;
+      project.projectPath = ''; // TODO: Set from AI streaming result
       project.userId = userId;
       project.isPublic = input.public || false;
       project.uniqueProjectId = uuidv4();
