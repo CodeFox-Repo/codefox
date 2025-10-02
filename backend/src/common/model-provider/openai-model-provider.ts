@@ -9,13 +9,50 @@ import { Stream } from 'openai/streaming';
 import { ChatCompletionChunk as OpenAIChatCompletionChunk } from 'openai/resources/chat';
 import { ChatCompletionChunk, StreamStatus } from 'src/chat/chat.model';
 import PQueue from 'p-queue-es5';
-import { ConfigLoader, ModelConfig } from 'codefox-common';
+// import { ConfigLoader, ModelConfig } from 'codefox-common';
+
+// Hardcoded model configuration
+interface ModelConfig {
+  model: string;
+  alias?: string;
+  endpoint: string;
+  token: string;
+  default?: boolean;
+  rps?: number;
+}
+
+const MODELS_CONFIG: ModelConfig[] = [
+  {
+    model: 'anthropic/claude-sonnet-4.5',
+    alias: 'claude-sonnet-4.5',
+    endpoint: 'https://openrouter.ai/api/v1',
+    token:
+      process.env.OPENROUTER_API_KEY ||
+      (() => {
+        throw new Error('OPENROUTER_API_KEY environment variable is required');
+      })(),
+    default: true,
+    rps: 20,
+  },
+  {
+    model: 'openai/gpt-4o-mini',
+    alias: 'gpt-4o-mini',
+    endpoint: 'https://openrouter.ai/api/v1',
+    token:
+      process.env.OPENROUTER_API_KEY ||
+      (() => {
+        throw new Error('OPENROUTER_API_KEY environment variable is required');
+      })(),
+    rps: 30,
+  },
+];
+
 export class OpenAIModelProvider implements IModelProvider {
   private static instance: OpenAIModelProvider;
   private openai: OpenAI;
   private readonly logger = new Logger('OpenAIModelProvider');
   private queues: Map<string, PQueue> = new Map();
-  private configLoader: ConfigLoader;
+  // private configLoader: ConfigLoader;
   private defaultModel: string;
 
   private constructor() {
@@ -25,7 +62,7 @@ export class OpenAIModelProvider implements IModelProvider {
       baseURL: 'https://api.openai.com/v1',
     });
 
-    this.configLoader = ConfigLoader.getInstance();
+    // this.configLoader = ConfigLoader.getInstance();
     this.initializeQueues();
   }
 
@@ -34,7 +71,8 @@ export class OpenAIModelProvider implements IModelProvider {
   }
 
   private initializeQueues(): void {
-    const chatModels = this.configLoader.getAllChatModelConfigs();
+    // const chatModels = this.configLoader.getAllChatModelConfigs();
+    const chatModels = MODELS_CONFIG;
 
     for (const model of chatModels) {
       if (model.default) {
@@ -65,9 +103,12 @@ export class OpenAIModelProvider implements IModelProvider {
   }
 
   private getModelConfig(model: string): ModelConfig {
-    const modelConfig = this.configLoader
-      .getAllChatModelConfigs()
-      .find((config) => config.model === model || config.alias === model);
+    // const modelConfig = this.configLoader
+    //   .getAllChatModelConfigs()
+    //   .find((config) => config.model === model || config.alias === model);
+    const modelConfig = MODELS_CONFIG.find(
+      (config) => config.model === model || config.alias === model,
+    );
 
     if (!modelConfig || !modelConfig.endpoint || !modelConfig.token) {
       throw new Error(`No configuration found for model: ${model}`);
@@ -215,23 +256,14 @@ export class OpenAIModelProvider implements IModelProvider {
 
   async fetchModelsName(): Promise<string[]> {
     try {
-      const response = await this.openai.models.list();
-      this.logger.debug('Raw models response:', JSON.stringify(response));
-
-      const responseBody = JSON.parse((response as any).body);
-      this.logger.debug('Parsed models response:', responseBody);
-
-      if (responseBody?.models?.data) {
-        this.logger.debug('Extracted model names:', responseBody.models.data);
-        const res = responseBody.models.data.map((res) => res.id);
-        this.logger.debug('Returning model names:', res);
-        return res;
-      }
-
-      this.logger.warn('Unexpected models response format:', responseBody);
-      return [];
+      // Return models from hardcoded config
+      // const chatModels = this.configLoader.getAllChatModelConfigs();
+      const chatModels = MODELS_CONFIG;
+      const modelNames = chatModels.map((model) => model.alias || model.model);
+      this.logger.debug('Returning configured models:', modelNames);
+      return modelNames;
     } catch (error) {
-      this.logger.error('Error fetching models:', error);
+      this.logger.error('Error fetching models from config:', error);
       return [];
     }
   }

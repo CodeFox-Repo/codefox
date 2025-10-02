@@ -68,6 +68,7 @@ PORT=8080
 JWT_SECRET=<your-jwt-secret>
 JWT_REFRESH=<your-refresh-token-secret>
 SALT_ROUNDS=10
+OPENROUTER_API_KEY=<your-openrouter-api-key>
 ```
 
 **Frontend (.env)**
@@ -76,48 +77,13 @@ SALT_ROUNDS=10
 NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8080/graphql
 ```
 
-**Model Configuration (.codefox/config.json)**
+**Model Configuration**
 
-Configure the AI models for chat and embedding. For cloud-based models, provide endpoint and token. For local models, omit the endpoint.
+The backend uses hardcoded model configurations. Currently configured models:
+- **Claude Sonnet 4.5** (default) - `anthropic/claude-sonnet-4.5`
+- **GPT-4o-mini** - `openai/gpt-4o-mini`
 
-```json
-{
-  "$schema": "../config.schema.json",
-  "chat": [
-    {
-      "model": "openai/gpt-4o-mini", // Required: Model identifier
-      "alias": "gpt-4o-mini", // Required: Model alias for reference
-      "endpoint": "https://openrouter.ai/api/v1", // Optional: API endpoint (omit for local models)
-      "token": "<your-openrouter-token>", // Optional: API token (required if endpoint is specified)
-      "default": true, // Optional: Set as default model
-      "rps": 30 // Optional: Requests per second limit
-    }
-  ],
-  "embedding": [
-    {
-      "model": "openai/text-embedding-ada-002", // Required: Model identifier
-      "endpoint": "https://api.openai.com", // Optional: API endpoint (omit for local models)
-      "token": "<your-openai-token>" // Optional: API token (required if endpoint is specified)
-    }
-  ]
-}
-```
-
-Model Configuration Fields:
-
-- **Chat Models**:
-
-  - `model`: (Required) Model identifier
-  - `alias`: (Required) Model reference name in the system
-  - `endpoint`: (Optional) API endpoint URL. Omit for local models
-  - `token`: (Optional) API access token. Required if endpoint is specified
-  - `default`: (Optional) Set as the default model for chat
-  - `rps`: (Optional) Rate limit for API requests per second
-
-- **Embedding Models**:
-  - `model`: (Required) Model identifier
-  - `endpoint`: (Optional) API endpoint URL. Omit for local models
-  - `token`: (Optional) API access token. Required if endpoint is specified
+All models use the OpenRouter API. Configure your API key in the backend `.env` file.
 
 ## Development
 
