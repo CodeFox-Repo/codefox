@@ -19,9 +19,10 @@ export class OpenAIModelProvider implements IModelProvider {
   private defaultModel: string;
 
   private constructor() {
+    // Default OpenAI client - will be overridden per request with model-specific config
     this.openai = new OpenAI({
-      apiKey: '',
-      baseURL: 'http://localhost:8001',
+      apiKey: 'placeholder',
+      baseURL: 'https://api.openai.com/v1',
     });
 
     this.configLoader = ConfigLoader.getInstance();
@@ -63,7 +64,7 @@ export class OpenAIModelProvider implements IModelProvider {
     }
   }
 
-  private getQueueForModel(model: string): PQueue {
+  private getModelConfig(model: string): ModelConfig {
     const modelConfig = this.configLoader
       .getAllChatModelConfigs()
       .find((config) => config.model === model || config.alias === model);
@@ -71,6 +72,21 @@ export class OpenAIModelProvider implements IModelProvider {
     if (!modelConfig || !modelConfig.endpoint || !modelConfig.token) {
       throw new Error(`No configuration found for model: ${model}`);
     }
+
+    return modelConfig;
+  }
+
+  private getOpenAIClient(model: string): OpenAI {
+    const config = this.getModelConfig(model);
+
+    return new OpenAI({
+      apiKey: config.token,
+      baseURL: config.endpoint,
+    });
+  }
+
+  private getQueueForModel(model: string): PQueue {
+    const modelConfig = this.getModelConfig(model);
 
     const key = this.getQueueKey(modelConfig);
     const queue = this.queues.get(key);
@@ -91,9 +107,12 @@ export class OpenAIModelProvider implements IModelProvider {
 
   async chatSync(input: ChatInput): Promise<string> {
     try {
-      const queue = this.getQueueForModel(input.model ?? this.defaultModel);
+      const modelName = input.model ?? this.defaultModel;
+      const queue = this.getQueueForModel(modelName);
+      const client = this.getOpenAIClient(modelName);
+
       const completion = await queue.add(async () => {
-        const result = await this.openai.chat.completions.create({
+        const result = await client.chat.completions.create({
           messages: input.messages,
           model: input.model || this.baseModel,
           stream: false,
@@ -118,11 +137,12 @@ export class OpenAIModelProvider implements IModelProvider {
     let streamIterator: AsyncIterator<OpenAIChatCompletionChunk> | null = null;
     const modelName = model || input.model;
     const queue = this.getQueueForModel(modelName);
+    const client = this.getOpenAIClient(modelName);
     let oldStreamValue: OpenAIChatCompletionChunk | null = null;
     const createStream = async () => {
       if (!stream) {
         const result = await queue.add(async () => {
-          const streamResult = await this.openai.chat.completions.create({
+          const streamResult = await client.chat.completions.create({
             messages: input.messages,
             model: modelName,
             stream: true,
@@ -232,12 +252,13 @@ export class OpenAIModelProvider implements IModelProvider {
         Array.from(requestsByModel.entries()).map(
           async ([modelName, modelRequests]) => {
             const queue = this.getQueueForModel(modelName);
+            const client = this.getOpenAIClient(modelName);
 
             // Process all requests for this model through its queue
             const modelResults = await Promise.all(
               modelRequests.map(async (request) => {
                 const result = await queue.add<string>(async () => {
-                  const completion = await this.openai.chat.completions.create({
+                  const completion = await client.chat.completions.create({
                     messages: request.messages,
                     model: request.model,
                     stream: false,

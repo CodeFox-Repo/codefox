@@ -1,7 +1,6 @@
 packages:
   - 'backend'
   - 'frontend'
-  - 'llm-server'
   - 'codefox-docs'
   - 'codefox-common'
   - '!backend/src/build-system/__tests__'

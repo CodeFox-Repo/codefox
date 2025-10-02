@@ -68,22 +68,12 @@ PORT=8080
 JWT_SECRET=<your-jwt-secret>
 JWT_REFRESH=<your-refresh-token-secret>
 SALT_ROUNDS=10
-OPENAI_BASE_URI=http://localhost:3001
 ```
 
 **Frontend (.env)**
 
 ```env
 NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8080/graphql
-```
-
-**LLM Server (.env)**
-
-```env
-PORT=3001
-MODEL_PATH=/path/to/model
-MODEL_TYPE=llama
-NODE_ENV=development
 ```
 
 **Model Configuration (.codefox/config.json)**
@@ -143,7 +133,6 @@ This creates a development environment with:
 
 - Backend server (http://localhost:8080)
 - Frontend development server (http://localhost:3000)
-- LLM server (http://localhost:3001)
 - GraphQL codegen watcher
 
 ### Manual Development
@@ -158,21 +147,16 @@ pnpm dev
 # Start frontend
 cd frontend
 pnpm dev
-
-# Start LLM server
-cd llm-server
-pnpm dev
 ```
 
 ### Development URLs
 
 - Frontend: http://localhost:3000
 - Backend GraphQL Playground: http://localhost:8080/graphql
-- LLM Server: http://localhost:3001
 
 ## Architecture Overview
 
-CodeFox consists of three main components that work together:
+CodeFox consists of two main components that work together:
 
 ```
         +-------------+
@@ -187,16 +171,16 @@ CodeFox consists of three main components that work together:
         | (NestJS)    |
         +------+------+
                |
-               | HTTP/WebSocket
+               | OpenAI API
                |
         +------v------+
-        | LLM Server  |
+        | OpenRouter/ |
+        |   OpenAI    |
         +-------------+
 ```
 
 - **Frontend (Next.js)**: Provides the user interface and handles client-side logic
-- **Backend (NestJS)**: Manages business logic, authentication, and project generation
-- **LLM Server**: Handles AI model interactions and code generation
+- **Backend (NestJS)**: Manages business logic, authentication, project generation, and AI model interactions
 
 ### Build System Architecture
 
