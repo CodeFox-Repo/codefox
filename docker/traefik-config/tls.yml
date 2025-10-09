@@ -1,4 +1,0 @@
-tls:
-  certificates:
-    - certFile: /etc/letsencrypt/live/codefox.net/fullchain.pem
-      keyFile: /etc/letsencrypt/live/codefox.net/privkey.pem
