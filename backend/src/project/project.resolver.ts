@@ -7,7 +7,6 @@ import {
   ResolveField,
   Parent,
   ID,
-  Int,
 } from '@nestjs/graphql';
 import { ProjectService } from './project.service';
 import { Project } from './project.model';
@@ -145,8 +144,7 @@ export class ProjectsResolver {
   }
 
   /**
-   * Fetch public projects with limittation
-   * TODO(Sma1lboy): handle Rate limit later - each MAC shouldn't exceed 20 requests per minute
+   * Fetch public projects
    * @param input the inputs
    * @returns return some projects
    */
@@ -155,14 +153,6 @@ export class ProjectsResolver {
     @Args('input') input: FetchPublicProjectsInputs,
   ): Promise<Project[]> {
     return this.projectService.fetchPublicProjects(input);
-  }
-
-  // In ProjectsResolver:
-  @Query(() => Int)
-  async getRemainingProjectLimit(
-    @GetUserIdFromToken() userId: string,
-  ): Promise<number> {
-    return this.projectService.getRemainingProjectLimit(userId);
   }
 
   // @Mutation(() => Project)

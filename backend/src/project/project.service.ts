@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, IsNull, Not, Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { Project } from './project.model';
 import {
   CreateProjectInput,
@@ -20,10 +20,6 @@ import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
 import { v4 as uuidv4 } from 'uuid';
 import { UploadService } from 'src/upload/upload.service';
-import {
-  PROJECT_DAILY_LIMIT,
-  ProjectRateLimitException,
-} from './project-limits';
 import * as fs from 'fs';
 import * as path from 'path';
 import archiver from 'archiver';
@@ -116,40 +112,11 @@ export class ProjectService {
     }
   }
 
-  /**
-   * Checks if a user has exceeded their daily project creation limit
-   * @param userId The user ID to check
-   * @returns A boolean indicating whether the user can create more projects today
-   */
-  async canCreateProject(userId: string): Promise<boolean> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1); // Start of tomorrow
-
-    // Count projects created by user today
-    const todayProjectCount = await this.projectsRepository.count({
-      where: {
-        userId: userId,
-        createdAt: Between(today, tomorrow),
-      },
-    });
-
-    return todayProjectCount < PROJECT_DAILY_LIMIT;
-  }
-
   async createProject(
     input: CreateProjectInput,
     userId: string,
   ): Promise<Chat> {
     try {
-      //First check if user have reach the create project limit
-      const canCreate = await this.canCreateProject(userId);
-      if (!canCreate) {
-        throw new ProjectRateLimitException(PROJECT_DAILY_LIMIT);
-      }
-
       // handle project name generation if needed (this is the only sync operation we need)
       let projectName = input.projectName;
       if (!projectName || projectName === '') {
@@ -188,10 +155,6 @@ export class ProjectService {
       // Return chat immediately so user can start interacting
       return defaultChat;
     } catch (error) {
-      if (error instanceof ProjectRateLimitException) {
-        throw error.getGraphQLError(); // Throw as a GraphQL error for the client
-      }
-
       this.logger.error(
         `Error in createProject: ${error.message}`,
         error.stack,
@@ -538,29 +501,6 @@ export class ProjectService {
     }
 
     return [];
-  }
-
-  /**
-   * Gets the number of projects a user can still create today
-   * @param userId The user ID to check
-   * @returns The number of remaining projects the user can create today
-   */
-  async getRemainingProjectLimit(userId: string): Promise<number> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1); // Start of tomorrow
-
-    // Count projects created by this user today
-    const todayProjectCount = await this.projectsRepository.count({
-      where: {
-        userId: userId,
-        createdAt: Between(today, tomorrow),
-      },
-    });
-
-    return Math.max(0, PROJECT_DAILY_LIMIT - todayProjectCount);
   }
 
   /**
