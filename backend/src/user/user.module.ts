@@ -8,7 +8,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthModule } from 'src/auth/auth.module';
 import { MailModule } from 'src/mail/mail.module';
 import { UploadModule } from 'src/upload/upload.module';
-import { GitHubModule } from 'src/github/github.module';
+// import { GitHubModule } from 'src/github/github.module';
 import { TestCleanupController } from './test-cleanup.controller';
 import { AppConfigModule } from 'src/config/config.module';
 
@@ -20,7 +20,7 @@ import { AppConfigModule } from 'src/config/config.module';
     MailModule,
     UploadModule,
     AppConfigModule,
-    forwardRef(() => GitHubModule),
+    // forwardRef(() => GitHubModule),
   ],
   controllers: [TestCleanupController],
   providers: [UserResolver, UserService, DateScalar],

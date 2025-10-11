@@ -17,7 +17,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { PromptToolModule } from './prompt-tool/prompt-tool.module';
 import { MailModule } from './mail/mail.module';
-import { GitHubModule } from './github/github.module';
+// import { GitHubModule } from './github/github.module';
 import { AppConfigService } from './config/config.service';
 import { getDatabaseConfig } from './database.config';
 
@@ -55,7 +55,7 @@ import { getDatabaseConfig } from './database.config';
     PromptToolModule,
     MailModule,
     TypeOrmModule.forFeature([User]),
-    GitHubModule,
+    // GitHubModule,
   ],
   providers: [
     AppResolver,

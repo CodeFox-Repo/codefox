@@ -28,7 +28,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import archiver from 'archiver';
 import { getProjectPath, getTempDir } from '../common/utils/common-path';
-import { GitHubService } from 'src/github/github.service';
+// import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 
 @Injectable()
@@ -42,7 +42,7 @@ export class ProjectService {
     private chatRepository: Repository<Chat>,
     private chatService: ChatService,
     private uploadService: UploadService,
-    private readonly gitHubService: GitHubService,
+    // private readonly gitHubService: GitHubService,
     private userService: UserService,
   ) {}
 
@@ -652,72 +652,72 @@ export class ProjectService {
     return { zipPath, fileName };
   }
 
-  /**
-   * Sync a project to GitHub:
-   * 1) Create a GitHub repo if needed.
-   * 2) Recursively push the entire local project folder to the new repo.
-   */
-  async syncProjectToGitHub(
-    userId: string,
-    projectId: string,
-    isPublic: boolean,
-  ): Promise<Project> {
-    const user = await this.userService.getUser(userId);
+  // /**
+  //  * Sync a project to GitHub:
+  //  * 1) Create a GitHub repo if needed.
+  //  * 2) Recursively push the entire local project folder to the new repo.
+  //  */
+  // async syncProjectToGitHub(
+  //   userId: string,
+  //   projectId: string,
+  //   isPublic: boolean,
+  // ): Promise<Project> {
+  //   const user = await this.userService.getUser(userId);
 
-    // 1) Find the project
-    const project = await this.projectsRepository.findOne({
-      where: { id: projectId },
-    });
-    if (!project) {
-      throw new Error('Project not found');
-    }
+  //   // 1) Find the project
+  //   const project = await this.projectsRepository.findOne({
+  //     where: { id: projectId },
+  //   });
+  //   if (!project) {
+  //     throw new Error('Project not found');
+  //   }
 
-    this.logger.log(
-      'check if the github project exist: ' + project.isSyncedWithGitHub,
-    );
-    // 2) Check user's GitHub installation
-    if (!user.githubInstallationId) {
-      throw new Error('GitHub App not installed for this user');
-    }
+  //   this.logger.log(
+  //     'check if the github project exist: ' + project.isSyncedWithGitHub,
+  //   );
+  //   // 2) Check user's GitHub installation
+  //   if (!user.githubInstallationId) {
+  //     throw new Error('GitHub App not installed for this user');
+  //   }
 
-    // 3) Get the installation and OAUTH token
-    const installationToken = await this.gitHubService.getInstallationToken(
-      user.githubInstallationId,
-    );
-    const userOAuthToken = user.githubAccessToken;
+  //   // 3) Get the installation and OAUTH token
+  //   const installationToken = await this.gitHubService.getInstallationToken(
+  //     user.githubInstallationId,
+  //   );
+  //   const userOAuthToken = user.githubAccessToken;
 
-    // 4) Create the repo if the project doesn't have it yet
-    if (!project.githubRepoName || !project.githubOwner) {
-      // Use project.projectName or generate a safe name
-      const repoName =
-        project.projectName.replace(/\s+/g, '-').toLowerCase() +
-        '-' +
-        'ChangeME';
+  //   // 4) Create the repo if the project doesn't have it yet
+  //   if (!project.githubRepoName || !project.githubOwner) {
+  //     // Use project.projectName or generate a safe name
+  //     const repoName =
+  //       project.projectName.replace(/\s+/g, '-').toLowerCase() +
+  //       '-' +
+  //       'ChangeME';
 
-      const { owner, repo, htmlUrl } = await this.gitHubService.createUserRepo(
-        repoName,
-        isPublic,
-        userOAuthToken,
-      );
+  //     const { owner, repo, htmlUrl } = await this.gitHubService.createUserRepo(
+  //       repoName,
+  //       isPublic,
+  //       userOAuthToken,
+  //     );
 
-      project.githubRepoName = repo;
-      project.githubRepoUrl = htmlUrl;
-      project.githubOwner = owner;
-    }
+  //     project.githubRepoName = repo;
+  //     project.githubRepoUrl = htmlUrl;
+  //     project.githubOwner = owner;
+  //   }
 
-    // 5) Recursively push the entire local project folder
-    const projectPath = getProjectPath(project.projectPath);
+  //   // 5) Recursively push the entire local project folder
+  //   const projectPath = getProjectPath(project.projectPath);
 
-    await this.gitHubService.pushFolderContent(
-      installationToken,
-      project.githubOwner,
-      project.githubRepoName,
-      projectPath,
-      '',
-    );
+  //   await this.gitHubService.pushFolderContent(
+  //     installationToken,
+  //     project.githubOwner,
+  //     project.githubRepoName,
+  //     projectPath,
+  //     '',
+  //   );
 
-    // 6) Mark as synced and update DB
-    project.isSyncedWithGitHub = true;
-    return this.projectsRepository.save(project);
-  }
+  //   // 6) Mark as synced and update DB
+  //   project.isSyncedWithGitHub = true;
+  //   return this.projectsRepository.save(project);
+  // }
 }

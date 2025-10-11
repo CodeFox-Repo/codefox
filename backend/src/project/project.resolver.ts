@@ -165,16 +165,16 @@ export class ProjectsResolver {
     return this.projectService.getRemainingProjectLimit(userId);
   }
 
-  @Mutation(() => Project)
-  async syncProjectToGitHub(
-    @Args('projectId') projectId: string,
-    @GetUserIdFromToken() userId: string,
-  ) {
-    // TODO: MAKE PUBLIC DYNAMIC
-    return this.projectService.syncProjectToGitHub(
-      userId,
-      projectId,
-      true /* isPublic? */,
-    );
-  }
+  // @Mutation(() => Project)
+  // async syncProjectToGitHub(
+  //   @Args('projectId') projectId: string,
+  //   @GetUserIdFromToken() userId: string,
+  // ) {
+  //   // TODO: MAKE PUBLIC DYNAMIC
+  //   return this.projectService.syncProjectToGitHub(
+  //     userId,
+  //     projectId,
+  //     true /* isPublic? */,
+  //   );
+  // }
 }

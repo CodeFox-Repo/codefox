@@ -11,7 +11,7 @@ import { Chat } from 'src/chat/chat.model';
 import { AppConfigModule } from 'src/config/config.module';
 import { UploadModule } from 'src/upload/upload.module';
 import { DownloadController } from './downloadController';
-import { GitHubService } from 'src/github/github.service';
+// import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 
 @Module({
@@ -27,7 +27,7 @@ import { UserService } from 'src/user/user.service';
     ProjectService,
     ProjectsResolver,
     ProjectGuard,
-    GitHubService,
+    // GitHubService,
     UserService,
   ],
   exports: [ProjectService, ProjectGuard],
