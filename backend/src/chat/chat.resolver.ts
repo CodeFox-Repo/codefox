@@ -2,7 +2,7 @@ import { Resolver, Subscription, Args, Query, Mutation } from '@nestjs/graphql';
 import { Chat, ChatCompletionChunk, StreamStatus } from './chat.model';
 import { ChatService } from './chat.service';
 import { UserService } from 'src/user/user.service';
-import { Message, MessageRole } from './message.model';
+import { Message } from './message.model';
 import {
   ChatInput,
   NewChatInput,
@@ -13,13 +13,16 @@ import { Inject, Logger } from '@nestjs/common';
 import { JWTAuth } from 'src/common/decorators/jwt-auth.decorator';
 import { PubSubEngine } from 'graphql-subscriptions';
 import { Project } from 'src/project/project.model';
-import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
+import { streamText } from 'ai';
+import {
+  openrouter,
+  DEFAULT_MODEL,
+  AVAILABLE_MODELS,
+} from 'src/common/constants/ai.constants';
 
 @Resolver('Chat')
 export class ChatResolver {
   private readonly logger = new Logger('ChatResolver');
-  private readonly modelProvider: OpenAIModelProvider =
-    OpenAIModelProvider.getInstance();
 
   constructor(
     private chatService: ChatService,
@@ -59,46 +62,40 @@ export class ChatResolver {
   @JWTAuth()
   async triggerChatStream(@Args('input') input: ChatInput): Promise<boolean> {
     try {
-      const iterator = this.modelProvider.chat(
-        {
-          messages: [{ role: MessageRole.User, content: input.message }],
-          model: input.model,
-        },
-        input.model,
-      );
-      let accumulatedContent = '';
+      const result = streamText({
+        model: openrouter(input.model || DEFAULT_MODEL),
+        messages: [{ role: 'user', content: input.message }],
+      });
 
-      try {
-        for await (const chunk of iterator) {
-          console.log('received chunk:', chunk);
-          if (chunk) {
-            const enhancedChunk = {
-              ...chunk,
-              chatId: input.chatId,
-            };
+      const stream = result.textStream;
 
-            await this.pubSub.publish(`chat_stream_${input.chatId}`, {
-              chatStream: enhancedChunk,
-            });
-
-            if (chunk.choices?.[0]?.delta?.content) {
-              accumulatedContent += chunk.choices[0].delta.content;
-            }
-          }
-        }
-      } finally {
-        const finalChunk = await iterator.return();
-        console.log('finalChunk:', finalChunk);
-
-        if (finalChunk.value?.status === StreamStatus.DONE) {
-          await this.pubSub.publish(`chat_stream_${input.chatId}`, {
-            chatStream: {
-              ...finalChunk.value,
-              chatId: input.chatId,
-            },
-          });
-        }
+      for await (const chunk of stream) {
+        await this.pubSub.publish(`chat_stream_${input.chatId}`, {
+          chatStream: {
+            chatId: input.chatId,
+            choices: [
+              {
+                delta: {
+                  content: chunk,
+                },
+              },
+            ],
+            status: StreamStatus.STREAMING,
+          },
+        });
       }
+
+      await this.pubSub.publish(`chat_stream_${input.chatId}`, {
+        chatStream: {
+          chatId: input.chatId,
+          choices: [
+            {
+              finishReason: 'stop',
+            },
+          ],
+          status: StreamStatus.DONE,
+        },
+      });
 
       return true;
     } catch (error) {
@@ -110,9 +107,8 @@ export class ChatResolver {
   @Query(() => [String], { nullable: true })
   async getAvailableModelTags(): Promise<string[]> {
     try {
-      const response = await this.modelProvider.fetchModelsName();
-      this.logger.log('Loaded model tags:', response);
-      return response;
+      this.logger.log('Loaded model tags:', AVAILABLE_MODELS);
+      return AVAILABLE_MODELS;
     } catch (error) {
       throw new Error('Failed to fetch model tags');
     }

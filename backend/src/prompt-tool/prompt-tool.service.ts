@@ -1,18 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MessageRole } from 'src/chat/message.model';
-import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
+import { generateText } from 'ai';
+import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 
 @Injectable()
 export class PromptToolService {
   private readonly logger = new Logger(PromptToolService.name);
-  private readonly model = OpenAIModelProvider.getInstance();
 
   async regenerateDescription(description: string): Promise<string> {
     try {
-      const response = await this.model.chatSync({
+      const result = await generateText({
+        model: openrouter(DEFAULT_MODEL),
         messages: [
           {
-            role: MessageRole.System,
+            role: 'system',
             content: `You help users transform brief project descriptions into comprehensive, well-structured requests that provide clear guidance for implementation.
 
 Format requirements:
@@ -50,14 +50,14 @@ Include easy-to-find contact options with a simple form or direct email link. Ad
 Please compile this into a clean, professional website that effectively represents my personal brand while making it easy for potential clients or employers to understand my value and get in touch."`,
           },
           {
-            role: MessageRole.User,
+            role: 'user',
             content: description,
           },
         ],
       });
 
       this.logger.debug('Enhanced description generated');
-      return response;
+      return result.text;
     } catch (error) {
       this.logger.error(
         `Error generating enhanced description: ${error.message}`,

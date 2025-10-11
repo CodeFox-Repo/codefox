@@ -20,8 +20,8 @@ import {
 //   buildProjectSequenceByProject,
 //   generateProjectNamePrompt,
 // } from './build-system-utils';
-import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
-import { MessageRole } from 'src/chat/message.model';
+import { generateText } from 'ai';
+import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 // import { BuilderContext } from 'src/build-system/context';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
@@ -40,8 +40,6 @@ import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class ProjectService {
-  private readonly model: OpenAIModelProvider =
-    OpenAIModelProvider.getInstance();
   private readonly logger = new Logger('ProjectService');
 
   constructor(
@@ -176,22 +174,22 @@ export class ProjectService {
           'Project name not provided in input, generating project name',
         );
 
-        const response = await this.model.chatSync({
-          model: input.model || this.model.baseModel,
+        const result = await generateText({
+          model: openrouter(input.model || DEFAULT_MODEL),
           messages: [
             {
-              role: MessageRole.System,
+              role: 'system',
               content:
                 'You are a specialized project name generator. Create a concise, descriptive project title (max 20 words) based on the description. Respond ONLY with the project name, no explanation.',
             },
             {
-              role: MessageRole.User,
+              role: 'user',
               content: `Generate a project name for: ${input.description}`,
             },
           ],
         });
 
-        projectName = response.trim();
+        projectName = result.text.trim();
         this.logger.debug(`Generated project name: ${projectName}`);
       }
 

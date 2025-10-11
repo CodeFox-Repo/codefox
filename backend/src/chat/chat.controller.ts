@@ -2,18 +2,15 @@ import { Controller, Post, Body, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { ChatService } from './chat.service';
 import { ChatRestDto } from './dto/chat-rest.dto';
-import { MessageRole } from './message.model';
 import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ChatGuard } from '../common/guards/chat.guard';
 import { GetAuthToken } from '../common/decorators/get-auth-token.decorator';
-import { OpenAIModelProvider } from 'src/common/model-provider/openai-model-provider';
+import { streamText } from 'ai';
+import { openrouter, DEFAULT_MODEL } from '../common/constants/ai.constants';
 
 @Controller('api/chat')
-@UseGuards(JWTAuthGuard, ChatGuard) // Order matters: JWTAuthGuard sets user object, then ChatGuard uses it
+@UseGuards(JWTAuthGuard, ChatGuard)
 export class ChatController {
-  private readonly modelProvider: OpenAIModelProvider =
-    OpenAIModelProvider.getInstance();
-
   constructor(private readonly chatService: ChatService) {}
 
   @Post()
@@ -23,40 +20,28 @@ export class ChatController {
     @GetAuthToken() userId: string,
   ) {
     try {
-      if (chatDto.stream) {
-        // Streaming response
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
+      const result = streamText({
+        model: openrouter(chatDto.model || DEFAULT_MODEL),
+        messages: [{ role: 'user', content: chatDto.message }],
+      });
 
-        const stream = this.modelProvider.chat(
-          {
-            messages: [{ role: MessageRole.User, content: chatDto.message }],
-            model: chatDto.model,
-          },
-          chatDto.model,
-        );
+      const streamResponse = result.toTextStreamResponse();
 
-        let fullResponse = '';
+      streamResponse.headers.forEach((value: string, key: string) => {
+        res.setHeader(key, value);
+      });
 
-        for await (const chunk of stream) {
-          if (chunk.choices[0]?.delta?.content) {
-            const content = chunk.choices[0].delta.content;
-            fullResponse += content;
-            res.write(`data: ${JSON.stringify({ content })}\n\n`);
-          }
+      const reader = streamResponse.body!.getReader();
+      const pump = async () => {
+        const { done, value } = await reader.read();
+        if (done) {
+          res.end();
+          return;
         }
-
-        res.write('data: [DONE]\n\n');
-        res.end();
-      } else {
-        // Non-streaming response using chatSync
-        const response = await this.modelProvider.chatSync({
-          messages: [{ role: MessageRole.User, content: chatDto.message }],
-          model: chatDto.model,
-        });
-        res.json({ content: response });
-      }
+        res.write(value);
+        pump();
+      };
+      pump();
     } catch (error) {
       console.error('Chat error:', error);
       res.status(500).json({
