@@ -12,7 +12,6 @@ import {
   RelationId,
 } from 'typeorm';
 import { User } from 'src/user/user.model';
-import { ProjectPackages } from './project-packages.model';
 import { Chat } from 'src/chat/chat.model';
 
 @Entity()
@@ -42,24 +41,6 @@ export class Project extends SystemBaseModel {
   @JoinColumn({ name: 'user_id' })
   @Field(() => User)
   user: User;
-
-  @Field(() => [ProjectPackages], { nullable: true })
-  @ManyToMany(
-    () => ProjectPackages,
-    (projectPackage) => projectPackage.projects,
-  )
-  @JoinTable({
-    name: 'project_packages_mapping',
-    joinColumn: {
-      name: 'project_id',
-      referencedColumnName: 'id',
-    },
-    inverseJoinColumn: {
-      name: 'package_id',
-      referencedColumnName: 'id',
-    },
-  })
-  projectPackages: ProjectPackages[];
 
   @Field(() => [Chat])
   @OneToMany(() => Chat, (chat) => chat.project, {

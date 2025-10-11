@@ -44,9 +44,6 @@ export class CreateProjectInput {
   @Field()
   description: string;
 
-  @Field(() => [ProjectPackage])
-  packages: ProjectPackage[];
-
   @Field(() => String, { nullable: true })
   databaseType?: string;
 
@@ -55,15 +52,6 @@ export class CreateProjectInput {
 
   @Field(() => String, { nullable: true, defaultValue: 'gpt-4o-mini' })
   model: string;
-}
-
-@InputType()
-export class ProjectPackage {
-  @Field()
-  name: string;
-
-  @Field()
-  version: string;
 }
 
 @InputType()

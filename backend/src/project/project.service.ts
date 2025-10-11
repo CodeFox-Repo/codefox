@@ -7,22 +7,15 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, IsNull, Not, Repository } from 'typeorm';
+import { Between, IsNull, Not, Repository } from 'typeorm';
 import { Project } from './project.model';
-import { ProjectPackages } from './project-packages.model';
 import {
   CreateProjectInput,
   FetchPublicProjectsInputs,
   IsValidProjectInput,
-  ProjectPackage,
 } from './dto/project.input';
-// import {
-//   buildProjectSequenceByProject,
-//   generateProjectNamePrompt,
-// } from './build-system-utils';
 import { generateText } from 'ai';
 import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
-// import { BuilderContext } from 'src/build-system/context';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
 import { v4 as uuidv4 } from 'uuid';
@@ -47,8 +40,6 @@ export class ProjectService {
     private projectsRepository: Repository<Project>,
     @InjectRepository(Chat)
     private chatRepository: Repository<Chat>,
-    @InjectRepository(ProjectPackages)
-    private projectPackagesRepository: Repository<ProjectPackages>,
     private chatService: ChatService,
     private uploadService: UploadService,
     private readonly gitHubService: GitHubService,
@@ -58,16 +49,12 @@ export class ProjectService {
   async getProjectsByUser(userId: string): Promise<Project[]> {
     const projects = await this.projectsRepository.find({
       where: { userId, isDeleted: false },
-      relations: ['projectPackages', 'chats'],
+      relations: ['chats'],
     });
 
     if (projects && projects.length > 0) {
       await Promise.all(
         projects.map(async (project) => {
-          // Filter deleted packages
-          project.projectPackages = project.projectPackages.filter(
-            (pkg) => !pkg.isDeleted,
-          );
           // Filter deleted chats
           if (project.chats) {
             const chats = await project.chats;
@@ -87,16 +74,12 @@ export class ProjectService {
   async getProjectById(projectId: string): Promise<Project> {
     const project = await this.projectsRepository.findOne({
       where: { id: projectId, isDeleted: false },
-      relations: ['projectPackages', 'chats', 'user'],
+      relations: ['chats', 'user'],
     });
 
     if (!project) {
       throw new NotFoundException(`Project with ID ${projectId} not found.`);
     }
-
-    project.projectPackages = project.projectPackages.filter(
-      (pkg) => !pkg.isDeleted,
-    );
 
     if (project.chats) {
       const chats = await project.chats;
@@ -238,17 +221,6 @@ export class ProjectService {
       project.isPublic = input.public || false;
       project.uniqueProjectId = uuidv4();
 
-      // Set project packages
-      try {
-        project.projectPackages = await this.transformInputToProjectPackages(
-          input.packages,
-        );
-      } catch (packageError) {
-        this.logger.error(`Error processing packages: ${packageError.message}`);
-        // Continue even if packages processing fails
-        project.projectPackages = [];
-      }
-
       // Save project
       const savedProject = await this.projectsRepository.save(project);
       this.logger.debug(`Project created: ${savedProject.id}`);
@@ -273,81 +245,10 @@ export class ProjectService {
     }
   }
 
-  async transformInputToProjectPackages(
-    inputPackages: ProjectPackage[],
-  ): Promise<ProjectPackages[]> {
-    try {
-      if (!inputPackages || inputPackages.length === 0) {
-        return [];
-      }
-
-      // Filter valid packages
-      const validPackages = inputPackages.filter(
-        (pkg) => pkg.name && pkg.name.trim() !== '',
-      );
-
-      if (validPackages.length === 0) {
-        return [];
-      }
-
-      const packageNames = validPackages.map((pkg) => pkg.name);
-
-      // Find existing packages by name (not by content)
-      const existingPackages = await this.projectPackagesRepository.find({
-        where: {
-          name: In(packageNames),
-        },
-      });
-
-      // Map by name, not content
-      const existingPackagesMap = new Map(
-        existingPackages.map((pkg) => [pkg.name, pkg]),
-      );
-
-      const transformedPackages = await Promise.all(
-        validPackages.map(async (inputPkg) => {
-          const existingPackage = existingPackagesMap.get(inputPkg.name);
-
-          if (existingPackage) {
-            // Update the existing package version if needed
-            if (existingPackage.version !== inputPkg.version) {
-              existingPackage.version = inputPkg.version || 'latest';
-              return await this.projectPackagesRepository.save(existingPackage);
-            }
-            return existingPackage;
-          }
-
-          // Create a new package with required fields
-          const newPackage = new ProjectPackages();
-          newPackage.name = inputPkg.name; // Set name
-          newPackage.content = inputPkg.name; // Set content to match name
-          newPackage.version = inputPkg.version || 'latest';
-
-          try {
-            return await this.projectPackagesRepository.save(newPackage);
-          } catch (err) {
-            this.logger.error(`Error saving package: ${err.message}`);
-            throw err; // Re-throw to handle it in the outer catch
-          }
-        }),
-      ).catch((error) => {
-        this.logger.error(
-          `Error in Promise.all for packages: ${error.message}`,
-        );
-        return [];
-      });
-
-      return transformedPackages.filter(Boolean) as ProjectPackages[];
-    } catch (error) {
-      this.logger.error('Error transforming packages:', error);
-      return [];
-    }
-  }
-
   async deleteProject(projectId: string): Promise<boolean> {
     const project = await this.projectsRepository.findOne({
       where: { id: projectId },
-      relations: ['projectPackages', 'chats'],
+      relations: ['chats'],
     });
 
     if (!project) {
@@ -360,19 +261,10 @@ export class ProjectService {
       project.isDeleted = true;
       await this.projectsRepository.save(project);
 
-      // Soft delete related project packages
-      if (project.projectPackages?.length > 0) {
-        for (const pkg of project.projectPackages) {
-          pkg.isActive = false;
-          pkg.isDeleted = true;
-          await this.projectPackagesRepository.save(pkg);
-        }
-      }
-
       // Note: Related chats will be automatically handled by the CASCADE setting
 
       return true;
-    } catch (error) {
+    } catch {
       throw new InternalServerErrorException('Error deleting the project.');
     }
   }
@@ -440,17 +332,12 @@ export class ProjectService {
     // Create a new project copy for the subscriber
     const copiedProject = new Project();
     copiedProject.projectName = sourceProject.projectName;
-    copiedProject.projectPath = sourceProject.projectPath; // You may want to create a new path
+    copiedProject.projectPath = sourceProject.projectPath;
     copiedProject.userId = userId;
     copiedProject.isPublic = false; // Default to private for the copy
     copiedProject.uniqueProjectId = uuidv4(); // Generate a new unique ID
     copiedProject.forkedFromId = sourceProject.uniqueProjectId; // Track original project
     copiedProject.photoUrl = sourceProject.photoUrl; // Copy the screenshot
-
-    // Copy packages if needed
-    if (sourceProject.projectPackages?.length > 0) {
-      copiedProject.projectPackages = [...sourceProject.projectPackages];
-    }
 
     // Save the new project
     const savedProject = await this.projectsRepository.save(copiedProject);
@@ -466,7 +353,8 @@ export class ProjectService {
    * Update a project's photo URL
    * @param userId The user ID making the request
    * @param projectId The project ID to update
-   * @param photoUrl The new photo URL
+   * @param file The uploaded file buffer
+   * @param mimeType The MIME type of the file
    * @returns The updated project
    */
   async updateProjectPhotoUrl(
@@ -552,30 +440,19 @@ export class ProjectService {
       }
 
       // Create default chat for the new project
-      // FIXME(Sma1lboy): this is not correct, we should copy chat as well
       const defaultChat = await this.chatService.createChat(userId, {
         title: `Fork of ${sourceProject.projectName}`,
       });
 
-      // Extract package information from source project
-      const sourcePackages = sourceProject.projectPackages.map((pkg) => ({
-        name: pkg.content,
-        version: pkg.version,
-      }));
-
       // Create a new project entity
       const newProject = new Project();
       newProject.projectName = `Fork of ${sourceProject.projectName}`;
-      newProject.projectPath = sourceProject.projectPath; // Backend will handle path as needed
+      newProject.projectPath = sourceProject.projectPath;
       newProject.userId = userId;
       newProject.isPublic = false; // Default to private
       newProject.uniqueProjectId = uuidv4(); // Generate new unique ID
       newProject.forkedFromId = sourceProject.uniqueProjectId; // Reference the original
       newProject.photoUrl = sourceProject.photoUrl; // Copy screenshot if available
-
-      // Set project packages
-      newProject.projectPackages =
-        await this.transformInputToProjectPackages(sourcePackages);
 
       // Save the new project
       const savedProject = await this.projectsRepository.save(newProject);
@@ -602,15 +479,13 @@ export class ProjectService {
    * @returns Array of projects that are forks of other projects
    */
   async getSubscribedProjects(userId: string): Promise<Project[]> {
-    // With the new approach, subscribed projects are just the user's own projects
-    // that have a forkedFromId (meaning they were copied from another project)
     const subscribedProjects = await this.projectsRepository.find({
       where: {
         userId: userId,
         isDeleted: false,
         forkedFromId: Not(null), // Only get projects that are forks
       },
-      relations: ['projectPackages', 'user'],
+      relations: ['user'],
     });
 
     return subscribedProjects;
@@ -646,7 +521,7 @@ export class ProjectService {
         where: whereCondition,
         order: { createdAt: 'DESC' },
         take: limit,
-        relations: ['projectPackages', 'user'],
+        relations: ['user'],
       });
     } else if (input.strategy === 'trending') {
       const totalCount = await this.projectsRepository.count({
@@ -658,7 +533,7 @@ export class ProjectService {
         where: whereCondition,
         order: { subNumber: 'DESC', createdAt: 'DESC' },
         take,
-        relations: ['projectPackages', 'user'],
+        relations: ['user'],
       });
     }
 
@@ -785,7 +660,7 @@ export class ProjectService {
   async syncProjectToGitHub(
     userId: string,
     projectId: string,
-    isPublic: boolean, // the user decides if the new repo is public or private
+    isPublic: boolean,
   ): Promise<Project> {
     const user = await this.userService.getUser(userId);
 
@@ -800,7 +675,7 @@ export class ProjectService {
     this.logger.log(
       'check if the github project exist: ' + project.isSyncedWithGitHub,
     );
-    // 2) Check user’s GitHub installation
+    // 2) Check user's GitHub installation
     if (!user.githubInstallationId) {
       throw new Error('GitHub App not installed for this user');
     }
@@ -811,15 +686,13 @@ export class ProjectService {
     );
     const userOAuthToken = user.githubAccessToken;
 
-    // 4) Create the repo if the project doesn’t have it yet
+    // 4) Create the repo if the project doesn't have it yet
     if (!project.githubRepoName || !project.githubOwner) {
       // Use project.projectName or generate a safe name
-
-      // TODO: WHEN REPO NAME EXIST
       const repoName =
-        project.projectName.replace(/\s+/g, '-').toLowerCase() + // e.g. "my-project"
+        project.projectName.replace(/\s+/g, '-').toLowerCase() +
         '-' +
-        'ChangeME'; // to make it unique if needed
+        'ChangeME';
 
       const { owner, repo, htmlUrl } = await this.gitHubService.createUserRepo(
         repoName,
@@ -833,17 +706,14 @@ export class ProjectService {
     }
 
     // 5) Recursively push the entire local project folder
-    //    If your projectPath is something like "/path/to/myProject",
-    //    we'll just push everything inside it, ignoring .git, node_modules, etc.
     const projectPath = getProjectPath(project.projectPath);
 
-    // delete await for now, To make it background running
     await this.gitHubService.pushFolderContent(
       installationToken,
       project.githubOwner,
       project.githubRepoName,
       projectPath,
-      '', // basePathInRepo (empty => push at repo root)
+      '',
     );
 
     // 6) Mark as synced and update DB

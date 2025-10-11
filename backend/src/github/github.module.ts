@@ -10,14 +10,13 @@ import { UploadModule } from 'src/upload/upload.module';
 import { GitHubAppService } from './githubApp.service';
 import { GitHubService } from './github.service';
 import { Project } from 'src/project/project.model';
-import { ProjectPackages } from 'src/project/project-packages.model';
 import { GitHuController } from './github.controller';
 import { ProjectService } from 'src/project/project.service';
 import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Project, Chat, User, ProjectPackages]),
+    TypeOrmModule.forFeature([Project, Chat, User]),
     AuthModule,
     AppConfigModule,
     UploadModule,

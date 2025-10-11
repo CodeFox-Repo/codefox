@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Project } from './project.model';
-import { ProjectPackages } from './project-packages.model';
 import { ProjectService } from './project.service';
 import { ProjectsResolver } from './project.resolver';
 import { AuthModule } from '../auth/auth.module';
@@ -17,7 +16,7 @@ import { UserService } from 'src/user/user.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Project, Chat, User, ProjectPackages]),
+    TypeOrmModule.forFeature([Project, Chat, User]),
     AuthModule,
     AppConfigModule,
     UploadModule,
