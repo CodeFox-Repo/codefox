@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/CodeFox-Repo/codefox/main/assets/banner.svg" width="100%" alt="codefox">
+
 # CodeFox
 
 ![LOGO](./assets/badge.svg)

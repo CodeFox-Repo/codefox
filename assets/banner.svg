@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320">
+ <rect width="1280" height="320" fill="#191713"/>
+ <g transform="translate(-228,-128) scale(4.8)"><path fill-rule="evenodd" fill="#F7F1E8" opacity=".10" d="M60 12 L102 36 V84 L60 108 L18 84 V36 Z M42 68 L37 42 L52 53 H68 L83 42 L78 68 L60 90 Z"/></g>
+ <rect x="430" y="106" width="44" height="6" rx="3" fill="#D87857"/>
+ <text x="430" y="172" font-family="-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="46" font-weight="800" fill="#F7F1E8">codefox</text>
+ <text x="430" y="214" font-family="-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="21" fill="#8B8175">Where the fox came from — the original AI project generator.</text>
+</svg>
