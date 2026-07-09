@@ -23,6 +23,10 @@ import { useAuthContext } from '@/providers/AuthProvider';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
 
+export type CreateProjectResult =
+  | { success: true; chatId: string }
+  | { success: false; rateLimit?: boolean; limitNumber?: number };
+
 export interface ProjectContextType {
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
@@ -36,7 +40,7 @@ export interface ProjectContextType {
     prompt: string,
     isPublic: boolean,
     model?: string
-  ) => Promise<boolean>;
+  ) => Promise<CreateProjectResult>;
   forkProject: (projectId: string) => Promise<void>;
   setProjectPublicStatus: (
     projectId: string,
@@ -104,6 +108,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projectLoading, setProjectLoading] = useState<boolean>(true);
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const rateLimitReachedRef = useRef(false);
+  const rateLimitValueRef = useRef<number | undefined>(undefined);
   const editorRef = useRef<any>(null);
 
   interface ChatProjectCacheEntry {
@@ -405,11 +411,24 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   // Create project mutation
   const [createProject] = useMutation(CREATE_PROJECT, {
     onCompleted: (data) => {
+      console.log('createProject have yes');
       if (!isMounted.current) return;
     },
     onError: (error) => {
-      if (isMounted.current) {
-        toast.error(`Failed to create project: ${error.message}`);
+      const graphqlErrors = error?.graphQLErrors || [];
+
+      const rateLimitError = graphqlErrors.find(
+        (err) => err.extensions?.code === 'DAILY_LIMIT_EXCEEDED'
+      );
+
+      if (rateLimitError) {
+        rateLimitReachedRef.current = true;
+        const limitFromBackend = rateLimitError.extensions?.limit;
+        if (typeof limitFromBackend === 'number') {
+          rateLimitValueRef.current = limitFromBackend;
+        }
+      } else {
+        logger.error(`GraphQL error: ${error.message}`);
       }
     },
   });
@@ -684,18 +703,20 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       prompt: string,
       isPublic: boolean,
       model = 'gpt-4o-mini'
-    ): Promise<boolean> => {
+    ): Promise<CreateProjectResult> => {
       if (!prompt.trim()) {
         if (isMounted.current) {
           toast.error('Please enter a project description');
         }
-        return false;
+        return { success: false };
       }
 
       try {
         if (isMounted.current) {
           setIsLoading(true);
         }
+
+        rateLimitReachedRef.current = false;
 
         // Default packages based on typical web project needs
         const defaultPackages = [
@@ -715,13 +736,31 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           },
         });
 
-        return result.data.createProject.id;
+        // Rate limit detected
+        if (rateLimitReachedRef.current) {
+          return {
+            success: false,
+            rateLimit: true,
+            limitNumber: rateLimitValueRef.current,
+          };
+        }
+
+        // Check if result and result.data exist before accessing properties
+        if (result?.data?.createProject?.id) {
+          return { success: true, chatId: result.data.createProject.id };
+        } else {
+          logger.warn(
+            'Project creation response missing expected data structure'
+          );
+          return { success: false };
+        }
       } catch (error) {
         logger.error('Error creating project:', error);
+
         if (isMounted.current) {
           toast.error('Failed to create project from prompt');
         }
-        return false;
+        return { success: false };
       } finally {
         if (isMounted.current) {
           setIsLoading(false);
