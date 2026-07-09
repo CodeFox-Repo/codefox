@@ -1,17 +1,14 @@
 export const generateBackendCodePrompt = (
   projectName: string,
-  sitemapDoc: string,
-  datamapDoc: string,
-  backendRequirementDoc: string,
   databaseType: string,
-  databaseSchemas: string,
   currentFile: string,
-  fileType: string = 'javascript',
+  fileType: string = 'Javascript',
   dependencyFile: string,
 ): string => {
   const defaultDependencies = {
-    sqlite3: '^5.1.6',
-    express: '^4.18.2',
+    sqlite3: '^5',
+    express: '^4',
+    jsonwebtoken: '^9',
   };
 
   // Parse dependency file if provided, otherwise use defaults
@@ -25,23 +22,15 @@ export const generateBackendCodePrompt = (
     dependencies = defaultDependencies;
   }
 
-  return `You are an expert backend developer. 
-        Your task is to generate a complete backend codebase within a single file for a project named "${projectName}". The code should be written using the Express framework with ES Module syntax (using \`import\` statements), and the database is ${databaseType}. The code must be written in \`${fileType}\`. The backend code should be scalable, maintainable, and adhere to best practices.
-   
+  return `Role: You are an expert backend developer. 
+      Task: Your task is to generate a complete backend codebase within a single file for a project named "${projectName}". The code should be written using the Express framework with ES Module syntax (using \`import\` statements), and the database is ${databaseType}. The code must be written in \`${fileType}\`. The backend code should be scalable, maintainable, and adhere to best practices.
+      Current File: ${currentFile}.
+
         ### Project Dependencies
         The project uses the following dependencies:
         \`\`\`json
         ${JSON.stringify(dependencies, null, 2)}
         \`\`\`
-  
-        ### Based on the following input: 
-        
-       - **Project Name:** ${projectName}
-       - **Sitemap Documentation:** ${sitemapDoc}
-       - **Data Analysis Document:** ${datamapDoc}
-       - **Backend Requirements:** ${backendRequirementDoc}
-       - **Database schemas:** These schemas are defined in \`./schema.sql\`. The code must read and execute this file during database initialization.
-       - **Current Implementation:** ${currentFile || 'No existing implementation'}
   
        ### Backend Requirements Analysis:
        Based on the provided backend requirements document, ensure implementation of:
@@ -59,9 +48,10 @@ export const generateBackendCodePrompt = (
        **Include:**
        1. **Server Setup:**
           - Initialize the server using the Express framework with ES Module syntax (use \`import\` instead of \`require\`).
-          - Configure middleware for JSON parsing and CORS.
+          - Configure middleware for JSON parsing and CORS example "app.use(cors()); "
    
        2. **Database Connection and Initialization:**
+          Database schemas: These schemas are defined in \`./schema.sql\`. The code must read and execute this file during database initialization.
           For SQLite database initialization, you must include code to execute the ./schema.sql file. There are several approaches:
   
           1. Using better-sqlite3:
@@ -103,29 +93,29 @@ export const generateBackendCodePrompt = (
           - Implement connection pooling if needed
   
        3. **Implementation Guidelines for SQLite:**
-       1. **Basic Database Operations:**
-       \`\`\`${fileType}
-       // Using sqlite3
-       import sqlite3 from 'sqlite3';
-       const db = new sqlite3.Database('./database.sqlite');
-  
-       // Basic query example
-       db.all("SELECT * FROM users", [], (err, rows) => {
-         if (err) throw err;
-         console.log(rows);
-       });
-       \`\`\`
-  
-       2. **Performance-Critical Operations:**
-       \`\`\`${fileType}
-       // Using better-sqlite3
-       import Database from 'better-sqlite3';
-       const db = new Database('database.sqlite', { verbose: console.log });
-  
-       // Prepared statement example
-       const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-       const user = stmt.get(userId);
-       \`\`\`
+        1. **Basic Database Operations:**
+        \`\`\`${fileType}
+        // Using sqlite3
+        import sqlite3 from 'sqlite3';
+        const db = new sqlite3.Database('./database.sqlite');
+    
+        // Basic query example
+        db.all("SELECT * FROM users", [], (err, rows) => {
+          if (err) throw err;
+          console.log(rows);
+        });
+        \`\`\`
+    
+        2. **Performance-Critical Operations:**
+        \`\`\`${fileType}
+        // Using better-sqlite3
+        import Database from 'better-sqlite3';
+        const db = new Database('database.sqlite', { verbose: console.log });
+    
+        // Prepared statement example
+        const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
+        const user = stmt.get(userId);
+        \`\`\`
    
        4. **Route Definitions:**
           - Define RESTful API endpoints based on the sitemap documentation.
@@ -148,7 +138,7 @@ export const generateBackendCodePrompt = (
        7. **Environment Configuration:**
           - Use dotenv or similar for environment variables.
           - Database configuration should be environment-based.
-          - Server port and other settings should be configurable.
+          - Server port is 3000 and other settings should be configurable.
    
        8. **Comments and Documentation:**
           - Add comments explaining each section and key code blocks.
@@ -163,10 +153,7 @@ export const generateBackendCodePrompt = (
        - Hardcoded configuration values.
    
        **Special Requirements:**
-       - Use environment variables for database path and server settings.
-       - Implement proper statement preparation and parameter binding.
        - Ensure all database operations are wrapped in appropriate error handling.
-       - Use proper TypeScript types and interfaces.
        - Implement proper logging throughout the application.
    
        ### Ask Yourself:
@@ -176,8 +163,73 @@ export const generateBackendCodePrompt = (
        4. Are transactions used appropriately for data consistency?
        5. Is the schema.sql file properly loaded and executed?
        6. Are all configurations properly externalized?
-       7. Is the code properly typed with TypeScript?
-       8. Is there adequate logging and error tracking?
+       7. Is there adequate logging and error tracking?
+   
+       ### Output Format:
+       
+       Provide the backend code within \`<GENERATE>\` tags as follows:
+       
+       <GENERATE>
+       // Your generated backend code goes here
+       </GENERATE>
+       `;
+};
+
+export const generateForMultiFileBackendCodePrompt = (
+  projectName: string,
+  databaseType: string,
+  currentFile: string,
+  fileType: string = 'javascript',
+  dependencyFile: string,
+): string => {
+  const defaultDependencies = {
+    sqlite3: '^5',
+    express: '^4',
+  };
+
+  // Parse dependency file if provided, otherwise use defaults
+  // TODO: get dependencies info from embedding model
+  let dependencies;
+  try {
+    dependencies = dependencyFile
+      ? JSON.parse(dependencyFile)
+      : defaultDependencies;
+  } catch (error) {
+    dependencies = defaultDependencies;
+  }
+
+  return `Role: You are an expert backend developer. 
+      Task: Your task is to generate a complete backend codebase using Express framework, database ${databaseType}, and language Javascript. The backend code should be scalable, maintainable, and adhere to best practices.
+      Current File: ${currentFile}. 
+
+        ## Project External Dependencies
+        The project uses the following dependencies:
+        \`\`\`json
+        ${JSON.stringify(dependencies, null, 2)}
+        \`\`\`
+
+        
+  
+        ### Instructions and Rules:
+        1. Implement Only One file: Implement only the file specified in "Current File" - do not generate code for multiple files.
+        2. COMPLETE CODE: Your code will be part of the entire project, so please implement complete, reliable, reusable code with no TODOs or placeholders.
+        3. ES Module Syntax: Use ES Module syntax (import/export) consistently throughout the code.
+        4. File Structure and Dependencies: The current file might depend on other files in the project use the Project Internal Dependencies to help you.
+        5. CAREFULLY CHECK:
+          - Before importing a file, verify that the file should logically exist
+          - Ensure that you haven't missed any internal dependencies import
+        6. Error Handling: Implement comprehensive error handling for database operations, API calls, and all async operations.
+        7. Database Specific: For ${databaseType}, ensure you're using appropriate connection methods and query formats.
+        8. Configuration: Use environment variables for sensitive values and configuration (use process.env)
+        9. RESTful Standards: When implementing controllers and routes, follow RESTful API standards.
+        10. Documentation: Include JSDoc comments for functions and important code sections.
+        11. Logging: Implement appropriate logging for errors and significant operations.
+        12. Schema Init: For database files, ensure proper initialization of tables and schemas if needed.
+   
+       ### Ask Yourself:
+       1. Are all configurations properly externalized?
+       2. Is the code properly typed with TypeScript?
+       3. Is there adequate logging and error tracking?
    
        ### Output Format:
        

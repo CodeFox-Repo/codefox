@@ -44,9 +44,7 @@ export class BackendFileReviewHandler implements BuildHandler<string> {
         project description: ${description},
       `;
 
-    const backendRequirement = context.getNodeData(
-      BackendRequirementHandler,
-    )?.overview;
+    const backendRequirement = context.getNodeData(BackendRequirementHandler);
     const backendCode = [context.getNodeData(BackendCodeHandler)];
 
     if (!backendRequirement) {

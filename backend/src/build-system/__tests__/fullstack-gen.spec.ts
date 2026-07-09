@@ -11,14 +11,16 @@ import { FrontendCodeHandler } from '../handlers/frontend-code-generate';
 import { FileStructureAndArchitectureHandler } from '../handlers/file-manager/file-struct';
 import { BackendRequirementHandler } from '../handlers/backend/requirements-document';
 import { UIUXLayoutHandler } from '../handlers/ux/uiux-layout';
+import { BackendCodeHandler } from '../handlers/backend/code-generate';
+import { DBSchemaHandler } from '../handlers/database/schemas/schemas';
 
 (isIntegrationTest ? describe : describe.skip)('Build Sequence Test', () => {
   it('should execute build sequence successfully', async () => {
     const sequence: BuildSequence = {
       id: 'test-backend-sequence',
       version: '1.0.0',
-      name: 'Wrtie a Single page Cool cybersecurity personal website',
-      description: `A Single page personal blog website. I am a cybersecurity engineer so i want it to show i am a really cool hacker, with cool terminal functionality`,
+      name: 'No-Code AI Workflow Builder',
+      description: `Generate a visual app where users drag blocks (e.g., 'Get Tweet' → 'Summarize with AI' → 'Post to Slack'), and it auto-generates the backend logic + UI.`,
       databaseType: 'SQLite',
       model: 'gpt-4o-mini',
       projectSize: 'medium', // limit for fun
@@ -59,9 +61,18 @@ import { UIUXLayoutHandler } from '../handlers/ux/uiux-layout';
           // requires: ['op:UX:DATAMAP:DOC'],
         },
         {
+          handler: DBSchemaHandler,
+          name: 'Database schema Node',
+          // requires: ['op:UX:DATAMAP:DOC'],
+        },
+        {
           handler: BackendRequirementHandler,
           name: 'Backend Requirements Node',
           // requires: ['op:DATABASE_REQ', 'op:UX:DATAMAP:DOC', 'op:UX:SMD'],
+        },
+        {
+          handler: BackendCodeHandler,
+          name: 'Backend Code Generator Node',
         },
         {
           handler: FrontendCodeHandler,
