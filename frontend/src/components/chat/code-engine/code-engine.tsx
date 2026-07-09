@@ -15,10 +15,14 @@ export function CodeEngine({
   chatId,
   isProjectReady = false,
   projectId,
+  isInspectMode,
+  setIsInspectMode,
 }: {
   chatId: string;
   isProjectReady?: boolean;
   projectId?: string;
+  isInspectMode?: boolean;
+  setIsInspectMode?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const { curProject, projectLoading, pollChatProject, editorRef } =
     useContext(ProjectContext);
@@ -258,25 +262,28 @@ export function CodeEngine({
   };
 
   const renderTabContent = () => {
-    switch (activeTab) {
-      case 'code':
-        return (
-          <CodeTab
-            editorRef={editorRef}
-            fileStructureData={fileStructureData}
-            newCode={newCode}
-            isFileStructureLoading={isFileStructureLoading}
-            updateSavingStatus={updateSavingStatus}
-            filePath={filePath}
-            setFilePath={setFilePath}
-          />
-        );
-      case 'preview':
-        return <PreviewTab />;
-      case 'console':
-        return <ConsoleTab />;
-      default:
-        return null;
+    if (activeTab === 'preview') {
+      return (
+        <PreviewTab 
+          isInspectMode={isInspectMode}
+          setIsInspectMode={setIsInspectMode}
+        />
+      );
+    } else if (activeTab === 'console') {
+      return <ConsoleTab />;
+    } else {
+      // Default to code tab
+      return (
+        <CodeTab
+          editorRef={editorRef}
+          fileStructureData={fileStructureData}
+          newCode={newCode}
+          isFileStructureLoading={isFileStructureLoading}
+          updateSavingStatus={updateSavingStatus}
+          filePath={filePath}
+          setFilePath={setFilePath}
+        />
+      );
     }
   };
 

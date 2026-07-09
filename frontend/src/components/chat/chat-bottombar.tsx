@@ -2,9 +2,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TextareaAutosize from 'react-textarea-autosize';
-import { PaperclipIcon, Send, X } from 'lucide-react';
+import { PaperclipIcon, Send, X, Code, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Message } from '../../const/MessageType';
+import { Message, ChatRequestOptions } from '../../const/MessageType';
 import Image from 'next/image';
 import {
   Tooltip,
@@ -12,18 +12,39 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ComponentInspector } from './code-engine/component-inspector';
+import { Badge } from '@/components/ui/badge';
 
 interface ChatBottombarProps {
   messages: Message[];
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  handleSubmit: (
+    e: React.FormEvent<HTMLFormElement>,
+    chatRequestOptions?: ChatRequestOptions
+  ) => void;
   stop: () => void;
   formRef: React.RefObject<HTMLFormElement>;
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   setMessages: (messages: Message[]) => void;
   setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
+  isInspectMode?: boolean;
+  setIsInspectMode?: React.Dispatch<React.SetStateAction<boolean>>;
 }
+
+// Add subtle pulse animation for Component Mode badge
+const pulseBadge = {
+  initial: { scale: 1 },
+  animate: { 
+    scale: [1, 1.03, 1],
+    transition: { 
+      repeat: Infinity, 
+      repeatType: "mirror" as const, 
+      duration: 2,
+      ease: "easeInOut"
+    }
+  }
+};
 
 export default function ChatBottombar({
   messages,
@@ -34,10 +55,14 @@ export default function ChatBottombar({
   setInput,
   setMessages,
   setSelectedModel,
+  isInspectMode,
+  setIsInspectMode,
 }: ChatBottombarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [isComponentMode, setIsComponentMode] = useState(false);
+  const [componentData, setComponentData] = useState<string>('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,9 +102,66 @@ export default function ChatBottombar({
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const populateChatInput = (content: string) => {
+    if (setInput) {
+      // Store the component data in state instead of showing it in the input
+      setComponentData(content);
+      // Keep input clean - don't prefill any text
+      setInput("");
+      setIsComponentMode(true);
+      // Focus the input after populating
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  };
+
+  // Check if we're still in component mode
+  useEffect(() => {
+    if (!input || input === "") {
+      setIsComponentMode(false);
+      setComponentData('');
+    }
+  }, [input]);
+
+  // Function to exit component mode
+  const exitComponentMode = () => {
+    if (setInput) {
+      setInput('');
+      setIsComponentMode(false);
+      setComponentData('');
+    }
+  };
+
+  // Modify submit to include component data if in component mode
   const submitWithAttachments = (e: React.FormEvent<HTMLFormElement>) => {
-    // Here you would normally handle attachments with your form submission
-    // For this example, we'll just clear them after submission
+    e.preventDefault();
+    
+    // If in component mode, append the hidden component data
+    if (isComponentMode && componentData && setInput) {
+      // Get user input
+      const userInput = input || "";
+      
+      // Create the full prompt with component data first, then user input
+      const fullPrompt = componentData + "\n\n" + userInput;
+      
+      // Call handleSubmit with the content in ChatRequestOptions
+      handleSubmit(e, { content: fullPrompt });
+      
+      // Reset component mode
+      setIsComponentMode(false);
+      setComponentData('');
+      setAttachments([]);
+      
+      // Clean up input after submission
+      setTimeout(() => {
+        setInput("");
+      }, 50);
+      
+      return;
+    }
+    
+    // Regular submission flow
     handleSubmit(e);
     setAttachments([]);
   };
@@ -91,7 +173,133 @@ export default function ChatBottombar({
   }, []);
 
   return (
-    <div className="px-4 pb-4 pt-2 bg-white dark:bg-[#151718]">
+    <div className="px-4 pb-4 pt-2 bg-white dark:bg-[#151718] relative">
+      {/* Component Inspector Popup */}
+      <AnimatePresence>
+        {isInspectMode && (
+          <motion.div
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 10, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute bottom-full left-4 right-4 z-50 bg-background border border-input rounded-lg flex flex-col overflow-hidden"
+            style={{ 
+              height: "min(600px, 70vh)",
+              maxHeight: "calc(100vh - 150px)" 
+            }}
+          >
+            {/* Resizable handle - positioned at the top of the panel */}
+            <div 
+              className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize bg-transparent hover:bg-blue-500/20 transition-colors z-10" 
+              onMouseDown={(e) => {
+                e.preventDefault();
+                
+                // Store references to elements and initial values
+                const panel = e.currentTarget.parentElement;
+                if (!panel) return;
+                
+                const startY = e.clientY;
+                const startHeight = panel.getBoundingClientRect().height;
+                
+                const handleMouseMove = (moveEvent: MouseEvent) => {
+                  // Stop propagation to prevent other events
+                  moveEvent.preventDefault();
+                  moveEvent.stopPropagation();
+                  
+                  // Calculate new height
+                  const delta = startY - moveEvent.clientY;
+                  const newHeight = Math.min(
+                    Math.max(startHeight + delta, 100), // Min height reduced to 100px
+                    window.innerHeight - 150 // Max height
+                  );
+                  
+                  // Apply new height to the stored panel reference
+                  if (panel) {
+                    panel.style.height = `${newHeight}px`;
+                  }
+                };
+                
+                const handleMouseUp = () => {
+                  // Clean up all event listeners
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+                
+                // Add the event listeners to document
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            />
+            
+            <div className="border-b px-3 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 flex-shrink-0 rounded-t-lg">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Code className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                <h3 className="font-medium text-blue-700 dark:text-blue-300 text-sm whitespace-nowrap overflow-hidden text-ellipsis">UI Inspector</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-blue-600/70 dark:text-blue-400/70 hidden sm:inline">
+                  Edit UI components directly
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (setIsInspectMode) {
+                      setIsInspectMode(false);
+                      localStorage.setItem('inspectModeEnabled', 'false');
+                    }
+                  }}
+                  className="h-6 w-6 rounded-md flex-shrink-0 flex items-center justify-center hover:bg-blue-200 text-blue-600 dark:hover:bg-blue-800/30 dark:text-blue-300"
+                  aria-label="Close UI Edit Mode"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto relative border-t border-input/30">
+              <ComponentInspector 
+                setIsInspectMode={setIsInspectMode}
+                populateChatInput={populateChatInput}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+        
+      {/* Component Mode Badge - outside and above the input box */}
+      <AnimatePresence>
+        {isComponentMode && (
+          <motion.div 
+            initial={{ y: -5, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -5, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex items-center justify-end gap-1.5 mb-1.5 pr-0.5"
+          >
+            <motion.div
+              variants={pulseBadge}
+              initial="initial"
+              animate="animate"
+            >
+              <Badge 
+                variant="outline" 
+                className="flex items-center gap-1 text-[10px] py-0.5 px-2 bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800/50 shadow-sm"
+              >
+                <Wand2 className="w-2.5 h-2.5" />
+                <span>Component Selected</span>
+              </Badge>  
+            </motion.div>
+            <button
+              type="button"
+              onClick={exitComponentMode}
+              className="h-4 w-4 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:hover:bg-purple-800/60"
+              aria-label="Exit component mode"
+            >
+              <X className="h-2 w-2" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+        
       <motion.div
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -101,9 +309,16 @@ export default function ChatBottombar({
           isFocused
             ? 'ring-1 ring-blue-500 border-blue-500'
             : 'border-gray-200 hover:border-gray-300 dark:border-zinc-700 dark:hover:border-zinc-600',
-          'bg-white dark:bg-[#1e1e1e]'
+          isComponentMode 
+            ? 'bg-purple-50/20 dark:bg-purple-900/5' 
+            : 'bg-white dark:bg-[#1e1e1e]'
         )}
       >
+        {/* Component mode indicator */}
+        {isComponentMode && (
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r" />
+        )}
+        
         {/* Attachments preview */}
         <AnimatePresence>
           {attachments.length > 0 && (
@@ -183,40 +398,52 @@ export default function ChatBottombar({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
 
+          {/* Add Edit UI button */}
+          {setIsInspectMode && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    className="p-1.5 text-gray-400 dark:text-zinc-400 rounded-md cursor-not-allowed opacity-50"
-                    aria-label="Record (not available)"
-                    disabled
+                    onClick={() => {
+                      const newValue = !isInspectMode;
+                      setIsInspectMode(newValue);
+                      // Save to localStorage for persistence
+                      localStorage.setItem('inspectModeEnabled', newValue.toString());
+                    }}
+                    className={cn(
+                      'h-7 w-7 rounded-md flex items-center justify-center',
+                      isInspectMode 
+                        ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200'
+                    )}
+                    aria-label="Toggle UI Edit Mode"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <circle cx="12" cy="12" r="4"></circle>
-                    </svg>
+                    <Code className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>Feature not available yet</p>
+                  <p>{isInspectMode ? 'Disable' : 'Enable'} UI Edit Mode</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          </div>
+          )}
 
           {/* Text input */}
           <div className="relative flex-1 flex items-center">
+            <AnimatePresence>
+              {isComponentMode && (
+                <motion.div 
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "2px" }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                  className="absolute left-0 top-1/2 transform -translate-y-1/2 h-[60%] bg-gradient-to-b rounded-r-full"
+                />
+              )}
+            </AnimatePresence>
             <TextareaAutosize
               autoComplete="off"
               value={input}
@@ -226,8 +453,8 @@ export default function ChatBottombar({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               name="message"
-              placeholder="Message Agent..."
-              className="resize-none px-2 py-2.5 w-full focus:outline-none bg-transparent text-gray-800 dark:text-zinc-200 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-400"
+              placeholder={isComponentMode ? "Message Agent... (component details will be included)" : "Message Agent..."}
+              className="resize-none px-2 w-full focus:outline-none bg-transparent text-gray-800 dark:text-zinc-200 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-400 py-2.5"
               maxRows={5}
             />
           </div>

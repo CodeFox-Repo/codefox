@@ -9,6 +9,7 @@ import { startChatStream } from '@/api/ChatStreamAPI';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { ChatInputType } from '@/graphql/type';
 import { managerAgent } from './multi-agent/managerAgent';
+import { ChatRequestOptions } from '@/const/MessageType';
 
 export interface UseChatStreamProps {
   chatId: string;
@@ -117,10 +118,15 @@ export const useChatStream = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    chatRequestOptions?: ChatRequestOptions
+  ) => {
     e.preventDefault();
 
-    const content = input;
+    // If chatRequestOptions has content property, use that, otherwise use input
+    const content = chatRequestOptions?.content || input;
+    console.log('handleSubmit content', content);
 
     if (!content.trim() || loadingSubmit) return;
 
@@ -133,6 +139,9 @@ export const useChatStream = ({
       content: content,
       createdAt: new Date().toISOString(),
     };
+
+    console.log('newMessage', newMessage);
+
     setMessages((prev) => [...prev, newMessage]);
 
     if (!currentChatId) {
