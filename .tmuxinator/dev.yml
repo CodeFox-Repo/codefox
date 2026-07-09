@@ -32,3 +32,9 @@ windows:
         - docker:
             - echo "Docker Services (Ctrl+a 4 to focus)"
             - docker compose up
+  - dashboard:
+      root: <%= ENV["PWD"] %>/dashboard
+      panes:
+        - dashboard:
+            - echo "Dashboard (Ctrl+a 5 to focus, Ctrl+a r to restart)"
+            - pnpm run start

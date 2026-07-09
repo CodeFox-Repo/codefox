@@ -40,6 +40,14 @@ type ChatCompletionDeltaType {
   content: String
 }
 
+input ChatFilterInput {
+  isActive: Boolean
+  isDeleted: Boolean
+  projectId: String
+  search: String
+  userId: String
+}
+
 input ChatInputType {
   chatId: String!
   message: String!
@@ -51,13 +59,49 @@ input CheckTokenInput {
   token: String!
 }
 
+input CreateChatInput {
+  projectId: ID
+  title: String!
+}
+
+input CreateMenuInput {
+  name: String!
+  path: String!
+  permission: String!
+  roleIds: [String!]
+}
+
 input CreateProjectInput {
   databaseType: String
   description: String!
   model: String = "gpt-4o-mini"
-  packages: [ProjectPackage!]!
+  packages: [ProjectPackage!]
   projectName: String
   public: Boolean
+}
+
+input CreateRoleInput {
+  description: String
+  menuIds: [String!]
+  name: String!
+}
+
+input CreateUserInput {
+  email: String!
+  password: String!
+  roleIds: [String!]! = []
+  username: String!
+}
+
+type DashboardStats {
+  activeChats: Int!
+  activeProjects: Int!
+  activeUsers: Int!
+  totalChats: Int!
+  totalMenus: Int!
+  totalProjects: Int!
+  totalRoles: Int!
+  totalUsers: Int!
 }
 
 """Date custom scalar type"""
@@ -90,12 +134,14 @@ input LoginUserInput {
 
 type Menu {
   createdAt: Date!
+  description: String
   id: ID!
   isActive: Boolean!
   isDeleted: Boolean!
   name: String!
   path: String!
   permission: String!
+  roles: [SystemRole!]
   updatedAt: Date!
 }
 
@@ -114,22 +160,40 @@ type Mutation {
   clearChatHistory(chatId: String!): Boolean!
   confirmEmail(token: String!): EmailConfirmationResponse!
   createChat(newChatInput: NewChatInput!): Chat!
+  createDashboardChat(input: CreateChatInput!): Chat!
+  createDashboardProject(input: CreateProjectInput!): Chat!
+  createDashboardRole(input: CreateRoleInput!): SystemRole!
+  createDashboardUser(input: CreateUserInput!): User!
+  createMenu(createMenuInput: CreateMenuInput!): Menu!
   createProject(createProjectInput: CreateProjectInput!): Chat!
+  createRole(createRoleInput: CreateRoleInput!): SystemRole!
   deleteChat(chatId: String!): Boolean!
+  deleteDashboardChat(id: ID!): Boolean!
+  deleteDashboardProject(id: ID!): Boolean!
+  deleteDashboardRole(id: ID!): Boolean!
+  deleteDashboardUser(id: ID!): Boolean!
   deleteProject(projectId: String!): Boolean!
   forkProject(projectId: ID!): Chat!
   login(input: LoginUserInput!): LoginResponse!
   refreshToken(refreshToken: String!): RefreshTokenResponse!
   regenerateDescription(input: String!): String!
   registerUser(input: RegisterUserInput!): User!
+  removeMenu(id: ID!): Boolean!
+  removeRole(id: ID!): Boolean!
   resendConfirmationEmail(input: ResendEmailInput!): EmailConfirmationResponse!
   saveMessage(input: ChatInputType!): Boolean!
   subscribeToProject(projectId: ID!): Project!
   syncProjectToGitHub(projectId: String!): Project!
   triggerChatStream(input: ChatInputType!): Boolean!
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
+  updateDashboardChat(id: ID!, input: UpdateChatInput!): Chat!
+  updateDashboardProject(id: ID!, input: UpdateProjectInput!): Project!
+  updateDashboardRole(id: ID!, input: UpdateRoleInput!): SystemRole!
+  updateDashboardUser(id: ID!, input: UpdateUserInput!): User!
+  updateMenu(updateMenuInput: UpdateMenuInput!): Menu!
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
   updateProjectPublicStatus(isPublic: Boolean!, projectId: ID!): Project!
+  updateRole(updateRoleInput: UpdateRoleInput!): SystemRole!
   uploadAvatar(file: Upload!): AvatarUploadResponse!
 }
 
@@ -165,6 +229,16 @@ type Project {
   userId: ID!
 }
 
+input ProjectFilterInput {
+  createdAfter: Date
+  createdBefore: Date
+  isActive: Boolean
+  isDeleted: Boolean
+  isPublic: Boolean
+  search: String
+  userId: String
+}
+
 input ProjectPackage {
   name: String!
   version: String!
@@ -183,6 +257,18 @@ type ProjectPackages {
 
 type Query {
   checkToken(input: CheckTokenInput!): Boolean!
+  dashboardChat(id: ID!): Chat!
+  dashboardChats(filter: ChatFilterInput): [Chat!]!
+  dashboardProject(id: ID!): Project!
+  dashboardProjects(filter: ProjectFilterInput): [Project!]!
+  dashboardRole(id: ID!): SystemRole!
+  dashboardRoles: [SystemRole!]!
+  dashboardStats: DashboardStats!
+  dashboardTelemetryLog(id: ID!): TelemetryLog!
+  dashboardTelemetryLogs(filter: TelemetryLogFilterInput): [TelemetryLog!]!
+  dashboardTelemetryLogsCount(filter: TelemetryLogFilterInput): Float!
+  dashboardUser(id: ID!): User!
+  dashboardUsers(filter: UserFilterInput): [User!]!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
   getAvailableModelTags: [String!]
   getChatDetails(chatId: String!): Chat
@@ -198,6 +284,10 @@ type Query {
   isValidateProject(isValidProject: IsValidProjectInput!): Boolean!
   logout: Boolean!
   me: User!
+  menu(id: ID!): Menu!
+  menus: [Menu!]!
+  role(id: ID!): SystemRole!
+  roles: [SystemRole!]!
 }
 
 type RefreshTokenResponse {
@@ -231,14 +321,91 @@ type Subscription {
   chatStream(input: ChatInputType!): ChatCompletionChunkType
 }
 
+type SystemRole {
+  createdAt: Date!
+  description: String
+  id: ID!
+  isActive: Boolean!
+  isDeleted: Boolean!
+  menus: [Menu!]
+  name: String!
+  updatedAt: Date!
+  users: [User!]
+}
+
+type TelemetryLog {
+  email: String
+  endpoint: String!
+  handler: String
+  id: ID!
+  input: String
+  inputToken: String
+  output: String
+  outputToken: String
+  requestMethod: String!
+  timeConsumed: Float!
+  timestamp: Date!
+  userId: String
+}
+
+input TelemetryLogFilterInput {
+  email: String
+  endDate: Date
+  endpoint: String
+  handler: String
+  maxTimeConsumed: Float
+  minTimeConsumed: Float
+  requestMethod: String
+  search: String
+  startDate: Date
+}
+
+input UpdateChatInput {
+  isActive: Boolean
+  title: String
+}
+
 input UpdateChatTitleInput {
   chatId: String!
   title: String
 }
 
+input UpdateMenuInput {
+  id: ID!
+  isActive: Boolean
+  name: String
+  path: String
+  permission: String
+  roleIds: [String!]
+}
+
+input UpdateProjectInput {
+  isActive: Boolean
+  isPublic: Boolean
+  packageIds: [ID!]
+  projectName: String
+  projectPath: String
+}
+
 input UpdateProjectPhotoInput {
   file: Upload!
   projectId: ID!
+}
+
+input UpdateRoleInput {
+  description: String
+  id: ID!
+  isActive: Boolean
+  menuIds: [String!]
+  name: String
+}
+
+input UpdateUserInput {
+  email: String
+  isActive: Boolean
+  password: String
+  roleIds: [String!]
+  username: String
 }
 
 """The `Upload` scalar type represents a file upload."""
@@ -256,7 +423,13 @@ type User {
   isEmailConfirmed: Boolean!
   lastEmailSendTime: Date!
   projects: [Project!]!
+  roles: [SystemRole!]!
   subscribedProjects: [Project!] @deprecated(reason: "Use projects with forkedFromId instead")
   updatedAt: Date!
   username: String!
+}
+
+input UserFilterInput {
+  isActive: Boolean
+  search: String
 }
