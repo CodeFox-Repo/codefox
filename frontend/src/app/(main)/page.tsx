@@ -13,6 +13,7 @@ import { SignUpModal } from '@/components/sign-up-modal';
 import { useRouter } from 'next/navigation';
 import { logger } from '../log/logger';
 import { AuroraText } from '@/components/magicui/aurora-text';
+
 export default function HomePage() {
   // States for AuthChoiceModal
   const [showAuthChoice, setShowAuthChoice] = useState(false);
@@ -22,9 +23,10 @@ export default function HomePage() {
 
   const promptFormRef = useRef<PromptFormRef>(null);
   const { isAuthorized } = useAuthContext();
-  const { createProjectFromPrompt, isLoading } = useContext(ProjectContext);
+  const { createProjectFromPrompt, isLoading, setRecentlyCompletedProjectId } =
+    useContext(ProjectContext);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<string> => {
     if (!promptFormRef.current) return;
 
     const { message, isPublic, model } = promptFormRef.current.getPromptData();
@@ -34,12 +36,25 @@ export default function HomePage() {
       const chatId = await createProjectFromPrompt(message, isPublic, model);
 
       promptFormRef.current.clearMessage();
-      router.push(`/chat?id=${chatId}`);
+      if (chatId) {
+        setRecentlyCompletedProjectId(chatId);
+        return chatId;
+      }
     } catch (error) {
       logger.error('Error creating project:', error);
     }
   };
+  // useEffect(() => {
+  //   if (!chatId) return;
 
+  //   const interval = setInterval(() => {
+  //     pollChatProject(chatId).catch((error) => {
+  //       logger.error('Polling error in HomePage:', error);
+  //     });
+  //   }, 6000);
+
+  //   return () => clearInterval(interval);
+  // }, [chatId, pollChatProject]);
   return (
     <div className="min-h-screen pt-16 pb-24 px-6 flex flex-col items-center justify-center relative overflow-hidden">
       <div className="fixed inset-0 -z-20">

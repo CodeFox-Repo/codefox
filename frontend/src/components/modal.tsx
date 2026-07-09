@@ -19,17 +19,17 @@ export function StableModal({
   children,
   className = '',
 }: ModalProps) {
-  // 使用ref跟踪模态框是否已挂载
+  // Use ref to track if modal is mounted
   const modalRoot = useRef<HTMLElement | null>(null);
 
-  // 处理点击外部区域关闭
+  // Handle clicks outside to close
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
 
-  // 处理ESC键关闭
+  // Handle ESC key to close
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (isOpen && e.key === 'Escape') {
@@ -41,7 +41,7 @@ export function StableModal({
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
-  // 使用useEffect获取或创建portal容器
+  // Use useEffect to get or create portal container
   useEffect(() => {
     if (typeof window !== 'undefined') {
       let element = document.getElementById('modal-root');
@@ -54,7 +54,7 @@ export function StableModal({
 
       modalRoot.current = element;
 
-      // 在组件卸载时清理
+      // Clean up when component unmounts
       return () => {
         if (element && element.childNodes.length === 0) {
           document.body.removeChild(element);
@@ -63,17 +63,17 @@ export function StableModal({
     }
   }, []);
 
-  // 在服务器端渲染时，不渲染任何内容
+  // Don't render anything on server side
   if (typeof window === 'undefined' || !modalRoot.current) {
     return null;
   }
 
-  // 使用createPortal将模态框内容渲染到body末尾
+  // Use createPortal to render modal content at the end of body
   return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* 背景遮罩 */}
+          {/* Background overlay */}
           <motion.div
             className="absolute inset-0 bg-black/50"
             initial={{ opacity: 0 }}
@@ -83,7 +83,7 @@ export function StableModal({
             onClick={handleBackdropClick}
           />
 
-          {/* 模态框内容 */}
+          {/* Modal content */}
           <motion.div
             className={`relative bg-white dark:bg-gray-900 rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-auto z-10 ${className}`}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -91,7 +91,7 @@ export function StableModal({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
           >
-            {/* 标题栏（如果提供） */}
+            {/* Title bar (if provided) */}
             {title && (
               <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700">
                 <h2 className="text-lg font-semibold">{title}</h2>
@@ -116,7 +116,7 @@ export function StableModal({
               </div>
             )}
 
-            {/* 内容区域 */}
+            {/* Content area */}
             <div className={!title ? 'pt-4' : ''}>{children}</div>
           </motion.div>
         </div>

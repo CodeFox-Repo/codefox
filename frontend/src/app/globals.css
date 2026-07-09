@@ -82,7 +82,7 @@
   height: 1px;
 }
 
-/* 修改滚动条颜色为主题色调 */
+/* Modify scrollbar color to match theme */
 :root {
   --scrollbar-thumb-color: rgba(
     99,

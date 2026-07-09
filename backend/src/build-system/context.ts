@@ -115,7 +115,7 @@ export class BuilderContext {
           this.globalContext.set('projectSize', 'small');
           break;
         case 'gpt-4o':
-        case 'o3-mini-high':
+        case 'o4-mini':
           this.globalContext.set('projectSize', 'medium');
           break;
         default:

@@ -69,6 +69,7 @@ type EmailConfirmationResponse {
 }
 
 input FetchPublicProjectsInputs {
+  currentUserId: String!
   size: Float!
   strategy: String!
 }

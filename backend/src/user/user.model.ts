@@ -25,7 +25,7 @@ export class User extends SystemBaseModel {
   googleId: string;
 
   @Field()
-  @Column()
+  @Column({ unique: true })
   username: string;
 
   @Column({ nullable: true }) // Made nullable for OAuth users

@@ -103,12 +103,14 @@ export class ProjectsResolver {
     const { buffer, mimetype } = await validateAndBufferFile(file);
 
     // Call the service with the extracted buffer and mimetype
-    return this.projectService.updateProjectPhotoUrl(
+    const project1 = await this.projectService.updateProjectPhotoUrl(
       userId,
       projectId,
       buffer,
       mimetype,
     );
+    this.logger.debug('project1', project1.photoUrl);
+    return project1;
   }
 
   @Mutation(() => Project)
@@ -152,8 +154,10 @@ export class ProjectsResolver {
    */
   @Query(() => [Project])
   async fetchPublicProjects(
+    @GetUserIdFromToken() userId: string,
     @Args('input') input: FetchPublicProjectsInputs,
   ): Promise<Project[]> {
+    input.currentUserId = userId;
     return this.projectService.fetchPublicProjects(input);
   }
 

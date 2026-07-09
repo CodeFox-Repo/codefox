@@ -36,11 +36,11 @@ export default function FileStructure({
     }))
   );
 
-  // 判断是否显示加载状态
+  // Check if loading state should be displayed
   const isEmpty = Object.keys(data).length === 0;
   const showLoading = isLoading || isEmpty;
 
-  // 当数据变化时更新数据提供者
+  // Update data provider when data changes
   useEffect(() => {
     if (!isEmpty) {
       setDataProvider(
@@ -52,27 +52,27 @@ export default function FileStructure({
     }
   }, [data, isEmpty]);
 
-  // 处理选择文件事件
+  // Handle file selection event
   const handleSelectItems = (items) => {
     if (items.length > 0) {
       const newPath = items[0].toString().replace(/^root\//, '');
       const selectedItem = data[items[0]];
 
-      // 只有当选择的是文件时才设置文件路径
+      // Only set file path when a file (not folder) is selected
       if (selectedItem && !selectedItem.isFolder) {
         onFileSelect?.(newPath);
       }
     }
   };
 
-  // 根据文件路径获取要展开的文件夹
+  // Get expanded folders based on current file path
   const getExpandedFolders = () => {
     if (!filePath) return ['root'];
 
     const parts = filePath.split('/');
     const expandedFolders = ['root'];
 
-    // 逐级构建路径
+    // Build path incrementally
     for (let i = 0; i < parts.length - 1; i++) {
       const folderPath = parts.slice(0, i + 1).join('/');
       expandedFolders.push(`root/${folderPath}`);
@@ -100,7 +100,7 @@ export default function FileStructure({
           dataProvider={dataProvider}
           getItemTitle={(item) => item.data}
           viewState={{
-            // 展开包含当前文件的目录
+            // Expand directories containing the current file
             ['fileTree']: {
               expandedItems: getExpandedFolders(),
             },

@@ -5,12 +5,14 @@ WORKDIR /app
 # Pre-install common frontend dependencies to speed up project startup
 RUN npm install -g npm@latest vite@latest
 
-# Create a non-root user to run the app
-RUN groupadd -r appuser && useradd -r -g appuser -m appuser
-RUN chown -R appuser:appuser /app
+#TODO: Uncomment this when we have a non-root usr (Allen)
+# #Create a non-root user to run the app
+# RUN groupadd -r appuser && useradd -r -g appuser -m appuser
+# RUN chown -R appuser:appuser /app
+# RUN chmod -R u+w /app
 
-# Switch to non-root user for security
-USER appuser
+# # Switch to non-root user for security
+# USER appuser
 
 EXPOSE 5173
 

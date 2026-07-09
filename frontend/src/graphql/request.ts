@@ -24,6 +24,7 @@ export const FETCH_PUBLIC_PROJECTS = gql`
       projectName
       projectPath
       createdAt
+      userId
       user {
         username
       }
@@ -99,6 +100,7 @@ export const DELETE_CHAT = gql`
 export const GET_USER_INFO = gql`
   query me {
     me {
+      id
       username
       email
       avatarUrl
@@ -126,6 +128,7 @@ export const GET_USER_PROJECTS = gql`
       userId
       forkedFromId
       isDeleted
+      createdAt
       projectPackages {
         id
         content
@@ -204,6 +207,16 @@ export const CREATE_PROJECT = gql`
         photoUrl
         userId
         subNumber
+        createdAt
+        updatedAt
+        isActive
+        isDeleted
+        projectPackages {
+          id
+          name
+          version
+          content
+        }
       }
     }
   }
@@ -235,7 +248,6 @@ export const UPDATE_PROJECT_PUBLIC_STATUS = gql`
     updateProjectPublicStatus(projectId: $projectId, isPublic: $isPublic) {
       id
       projectName
-      path
       projectPackages {
         id
         content
@@ -251,6 +263,13 @@ export const UPDATE_PROJECT_PHOTO_URL = gql`
       id
       photoUrl
     }
+  }
+`;
+
+// Mutation to delete a project
+export const DELETE_PROJECT = gql`
+  mutation DeleteProject($projectId: String!) {
+    deleteProject(projectId: $projectId)
   }
 `;
 
