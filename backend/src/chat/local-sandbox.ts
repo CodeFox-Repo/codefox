@@ -66,12 +66,17 @@ const createSession = async (root: string, base: string, ports: number[]) => {
     workingDirectory,
     env,
     abortSignal,
-  }: ProcessOptions) =>
-    nodeSpawn('bash', ['-lc', command], {
+  }: ProcessOptions) => {
+    // Our own loader flags have no business reaching an unrelated CLI. The
+    // harness bootstraps its runtime with corepack's pnpm shim, which dies on
+    // ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING when it inherits them.
+    const { NODE_OPTIONS: _drop, ...inherited } = process.env;
+    return nodeSpawn('bash', ['-lc', command], {
       cwd: workingDirectory ? resolvePath(workingDirectory) : base,
-      env: { ...process.env, ...env },
+      env: { ...inherited, ...env },
       signal: abortSignal,
     });
+  };
 
   const session: any = {
     id: `local-${path.basename(root)}`,
