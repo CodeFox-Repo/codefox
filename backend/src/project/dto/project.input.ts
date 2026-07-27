@@ -50,8 +50,10 @@ export class CreateProjectInput {
   @Field(() => Boolean, { nullable: true })
   public: boolean;
 
-  @Field(() => String, { nullable: true, defaultValue: 'gpt-4o-mini' })
-  model: string;
+  /** Left undefined so the service falls back to LLM_DEFAULT_MODEL; a
+   *  hardcoded default here silently overrode the configured endpoint. */
+  @Field(() => String, { nullable: true })
+  model?: string;
 }
 
 @InputType()

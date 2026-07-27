@@ -38,7 +38,8 @@ export interface ProjectContextType {
     isPublic: boolean,
     model?: string
   ) => Promise<string | null>;
-  forkProject: (projectId: string) => Promise<void>;
+  /** Resolves to the new chat id so the caller can navigate into the fork. */
+  forkProject: (projectId: string) => Promise<string | null>;
   setProjectPublicStatus: (
     projectId: string,
     isPublic: boolean
@@ -56,46 +57,6 @@ export interface ProjectContextType {
 export const ProjectContext = createContext<ProjectContextType | undefined>(
   undefined
 );
-
-/**
- * Utility function to check if a URL is accessible
- * @param url URL to check
- * @param maxRetries Maximum number of retries
- * @param delayMs Delay between retries in milliseconds
- */
-const checkUrlStatus = async (
-  url: string,
-  maxRetries = 30,
-  delayMs = 1000
-): Promise<boolean> => {
-  let retries = 0;
-
-  while (retries < maxRetries) {
-    try {
-      const res = await fetch(url, {
-        method: 'HEAD',
-        // Add shorter timeout to avoid long waits
-        signal: AbortSignal.timeout(5000),
-      });
-
-      if (res.status === 200) {
-        return true;
-      }
-
-      logger.info(
-        `URL status: ${res.status}. Retry ${retries + 1}/${maxRetries}...`
-      );
-      retries++;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    } catch (err) {
-      logger.error('Error checking URL status:', err);
-      retries++;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-
-  return false; // Return false after max retries
-};
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -415,25 +376,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Fork project mutation
-  const [forkProjectMutation] = useMutation(FORK_PROJECT, {
-    onCompleted: (data) => {
-      if (!isMounted.current) return;
-
-      if (data?.forkProject?.id) {
-        toast.success('Project forked successfully!');
-        router.push(`/chat/${data.forkProject.id}`);
-
-        // Refresh the projects list
-        refreshProjects();
-      }
-    },
-    onError: (error) => {
-      if (isMounted.current) {
-        toast.error(`Failed to fork project: ${error.message}`);
-      }
-    },
-  });
+  // Deliberately no onCompleted/onError: they fought with the caller. The
+  // completion handler navigated to `/chat/<id>`, a route that does not exist
+  // (the chat page reads `?id=`), and defining onError stopped Apollo from
+  // rejecting, so the caller's own error branch never ran. `forkProject`
+  // below owns both outcomes.
+  const [forkProjectMutation] = useMutation(FORK_PROJECT);
 
   // Update project public status mutation
   const [updateProjectPublicStatusMutation] = useMutation(
@@ -524,12 +472,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       pendingOperations.current.set(operationKey, true);
 
       try {
-        // Check if the URL is accessible
-        const isUrlAccessible = await checkUrlStatus(url);
-        if (!isUrlAccessible) {
-          logger.warn(`URL ${url} is not accessible after multiple retries`);
-          return;
-        }
+        // No client-side reachability probe: it is cross-origin
+        // (localhost:3000 -> 127.0.0.1:<port>) so the preflight OPTIONS is
+        // rejected and the check never passed — which is why no project ever
+        // got a cover image. /api/screenshot runs server-side and reports its
+        // own failure below.
 
         // Add a cache buster to avoid previous screenshot caching
         const screenshotUrl = `/api/screenshot?url=${encodeURIComponent(url)}&t=${Date.now()}`;
@@ -686,7 +633,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     async (
       prompt: string,
       isPublic: boolean,
-      model = 'gpt-4o-mini'
+      // No default: the backend picks LLM_DEFAULT_MODEL, which is the one the
+      // configured endpoint actually serves.
+      model?: string
     ): Promise<string | null> => {
       if (!prompt.trim()) {
         if (isMounted.current) {
@@ -728,22 +677,29 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   // New function to fork a project
   const forkProject = useCallback(
-    async (projectId: string): Promise<void> => {
+    async (projectId: string): Promise<string | null> => {
       try {
         if (isMounted.current) {
           setIsLoading(true);
         }
 
-        await forkProjectMutation({
-          variables: {
-            projectId,
-          },
+        // The backend answers with the chat bound to the new project, so the
+        // caller can drop the user straight into their copy.
+        const result = await forkProjectMutation({
+          variables: { projectId },
         });
+        await refetch();
+        return result.data?.forkProject?.id ?? null;
       } catch (error) {
         logger.error('Error forking project:', error);
         if (isMounted.current) {
-          toast.error('Failed to fork project');
+          toast.error(
+            (error as Error)?.message?.includes('your own')
+              ? 'You already own this project'
+              : 'Failed to fork project'
+          );
         }
+        return null;
       } finally {
         if (isMounted.current) {
           setIsLoading(false);
