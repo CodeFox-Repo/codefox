@@ -34,9 +34,18 @@ const dataSource = new DataSource(
     ? { type: 'postgres', url }
     : {
         type: 'sqlite',
+        // Same resolution the server uses, so this writes to the database it
+        // actually reads. A hardcoded path silently created the account in a
+        // different file.
         database:
           url?.replace(/^sqlite:(\/\/)?/, '') ||
-          path.join(here, '..', '..', '.codefox', 'data', 'codefox.db'),
+          path.join(
+            process.env.CODEFOX_DATA_DIR
+              ? path.resolve(process.env.CODEFOX_DATA_DIR)
+              : path.join(here, '..', '..', '.codefox'),
+            'data',
+            'codefox.db',
+          ),
       },
 );
 

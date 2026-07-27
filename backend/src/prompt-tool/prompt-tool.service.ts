@@ -10,6 +10,9 @@ export class PromptToolService {
     try {
       const result = await generateText({
         model: openrouter(DEFAULT_MODEL),
+        // The prompt asks for 300-500 words; reserving the model's whole
+        // output window instead gets the request rejected on a small balance.
+        maxOutputTokens: 2048,
         // ai@7 rejects role:'system' inside `messages` (allowSystemInMessages
         // defaults to false) — it throws before any request is made.
         instructions: `You help users transform brief project descriptions into comprehensive, well-structured requests that provide clear guidance for implementation.

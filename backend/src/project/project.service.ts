@@ -131,6 +131,10 @@ export class ProjectService {
 
         const result = await generateText({
           model: openrouter(input.model || DEFAULT_MODEL),
+          // A title is a handful of tokens. Left unset the SDK asks for the
+          // model's full output window — 64k for Sonnet — which providers
+          // reserve credit against and reject outright on a small balance.
+          maxOutputTokens: 64,
           // ai@7 rejects role:'system' inside `messages`; instructions is the
           // replacement, and the old shape threw before reaching the model.
           instructions:
