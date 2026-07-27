@@ -49,7 +49,11 @@ export interface ProjectContextType {
   getWebUrl: (
     projectPath: string
   ) => Promise<{ domain: string; containerId: string }>;
-  takeProjectScreenshot: (projectId: string, url: string) => Promise<void>;
+  takeProjectScreenshot: (
+    projectId: string,
+    url: string,
+    projectPath?: string
+  ) => Promise<void>;
   refreshProjects: () => Promise<void>;
   editorRef?: React.MutableRefObject<any>;
 }
@@ -462,7 +466,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   });
 
   const takeProjectScreenshot = useCallback(
-    async (projectId: string, url: string): Promise<void> => {
+    async (
+      projectId: string,
+      url: string,
+      // Lets the backend shoot the project's own dev server instead of this
+      // URL, which is the API origin and shows the preview only to a request
+      // holding the preview cookie.
+      projectPath?: string
+    ): Promise<void> => {
       // Check if this screenshot operation is already in progress
       const operationKey = `screenshot_${projectId}`;
       if (pendingOperations.current.get(operationKey)) {
@@ -479,7 +490,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // own failure below.
 
         // Add a cache buster to avoid previous screenshot caching
-        const screenshotUrl = `/api/screenshot?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+        const screenshotUrl =
+          `/api/screenshot?url=${encodeURIComponent(url)}&t=${Date.now()}` +
+          (projectPath ? `&projectPath=${encodeURIComponent(projectPath)}` : '');
         const screenshotResponse = await fetch(screenshotUrl);
 
         if (!screenshotResponse.ok) {
@@ -562,7 +575,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const project = projects.find((p) => p.projectPath === projectPath);
         if (project) {
           // Don't await this - let it run in background
-          takeProjectScreenshot(project.id, baseUrl).catch((err) =>
+          takeProjectScreenshot(project.id, baseUrl, projectPath).catch((err) =>
             logger.error('Background screenshot error:', err)
           );
         }

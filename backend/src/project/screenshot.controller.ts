@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import puppeteer, { Browser } from 'puppeteer';
+import { PreviewService } from './preview.service';
 
 /**
  * Screenshots a running preview, which is what gives a project its cover.
@@ -21,6 +22,8 @@ import puppeteer, { Browser } from 'puppeteer';
 export class ScreenshotController {
   private readonly logger = new Logger('ScreenshotController');
   private browser: Browser | null = null;
+
+  constructor(private readonly previews: PreviewService) {}
 
   /** One browser for the process; launching per request costs seconds. */
   private async getBrowser(): Promise<Browser> {
@@ -36,7 +39,22 @@ export class ScreenshotController {
   }
 
   @Get('screenshot')
-  async screenshot(@Query('url') url: string, @Res() res: Response) {
+  async screenshot(
+    @Query('url') url: string,
+    @Query('projectPath') projectPath: string | undefined,
+    @Res() res: Response,
+  ) {
+    // Prefer the project's own dev server. The caller's `url` is this origin,
+    // which only resolves to a preview when the request carries the preview
+    // cookie — and a browser launched here has no cookie, so every cover came
+    // out as a shot of the API root. The dev server is on this machine, so
+    // loopback is both reachable and unambiguous.
+    if (projectPath) {
+      const port = this.previews.portFor(projectPath);
+      if (port) url = `http://127.0.0.1:${port}`;
+      else this.logger.warn(`No running preview for ${projectPath}`);
+    }
+
     if (!url) throw new BadRequestException('url is required');
 
     let page: Awaited<ReturnType<Browser['newPage']>> | null = null;
