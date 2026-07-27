@@ -76,14 +76,16 @@ const createSession = async (root: string, base: string, ports: number[]) => {
     // AGENT_PNPM_BIN points at a directory holding a real one, which goes
     // first so the shim is never reached. Unset on a developer machine, where
     // pnpm is already a real install.
+    // Exported inside the command, not through env: `bash -l` sources the
+    // system profile, which rebuilds PATH and discards anything set here.
     const pnpmBin = process.env.AGENT_PNPM_BIN;
-    const PATH = pnpmBin
-      ? `${pnpmBin}:${inherited.PATH ?? ''}`
-      : inherited.PATH;
+    const script = pnpmBin
+      ? `export PATH=${JSON.stringify(pnpmBin)}:"$PATH"; ${command}`
+      : command;
 
-    return nodeSpawn('bash', ['-lc', command], {
+    return nodeSpawn('bash', ['-lc', script], {
       cwd: workingDirectory ? resolvePath(workingDirectory) : base,
-      env: { ...inherited, ...(PATH ? { PATH } : {}), ...env },
+      env: { ...inherited, ...env },
       signal: abortSignal,
     });
   };
