@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { FilesController } from './files.controller';
 import { ScreenshotController } from './screenshot.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -24,6 +25,8 @@ import { UserService } from 'src/user/user.service';
     AuthModule,
     AppConfigModule,
     UploadModule,
+    // JWTAuthGuard needs it, and the download route needs the guard.
+    JwtCacheModule,
   ],
   controllers: [
     DownloadController,

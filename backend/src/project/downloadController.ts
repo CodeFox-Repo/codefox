@@ -1,10 +1,14 @@
-import { Controller, Get, Logger, Param, Res } from '@nestjs/common';
+import { Controller, Get, Logger, Param, Res, UseGuards } from '@nestjs/common';
 import { ProjectService } from 'src/project/project.service';
 import { GetUserIdFromToken } from 'src/common/decorators/get-auth-token.decorator';
+import { JWTAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { Response } from 'express';
 import * as fs from 'fs';
 
+// The guard is what notices a token that logout has already invalidated; the
+// decorator alone only proves the signature is ours.
 @Controller('download')
+@UseGuards(JWTAuthGuard)
 export class DownloadController {
   private readonly logger = new Logger('DownloadController');
   constructor(private readonly projectService: ProjectService) {}
