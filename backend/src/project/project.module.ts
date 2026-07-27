@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { FilesController } from './files.controller';
+import { ScreenshotController } from './screenshot.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Project } from './project.model';
 import { ProjectService } from './project.service';
@@ -23,7 +25,12 @@ import { UserService } from 'src/user/user.service';
     AppConfigModule,
     UploadModule,
   ],
-  controllers: [DownloadController, PreviewController],
+  controllers: [
+    DownloadController,
+    PreviewController,
+    FilesController,
+    ScreenshotController,
+  ],
   providers: [
     ChatService,
     ProjectService,

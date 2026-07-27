@@ -138,6 +138,11 @@ export class PreviewService implements OnModuleDestroy {
   }
 
   /** Dev-server output for the Console tab. Empty when nothing is running. */
+  /** Port of a running dev server, or undefined. Does not start one. */
+  portFor(projectPath: string): number | undefined {
+    return this.previews.get(projectPath)?.port;
+  }
+
   logs(projectPath: string): LogLine[] {
     return this.previews.get(projectPath)?.log ?? [];
   }

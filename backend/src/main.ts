@@ -5,6 +5,8 @@ import * as dotenv from 'dotenv';
 import { Logger } from '@nestjs/common';
 import { graphqlUploadExpress } from 'graphql-upload-minimal';
 import { json } from 'express';
+import { PreviewService } from './project/preview.service';
+import { mountPreviewProxy } from './project/preview-proxy';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -34,6 +36,13 @@ async function bootstrap() {
   // Pasted screenshots reach /api/chat as base64 in the JSON body, which blows
   // straight past Express's 100kb default. Bounded by ArrayMaxSize(4) on the DTO.
   app.use(json({ limit: '25mb' }));
+
+  // After Nest's router, so a real route always wins and only unclaimed
+  // paths — a preview's own assets — reach the proxy.
+  mountPreviewProxy(
+    app.getHttpAdapter().getInstance(),
+    app.get(PreviewService),
+  );
 
   console.log('process.env.PORT:', process.env.PORT);
   const server = await app.listen(process.env.PORT ?? 8080);
