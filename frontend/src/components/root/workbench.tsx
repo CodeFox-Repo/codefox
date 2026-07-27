@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 import { useChatList } from '@/hooks/useChatList';
 import { PromptForm, PromptFormRef } from '@/components/root/prompt-form';
 import { PublicProjects } from '@/components/root/public-projects';
@@ -70,19 +71,25 @@ export function Workbench({
             Nothing yet. Describe a project above to start one.
           </p>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          // auto-fit, not a fixed three columns: a fixed grid left a third of
+          // the row empty with two chats, and auto-fill was worse still — it
+          // keeps the empty tracks, so the cards stayed narrow.
+          <ul className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">
             {recent.map((chat) => (
               <li key={chat.id}>
                 <Link
                   href={`/chat?id=${chat.id}`}
-                  className="block rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/45"
+                  className="group/card flex h-full flex-col justify-between gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/45"
                 >
-                  <p className="truncate font-medium text-foreground">
+                  <p className="line-clamp-2 font-medium leading-snug text-foreground">
                     {chat.title || 'Untitled'}
                   </p>
-                  <p className="mt-1 font-mono text-xs text-muted-foreground">
-                    {relativeTime(chat.createdAt)}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {relativeTime(chat.createdAt)}
+                    </span>
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/card:opacity-100" />
+                  </div>
                 </Link>
               </li>
             ))}

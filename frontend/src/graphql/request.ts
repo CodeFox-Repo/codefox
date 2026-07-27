@@ -62,18 +62,15 @@ export const GET_CHAT_HISTORY = gql`
   }
 `;
 
+// Deliberately no `messages`: this drives a list of titles, and pulling every
+// message of every chat to render them grew the payload with the user's whole
+// history.
 export const GET_USER_CHATS = gql`
   query GetUserChats {
     getUserChats {
       id
       title
       createdAt
-      messages {
-        id
-        content
-        role
-        createdAt
-      }
     }
   }
 `;

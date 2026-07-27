@@ -17,11 +17,13 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t-[3px] border-border pt-6">
-      <h2 className="mb-5 font-mono text-sm tracking-[0.12em] text-primary">
+    <section className="border-t-[3px] border-border pt-8">
+      <h2 className="mb-6 font-mono text-sm uppercase tracking-[0.12em] text-primary">
         {label}
       </h2>
-      {children}
+      <div className="divide-y divide-border rounded-lg border border-border bg-card px-5">
+        {children}
+      </div>
     </section>
   );
 }
@@ -36,7 +38,7 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-4 py-4">
       <div className="min-w-0">
         <p className="font-medium text-foreground">{title}</p>
         <p className="mt-0.5 max-w-[52ch] font-mono text-xs text-muted-foreground">
@@ -45,6 +47,24 @@ function Row({
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * Read-only field value: a chip on the page background (against the section's
+ * card) with a mono tag so it reads as locked, not as a broken input.
+ */
+function ReadOnlyValue({ value }: { value?: string | null }) {
+  return (
+    <span
+      aria-readonly="true"
+      className="inline-flex items-center gap-2.5 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-sm text-muted-foreground"
+    >
+      {value || '—'}
+      <span className="text-[10px] uppercase tracking-[0.12em] text-primary">
+        read-only
+      </span>
+    </span>
   );
 }
 
@@ -62,7 +82,7 @@ export default function UserSetting() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-5 pb-24 pt-4 sm:px-10">
+    <div className="mx-auto w-full max-w-3xl px-5 pb-24 pt-10 sm:px-8">
       <h1 className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
         Settings
       </h1>
@@ -70,7 +90,7 @@ export default function UserSetting() {
         Your account and how CodeFox looks.
       </p>
 
-      <div className="mt-10 space-y-10">
+      <div className="mt-12 space-y-14">
         <Section label="ACCOUNT">
           <Row title="Avatar" hint="Shown next to your projects and in chat.">
             <AvatarUploader
@@ -82,15 +102,11 @@ export default function UserSetting() {
 
           {/* Read-only: the API exposes no mutation to change either yet. */}
           <Row title="Username" hint="Not editable yet.">
-            <span className="font-mono text-sm text-muted-foreground">
-              {user?.username || '—'}
-            </span>
+            <ReadOnlyValue value={user?.username} />
           </Row>
 
           <Row title="Email" hint="The address you signed in with.">
-            <span className="font-mono text-sm text-muted-foreground">
-              {user?.email || '—'}
-            </span>
+            <ReadOnlyValue value={user?.email} />
           </Row>
         </Section>
 
