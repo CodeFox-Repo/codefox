@@ -156,10 +156,10 @@ export const runProjectAgent = async ({
   const agent = new HarnessAgent({
     harness: harnessFor(model),
     instructions: INSTRUCTIONS,
-    sandbox: sandboxFor({
+    sandbox: (await sandboxFor({
       projectPath,
       harnessId: claudeCode.harnessId,
-    }) as any,
+    })) as any,
   });
 
   const session = await agent.createSession();

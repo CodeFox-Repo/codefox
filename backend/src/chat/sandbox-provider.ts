@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import { Logger } from '@nestjs/common';
 import { createVercelSandbox } from '@ai-sdk/sandbox-vercel';
+import { Sandbox } from '@vercel/sandbox';
 import { getProjectsDir } from '../common/utils/common-path';
 import { createLocalSandbox } from './local-sandbox';
 
@@ -8,6 +9,20 @@ const logger = new Logger('SandboxProvider');
 
 /** Port the preview dev server listens on inside a remote sandbox. */
 export const REMOTE_PREVIEW_PORT = 3000;
+
+/**
+ * Ports the harness may lease for its bridge. A sandbox exposes at most four
+ * and the preview owns one, so three are left — which also caps how many agent
+ * sessions can share one project's sandbox at a time.
+ */
+const BRIDGE_PORTS = [3001, 3002, 3003];
+
+/**
+ * How long a sandbox may sit before Vercel stops it. This is a wall-clock
+ * deadline, not an idle timer — Vercel has no idle setting — so every turn
+ * pushes it out again, which makes it behave as one.
+ */
+const IDLE_MS = Number(process.env.SANDBOX_IDLE_MS ?? 10 * 60 * 1000);
 
 /**
  * Where a project's files live while the agent works on them.
@@ -50,7 +65,7 @@ const TEMPLATE_REPO =
   process.env.TEMPLATE_REPO ??
   'https://github.com/Sma1lboy/nextjs-shadcn-template.git';
 
-export const sandboxFor = ({ projectPath, harnessId }: SandboxFor) => {
+export const sandboxFor = async ({ projectPath, harnessId }: SandboxFor) => {
   if (sandboxMode() === 'host') {
     return createLocalSandbox({
       workingDirectory: path.join(getProjectsDir(), projectPath),
@@ -66,16 +81,34 @@ export const sandboxFor = ({ projectPath, harnessId }: SandboxFor) => {
     );
   }
 
-  logger.debug(`Creating Vercel sandbox for ${projectPath}`);
-
-  // A sandbox auto-terminates at `timeout`; the harness extends it while a
-  // turn is in flight. Ports must be declared here — a sandbox can expose at
-  // most four, and the harness leases one for its own bridge.
-  return createVercelSandbox({
+  // One named sandbox per project, not one per session: letting the provider
+  // create its own would hand every turn a fresh microVM cloned from the
+  // template, losing the previous turn's work. `persistent` makes Vercel
+  // snapshot the filesystem when the sandbox stops and restore it on the next
+  // resume, so nothing here has to serialise state by hand.
+  const sandbox = await Sandbox.getOrCreate({
+    name: `codefox-${projectPath}`,
+    persistent: true,
     runtime: 'node24',
-    ports: [REMOTE_PREVIEW_PORT],
-    timeout: Number(process.env.SANDBOX_TIMEOUT_MS ?? 30 * 60 * 1000),
+    ports: [REMOTE_PREVIEW_PORT, ...BRIDGE_PORTS],
+    timeout: IDLE_MS,
     resources: { vcpus: Number(process.env.SANDBOX_VCPUS ?? 2) },
+    // Only applied when the sandbox is created; a resume keeps its own files.
     source: { type: 'git', url: TEMPLATE_REPO, depth: 1 },
   });
+
+  // Activity is the only thing that keeps a sandbox alive. Extending on every
+  // turn is what turns Vercel's wall-clock deadline into an idle timeout.
+  await sandbox
+    .extendTimeout(IDLE_MS)
+    .catch((error: unknown) =>
+      logger.warn(`Could not extend sandbox lifetime: ${String(error)}`),
+    );
+
+  logger.debug(`Sandbox ${sandbox.name} ready for ${projectPath}`);
+
+  // The provider treats a supplied sandbox as caller-owned, so its stop() and
+  // destroy() are no-ops — the sandbox outlives the agent session and is
+  // reclaimed by the timeout above.
+  return createVercelSandbox({ sandbox, bridgePorts: BRIDGE_PORTS });
 };
