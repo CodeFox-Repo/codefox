@@ -5,7 +5,7 @@
     "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter codefox-backend build && npm i -g --prefix /app/.pnpm-bin pnpm@9"
   },
   "deploy": {
-    "startCommand": "node --experimental-specifier-resolution=node backend/dist/main",
+    "startCommand": "PUPPETEER_EXECUTABLE_PATH=$(command -v chromium || command -v chromium-browser) node --experimental-specifier-resolution=node backend/dist/main",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",

@@ -5,3 +5,9 @@
 # on PATH instead.
 [phases.setup]
 nixPkgs = ["nodejs_24", "pnpm"]
+# Project covers are screenshots, and puppeteer's own Chrome download never
+# happens here — so it launched nothing and every project stayed coverless.
+# Debian's build brings its shared libraries with it, which the Chrome-for-
+# Testing tarball does not on this image. The start command points puppeteer
+# at it; see railway.json.
+aptPkgs = ["chromium"]
