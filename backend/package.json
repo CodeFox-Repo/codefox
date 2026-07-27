@@ -52,6 +52,7 @@
     "@types/fs-extra": "^11.0.4",
     "@types/normalize-path": "^3.0.2",
     "@types/toposort": "^2.0.7",
+    "@vercel/sandbox": "^2.9.0",
     "ai": "^7.0.37",
     "archiver": "^7.0.1",
     "aws-sdk": "^2.1692.0",
