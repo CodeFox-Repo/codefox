@@ -4,6 +4,7 @@ import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import { Logger } from '@nestjs/common';
 import { graphqlUploadExpress } from 'graphql-upload-minimal';
+import { json } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -29,6 +30,10 @@ async function bootstrap() {
     '/graphql',
     graphqlUploadExpress({ maxFileSize: 50000000, maxFiles: 10 }),
   );
+
+  // Pasted screenshots reach /api/chat as base64 in the JSON body, which blows
+  // straight past Express's 100kb default. Bounded by ArrayMaxSize(4) on the DTO.
+  app.use(json({ limit: '25mb' }));
 
   console.log('process.env.PORT:', process.env.PORT);
   const server = await app.listen(process.env.PORT ?? 8080);

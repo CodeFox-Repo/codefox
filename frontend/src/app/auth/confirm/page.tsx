@@ -62,7 +62,7 @@ export default function ConfirmEmailPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4">
-      <BackgroundGradient className="rounded-[22px] p-4 bg-white dark:bg-zinc-900 max-w-md w-full">
+      <BackgroundGradient className="rounded-[22px] p-4 bg-background max-w-md w-full">
         <TextureCardHeader className="flex flex-col gap-2 items-center justify-center p-4">
           <TextureCardTitle className="text-center text-2xl">
             Email Verification
@@ -85,7 +85,7 @@ export default function ConfirmEmailPage() {
           <p className="mb-6">{message}</p>
 
           {status === 'success' && (
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            <p className="text-sm text-muted-foreground">
               You will be redirected to the home page shortly...
             </p>
           )}

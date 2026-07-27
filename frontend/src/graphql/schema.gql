@@ -26,16 +26,6 @@ type ChatCompletionChoiceType {
   index: Float
 }
 
-type ChatCompletionChunkType {
-  choices: [ChatCompletionChoiceType!]!
-  created: Float
-  id: String!
-  model: String
-  object: String
-  status: StreamStatus!
-  systemFingerprint: String
-}
-
 type ChatCompletionDeltaType {
   content: String
 }
@@ -54,8 +44,7 @@ input CheckTokenInput {
 input CreateProjectInput {
   databaseType: String
   description: String!
-  model: String = "gpt-4o-mini"
-  packages: [ProjectPackage!]!
+  model: String
   projectName: String
   public: Boolean
 }
@@ -124,9 +113,6 @@ type Mutation {
   registerUser(input: RegisterUserInput!): User!
   resendConfirmationEmail(input: ResendEmailInput!): EmailConfirmationResponse!
   saveMessage(input: ChatInputType!): Boolean!
-  subscribeToProject(projectId: ID!): Project!
-  syncProjectToGitHub(projectId: String!): Project!
-  triggerChatStream(input: ChatInputType!): Boolean!
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
   updateProjectPublicStatus(isPublic: Boolean!, projectId: ID!): Project!
@@ -153,7 +139,6 @@ type Project {
   isSyncedWithGitHub: Boolean!
   photoUrl: String
   projectName: String!
-  projectPackages: [ProjectPackages!]
   projectPath: String!
   subNumber: Float!
 
@@ -165,34 +150,14 @@ type Project {
   userId: ID!
 }
 
-input ProjectPackage {
-  name: String!
-  version: String!
-}
-
-type ProjectPackages {
-  content: String!
-  createdAt: Date!
-  id: ID!
-  isActive: Boolean!
-  isDeleted: Boolean!
-  name: String!
-  updatedAt: Date!
-  version: String!
-}
-
 type Query {
   checkToken(input: CheckTokenInput!): Boolean!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
   getAvailableModelTags: [String!]
   getChatDetails(chatId: String!): Chat
   getChatHistory(chatId: String!): [Message!]!
-  getCurProject(chatId: String!): Project
   getHello: String!
   getProject(projectId: String!): Project!
-  getRemainingProjectLimit: Int!
-  getSubscribedProjects: [Project!]!
-  getUserAvatar(userId: String!): String
   getUserChats: [Chat!]
   getUserProjects: [Project!]!
   isValidateProject(isValidProject: IsValidProjectInput!): Boolean!
@@ -220,15 +185,6 @@ enum Role {
   Assistant
   System
   User
-}
-
-enum StreamStatus {
-  DONE
-  STREAMING
-}
-
-type Subscription {
-  chatStream(input: ChatInputType!): ChatCompletionChunkType
 }
 
 input UpdateChatTitleInput {

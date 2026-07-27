@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FileUpload } from 'graphql-upload-minimal';
 import { UploadService } from '../upload/upload.service';
 import { validateAndBufferFile } from 'src/common/security/file_check';
-import { GitHubService } from 'src/github/github.service';
+// import { GitHubService } from 'src/github/github.service';
 
 @Injectable()
 export class UserService {
@@ -17,7 +17,7 @@ export class UserService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private readonly uploadService: UploadService,
-    private readonly gitHubService: GitHubService,
+    // private readonly gitHubService: GitHubService,
   ) {}
 
   // Method to get all chats of a user
@@ -40,6 +40,26 @@ export class UserService {
     return await this.userRepository.findOneBy({
       id,
     });
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    return await this.userRepository.findOne({
+      where: { email },
+    });
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['chats', 'projects'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // Hard delete the user (cascades will handle related entities)
+    await this.userRepository.remove(user);
   }
 
   /**
@@ -67,44 +87,44 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async bindUserIdAndInstallId(
-    userId: string,
-    installationId: string,
-    githubCode: string,
-  ): Promise<boolean> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+  // async bindUserIdAndInstallId(
+  //   userId: string,
+  //   installationId: string,
+  //   githubCode: string,
+  // ): Promise<boolean> {
+  //   const user = await this.userRepository.findOne({ where: { id: userId } });
+  //   if (!user) {
+  //     throw new NotFoundException('User not found');
+  //   }
 
-    if (user.githubInstallationId) {
-      throw new BadRequestException(
-        'User already linked to a GitHub installation.',
-      );
-    }
+  //   if (user.githubInstallationId) {
+  //     throw new BadRequestException(
+  //       'User already linked to a GitHub installation.',
+  //     );
+  //   }
 
-    if (!githubCode) {
-      throw new BadRequestException('Missing GitHub OAuth code');
-    }
+  //   if (!githubCode) {
+  //     throw new BadRequestException('Missing GitHub OAuth code');
+  //   }
 
-    console.log(
-      `Binding GitHub installation ID ${installationId} to user code ${githubCode}`,
-    );
+  //   console.log(
+  //     `Binding GitHub installation ID ${installationId} to user code ${githubCode}`,
+  //   );
 
-    //First request to GitHub to exchange the code for an access token (Wont expire)
-    const accessToken =
-      await this.gitHubService.exchangeOAuthCodeForToken(githubCode);
+  //   //First request to GitHub to exchange the code for an access token (Wont expire)
+  //   const accessToken =
+  //     await this.gitHubService.exchangeOAuthCodeForToken(githubCode);
 
-    user.githubInstallationId = installationId;
-    user.githubAccessToken = accessToken;
+  //   user.githubInstallationId = installationId;
+  //   user.githubAccessToken = accessToken;
 
-    try {
-      await this.userRepository.save(user);
-    } catch (error) {
-      console.error('Error saving user:', error);
-      throw new Error('Failed to save user with installation ID');
-    }
+  //   try {
+  //     await this.userRepository.save(user);
+  //   } catch (error) {
+  //     console.error('Error saving user:', error);
+  //     throw new Error('Failed to save user with installation ID');
+  //   }
 
-    return true;
-  }
+  //   return true;
+  // }
 }

@@ -2,7 +2,7 @@
 import { useContext, useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader } from 'lucide-react';
-import { TreeItem, TreeItemIndex } from 'react-complex-tree';
+import type { TreeNode } from './file-structure';
 import { ProjectContext } from './project-context';
 import CodeTab from './tabs/code-tab';
 import PreviewTab from './tabs/preview-tab';
@@ -33,7 +33,7 @@ export function CodeEngine({
   );
   const [isFileStructureLoading, setIsFileStructureLoading] = useState(false);
   const [fileStructureData, setFileStructureData] = useState<
-    Record<TreeItemIndex, TreeItem<any>>
+    Record<string, TreeNode>
   >({});
   const projectPathRef = useRef(null);
 
@@ -42,6 +42,10 @@ export function CodeEngine({
   const [timerActive, setTimerActive] = useState(false);
   const initialTime = 6 * 60; // 初始总时间（6分钟）
   const [projectCompleted, setProjectCompleted] = useState(false);
+  /** The poll came back empty: this chat was created without a project and
+   *  will never get one, so the progress animation is a promise it cannot
+   *  keep. */
+  const [hasNoProject, setHasNoProject] = useState(false);
   // 添加一个状态来跟踪完成动画
   const [isCompleting, setIsCompleting] = useState(false);
   // 添加一个ref来持久跟踪项目状态，避免重新渲染时丢失
@@ -63,18 +67,21 @@ export function CodeEngine({
     }
   }, [chatId]);
 
-  // Poll for project if needed using chatId
+  // Poll for project if needed using chatId.
+  // `projectCompleted` is a *presentation* flag persisted to localStorage to
+  // suppress the loading animation on a revisit. It must not gate data: doing
+  // so left the file tree spinning forever on any chat opened a second time,
+  // because the project was never resolved and activeProject fell back to
+  // whatever project the global context happened to hold.
   useEffect(() => {
-    // 如果项目已经完成，跳过轮询
-    if (projectCompleted || isProjectLoadedRef.current) {
-      return;
-    }
-
-    if (!curProject && chatId && !projectLoading) {
+    // Resolve the project from the chat being displayed, not from whatever
+    // project the global context happens to hold — they are often different.
+    if (chatId && !localProject && !projectLoading) {
       const loadProjectFromChat = async () => {
         try {
           setIsLoading(true);
           const project = await pollChatProject(chatId);
+          setHasNoProject(!project);
           if (project) {
             setLocalProject(project);
             // 如果成功加载项目，将状态设置为已完成
@@ -94,10 +101,11 @@ export function CodeEngine({
     } else {
       setIsLoading(projectLoading);
     }
-  }, [chatId, curProject, projectLoading, pollChatProject, projectCompleted]);
+  }, [chatId, localProject, projectLoading, pollChatProject, projectCompleted]);
 
   // Use either curProject from context or locally polled project
-  const activeProject = curProject || localProject;
+  // This chat's own project wins over the globally selected one.
+  const activeProject = localProject || curProject;
 
   // Update projectPathRef when project changes
   useEffect(() => {
@@ -272,9 +280,9 @@ export function CodeEngine({
           />
         );
       case 'preview':
-        return <PreviewTab />;
+        return <PreviewTab project={activeProject} />;
       case 'console':
-        return <ConsoleTab />;
+        return <ConsoleTab project={activeProject} />;
       default:
         return null;
     }
@@ -317,6 +325,9 @@ export function CodeEngine({
     if (projectCompleted || isProjectLoadedRef.current) {
       return false;
     }
+    if (hasNoProject) {
+      return false;
+    }
     return (
       !isProjectReady ||
       isLoading ||
@@ -328,6 +339,7 @@ export function CodeEngine({
     activeProject,
     projectCompleted,
     localProject,
+    hasNoProject,
   ]);
 
   useEffect(() => {
@@ -399,13 +411,30 @@ export function CodeEngine({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // Nothing to show a code panel for: this chat was started without a project,
+  // so the tabs, the file tree and the preview all have no subject.
+  if (hasNoProject) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+        <p className="font-mono text-sm tracking-[0.12em] text-primary">
+          NO PROJECT
+        </p>
+        <p className="max-w-[42ch] font-mono text-xs text-muted-foreground">
+          This conversation was started on its own, so there are no files to
+          show. Describe what you want built from the home page to get a project
+          alongside the chat.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-lg border shadow-sm overflow-scroll h-full">
+    <div className="h-full overflow-scroll">
       <ResponsiveToolbar
         isLoading={showLoader}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        projectId={curProject?.id || projectId}
+        projectId={activeProject?.id || projectId}
       />
 
       <div className="relative h-[calc(100vh-48px-4rem)]">
@@ -423,7 +452,7 @@ export function CodeEngine({
                   initial={{ scale: 0 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 200, damping: 10 }}
-                  className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center"
+                  className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -451,7 +480,7 @@ export function CodeEngine({
                       : `Initializing project (${progress}%)`}
                 </p>
 
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-1">
+                <div className="w-full bg-secondary rounded-full h-2.5 mb-1">
                   <motion.div
                     className={`h-2.5 rounded-full ${
                       progress === 100 ? 'bg-green-500' : 'bg-primary'

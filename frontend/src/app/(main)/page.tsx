@@ -5,16 +5,78 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { AuthChoiceModal } from '@/components/auth-choice-modal';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { ProjectsSection } from '@/components/root/projects-section';
 import { PromptForm, PromptFormRef } from '@/components/root/prompt-form';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { SignInModal } from '@/components/sign-in-modal';
 import { SignUpModal } from '@/components/sign-up-modal';
+import { Workbench } from '@/components/root/workbench';
+import { PublicProjects } from '@/components/root/public-projects';
 import { useRouter } from 'next/navigation';
 import { logger } from '../log/logger';
-import { AuroraText } from '@/components/magicui/aurora-text';
+
+/**
+ * The signed-out landing page.
+ *
+ * Everything stated here is something the product actually does — the tool
+ * sequence, the file counts and the diff below are from a recorded run, not
+ * illustrative copy.
+ */
+
+const TOOL_CALLS = [
+  { tool: 'read', target: 'src/app/page.tsx', result: '74 lines' },
+  { tool: 'bash', target: 'ls src/components', result: '42 parts' },
+  { tool: 'read', target: 'mode-toggle.tsx', result: 'reused' },
+  { tool: 'grep', target: '"ModeToggle"', result: '2 hits' },
+  { tool: 'edit', target: 'src/app/page.tsx', result: '+12 −5' },
+  { tool: 'edit', target: 'src/app/page.tsx', result: '+3 −0' },
+];
+
+const FACTS = [
+  {
+    n: '365',
+    title: 'files scaffolded',
+    hint: 'Next.js 15 + shadcn starter, copied per project',
+    accent: true,
+  },
+  {
+    n: '1',
+    title: 'dependency install, ever',
+    hint: '629 packages cached once, shared by every project',
+  },
+  {
+    n: '0',
+    title: 'cloud keys required',
+    hint: 'Any OpenAI- or Anthropic-compatible endpoint works',
+  },
+];
+
+const LIMITS = [
+  {
+    title: 'The sandbox is not isolation',
+    tag: 'by design',
+    body: 'The agent runs with the backend process privileges inside a scoped directory. That is the trade for using the CLI you are already signed into. Swap in a network sandbox provider for anything untrusted — same interface.',
+  },
+  {
+    title: 'Projects share one node_modules',
+    tag: 'known',
+    body: 'Every project comes from the same template, so they symlink a single install. That stops being true the moment the agent is allowed to add a dependency.',
+  },
+  {
+    title: 'One template, one stack',
+    tag: 'roadmap',
+    body: 'The scaffolder takes a git URL, so a second starter is configuration rather than code — but nothing selects between them yet.',
+  },
+];
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-md border border-border bg-card/60 px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground backdrop-blur">
+      {children}
+    </span>
+  );
+}
+
 export default function HomePage() {
-  // States for AuthChoiceModal
   const [showAuthChoice, setShowAuthChoice] = useState(false);
   const router = useRouter();
   const [showSignIn, setShowSignIn] = useState(false);
@@ -32,6 +94,7 @@ export default function HomePage() {
 
     try {
       const chatId = await createProjectFromPrompt(message, isPublic, model);
+      if (!chatId) return; // createProjectFromPrompt already surfaced the error
 
       promptFormRef.current.clearMessage();
       router.push(`/chat?id=${chatId}`);
@@ -40,145 +103,295 @@ export default function HomePage() {
     }
   };
 
+  // Signed in? Skip the pitch — go straight to the composer and your work.
+  if (isAuthorized) {
+    return (
+      <Workbench
+        promptFormRef={promptFormRef}
+        onSubmit={handleSubmit}
+        isLoading={isLoading}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen pt-16 pb-24 px-6 flex flex-col items-center justify-center relative overflow-hidden">
-      <div className="fixed inset-0 -z-20">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary-500/5 rounded-full blur-[120px] transform translate-x-1/2 -translate-y-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-primary-500/5 rounded-full blur-[100px] transform -translate-x-1/2 translate-y-1/2"></div>
-      </div>
+    <div className="relative overflow-x-clip">
+      {/* ---------- hero ---------- */}
+      <section className="relative">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[780px] opacity-[0.05]
+                     [background-image:linear-gradient(currentColor_1px,transparent_1px),linear-gradient(90deg,currentColor_1px,transparent_1px)]
+                     [background-size:62px_62px]
+                     [mask-image:radial-gradient(ellipse_85%_55%_at_45%_0%,#000_25%,transparent_78%)]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-24 h-[620px]
+                     bg-[radial-gradient(ellipse_55%_45%_at_25%_0%,hsl(var(--primary)/0.16),transparent_70%)]"
+        />
 
-      <div className="w-full mx-auto flex flex-col items-center mt-40 ">
-        <motion.div
-          className="flex flex-col items-center w-full"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="mb-6">
-            <Image
-              src="/codefox.svg"
-              alt="CodeFox Logo"
-              width={120}
-              height={120}
-              className="h-32 w-auto"
-            />
-          </div>
+        <div className="relative mx-auto grid w-full max-w-[1180px] gap-12 px-5 pb-20 pt-12 sm:px-10 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-20">
           <motion.div
-            className="mb-16 relative"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8 }}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="flex flex-col items-center">
-              <motion.h1
-                className="text-5xl sm:text-6xl font-bold mb-8 tracking-tight leading-tight text-center"
-                initial={{ y: -20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{
-                  duration: 0.8,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              >
-                From Idea to <AuroraText>Full-Stack</AuroraText> in Seconds
-              </motion.h1>
-
-              <motion.p
-                className="text-xl sm:text-2xl text-gray-600 dark:text-gray-400 max-w-2xl text-center"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{
-                  duration: 0.7,
-                  delay: 0.5,
-                  ease: 'easeOut',
-                }}
-              >
-                CodeFox provides an AI-driven multi-agent crew to help you
-                create your next project instantly
-              </motion.p>
+            <div className="mb-7 flex flex-wrap gap-2">
+              <Chip>Local-first</Chip>
+              <Chip>Claude Code inside</Chip>
+              <Chip>MIT</Chip>
             </div>
 
-            <motion.div
-              className="absolute -z-10 left-1/4 -translate-x-1/2 top-0 w-32 h-32 rounded-full bg-primary-500/10 blur-2xl"
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.5, 0.7, 0.5],
-              }}
-              transition={{
-                duration: 6,
-                repeat: Infinity,
-                repeatType: 'reverse',
-              }}
-            />
+            <h1 className="font-display text-[clamp(2.5rem,5vw,4rem)] font-bold leading-[1.02] tracking-[-0.035em] text-foreground">
+              One prompt.
+              <br />A repo that{' '}
+              <span className="text-primary">already runs</span>.
+            </h1>
 
-            <motion.div
-              className="absolute -z-10 right-1/4 translate-x-1/2 top-0 w-32 h-32 rounded-full bg-primary-500/10 blur-2xl"
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.5, 0.7, 0.5],
-              }}
-              transition={{
-                duration: 6,
-                delay: 1.5,
-                repeat: Infinity,
-                repeatType: 'reverse',
-              }}
-            />
-          </motion.div>
+            <p className="mt-6 max-w-[54ch] text-[1.0625rem] leading-relaxed text-muted-foreground">
+              CodeFox scaffolds a real Next.js project on your disk, points
+              Claude Code at it, and boots a dev server beside the chat. Not a
+              preview of code — the code, on a port, in your browser.
+            </p>
 
-          <motion.div
-            className="relative w-full max-w-3xl"
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{
-              duration: 0.8,
-              delay: 0.7,
-              ease: 'easeOut',
-            }}
-          >
-            <div className="absolute -z-10 inset-0 bg-gradient-to-r from-primary-500/5 to-primary-600/5 rounded-2xl blur-xl transform scale-105"></div>
-
-            <div className=" bg-white/10 dark:bg-gray-800/30 backdrop-blur-md rounded-lg border border-primary/20 dark:border-gray-700/40 shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_8px_30px_rgba(120,120,255,0.5)] hover:border-primary-500/60">
+            <div className="mt-9 rounded-xl border border-border bg-card">
               <PromptForm
                 ref={promptFormRef}
                 isAuthorized={isAuthorized}
                 onSubmit={handleSubmit}
                 onAuthRequired={() => setShowAuthChoice(true)}
                 isLoading={isLoading}
+                compact
+              />
+            </div>
+
+            <p className="mt-4 font-mono text-xs text-muted-foreground">
+              Node 18+ · no database to install · no cloud API key
+            </p>
+          </motion.div>
+
+          {/* Real product, not an illustration. Bleeds off the right edge. */}
+          <motion.div
+            className="relative lg:-mr-24 xl:-mr-40"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+                <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                  StreakKeeper — 127.0.0.1:55077
+                </span>
+              </div>
+              <Image
+                src="/demo/product-shot.png"
+                alt="The generated habit tracker running on localhost inside CodeFox preview"
+                width={1600}
+                height={1165}
+                className="block h-auto w-full"
+                priority
               />
             </div>
           </motion.div>
+        </div>
+      </section>
 
-          <motion.div
-            className="w-full mb-24 mt-40"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.8 }}
-          >
-            <ProjectsSection />
-          </motion.div>
-        </motion.div>
+      {/* ---------- the numbers ---------- */}
+      <section className="mx-auto w-full max-w-[1180px] px-5 pb-16 sm:px-10">
+        <div className="grid gap-8 border-t-[3px] border-border pt-8 sm:grid-cols-3">
+          {FACTS.map((f) => (
+            <div key={f.title}>
+              <p
+                className={`font-display text-[clamp(2.25rem,4vw,3rem)] font-bold leading-none tracking-[-0.04em] ${
+                  f.accent ? 'text-primary' : 'text-foreground'
+                }`}
+              >
+                {f.n}
+              </p>
+              <p className="mt-2 text-[1.0625rem] font-bold tracking-[-0.015em] text-foreground">
+                {f.title}
+              </p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                {f.hint}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        <AuthChoiceModal
-          isOpen={showAuthChoice}
-          onClose={() => setShowAuthChoice(false)}
-          onSignUpClick={() => {
-            setShowAuthChoice(false);
-            setTimeout(() => {
-              setShowSignUp(true);
-            }, 100);
-          }}
-          onSignInClick={() => {
-            setShowAuthChoice(false);
-            setTimeout(() => {
-              setShowSignIn(true);
-            }, 100);
-          }}
-        />
+      {/* ---------- inverted band: one real turn ----------
+          A page that stays one tone reads flat no matter how good the palette
+          is. This band flips surface and ink while keeping the same accent. */}
+      <section className="bg-foreground py-20 text-background">
+        <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-10">
+          <p className="mb-6 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
+            One turn, start to finish
+          </p>
 
-        <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} />
-        <SignUpModal isOpen={showSignUp} onClose={() => setShowSignUp(false)} />
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="font-display text-[clamp(2rem,6vw,4.25rem)] font-bold leading-[0.9] tracking-[-0.04em]">
+              Reset
+            </h2>
+            <span className="hidden font-mono text-[10px] uppercase tracking-[0.3em] opacity-50 [writing-mode:vertical-rl] sm:block">
+              captured live
+            </span>
+            <h2 className="font-display text-[clamp(2rem,6vw,4.25rem)] font-bold leading-[0.9] tracking-[-0.04em]">
+              Streaks
+            </h2>
+          </div>
+          <p className="mb-10 font-mono text-xs opacity-60">
+            the whole prompt: “Add a Reset Streaks button under the weekly
+            summary.”
+          </p>
+
+          <div className="grid gap-10 lg:grid-cols-2">
+            <div>
+              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] opacity-50">
+                What the agent did
+              </p>
+              <div className="rounded-xl border border-background/15">
+                {TOOL_CALLS.map((c, i) => (
+                  <div
+                    key={`${c.tool}-${i}`}
+                    className={`grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 px-4 py-2.5 font-mono text-xs ${
+                      i > 0 ? 'border-t border-background/10' : ''
+                    }`}
+                  >
+                    <span className="text-primary">{c.tool}</span>
+                    <span className="truncate">{c.target}</span>
+                    <span className="opacity-55">{c.result}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 font-mono text-xs opacity-55">
+                6 calls · 1 file touched · no scaffolding rewritten
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] opacity-50">
+                What changed on disk
+              </p>
+              <pre className="overflow-x-auto rounded-xl border border-background/15 p-4 font-mono text-xs leading-[1.9]">
+                <span className="opacity-50">src/app/page.tsx</span>
+                {'\n'}
+                <span className="text-primary">+ &apos;use client&apos;;</span>
+                {'\n'}
+                <span className="text-primary">
+                  + import {'{'} useState {'}'} from &apos;react&apos;;
+                </span>
+                {'\n\n'}
+                <span className="opacity-45">- const habits: Habit[] = [</span>
+                {'\n'}
+                <span className="text-primary">
+                  + const initialHabits: Habit[] = [
+                </span>
+                {'\n\n'}
+                <span className="text-primary">
+                  + const [habits, setHabits] = useState(initialHabits);
+                </span>
+                {'\n'}
+                <span className="text-primary">
+                  + const resetStreaks = () =&gt;
+                </span>
+              </pre>
+              <p className="mt-3 font-mono text-xs opacity-55">
+                It found the template&apos;s existing ModeToggle and reused it
+                instead of writing a new one.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- honest limits ---------- */}
+      <section className="mx-auto w-full max-w-[1180px] px-5 py-20 sm:px-10">
+        <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
+          Read this before you star it
+        </p>
+        <h2 className="max-w-[17ch] font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
+          What it does not do yet.
+        </h2>
+
+        <div className="mt-9 overflow-hidden rounded-xl border border-border">
+          {LIMITS.map((l, i) => (
+            <details
+              key={l.title}
+              className={`p-5 ${i > 0 ? 'border-t border-border' : ''}`}
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+                <span className="font-mono text-primary transition-transform">
+                  ›
+                </span>
+                <span className="text-[1.0625rem] font-bold tracking-[-0.015em] text-foreground">
+                  {l.title}
+                </span>
+                <span className="ml-auto rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                  {l.tag}
+                </span>
+              </summary>
+              <p className="mt-3 max-w-[70ch] pl-7 text-[0.9375rem] leading-relaxed text-muted-foreground">
+                {l.body}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <div className="mx-auto w-full max-w-[1180px] px-5 pb-20 sm:px-10">
+        <PublicProjects limit={6} />
       </div>
+
+      {/* ---------- close ---------- */}
+      <section className="mx-auto w-full max-w-[1180px] px-5 pb-28 sm:px-10">
+        <div className="border-t-[3px] border-border pt-12 text-center">
+          <h2 className="mx-auto max-w-[17ch] font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
+            Clone it, run one command, type one sentence.
+          </h2>
+          <p className="mx-auto mt-5 max-w-[52ch] text-[1.0625rem] leading-relaxed text-muted-foreground">
+            All of it happens on your machine. If it does not work in the first
+            minute, that is a bug worth filing.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => setShowSignUp(true)}
+              className="rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Get started
+            </button>
+            <a
+              href="https://github.com/Sma1lboy/codefox"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary"
+            >
+              Read the source
+            </a>
+          </div>
+          <p className="mt-6 font-mono text-xs text-muted-foreground">
+            MIT · Node 18+ · macOS, Linux, WSL
+          </p>
+        </div>
+      </section>
+
+      <AuthChoiceModal
+        isOpen={showAuthChoice}
+        onClose={() => setShowAuthChoice(false)}
+        onSignUpClick={() => {
+          setShowAuthChoice(false);
+          setTimeout(() => setShowSignUp(true), 100);
+        }}
+        onSignInClick={() => {
+          setShowAuthChoice(false);
+          setTimeout(() => setShowSignIn(true), 100);
+        }}
+      />
+      <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} />
+      <SignUpModal isOpen={showSignUp} onClose={() => setShowSignUp(false)} />
     </div>
   );
 }

@@ -1,14 +1,38 @@
 import { ChatInputType } from '@/graphql/type';
 import authenticatedFetch from '@/lib/authenticatedFetch';
 
+export interface ChatStreamHandlers {
+  /** Assistant text as it arrives. */
+  onText?: (delta: string) => void;
+  /** A tool the agent just invoked, with what it is acting on when known. */
+  onTool?: (name: string, target?: string) => void;
+  /** Turn-level failure reported by the backend. */
+  onError?: (message: string) => void;
+}
+
+export interface ChatStreamOptions extends ChatStreamHandlers {
+  /** Aborts the request; the backend stops the agent when the client hangs up. */
+  signal?: AbortSignal;
+  /** Attached images as `data:<mime>;base64,<data>` URLs. */
+  images?: string[];
+}
+
+/**
+ * Runs one agent turn and returns the assembled assistant text.
+ *
+ * The backend streams newline-delimited JSON events rather than raw text, so
+ * the caller can show which tool is running and which files changed while the
+ * turn is still in flight.
+ */
 export const startChatStream = async (
   input: ChatInputType,
   token: string,
-  stream: boolean = false // Default to non-streaming for better performance
+  { onText, onTool, onError, signal, images }: ChatStreamOptions = {}
 ): Promise<string> => {
   if (!token) {
     throw new Error('Not authenticated');
   }
+
   const { chatId, message, model } = input;
   const response = await authenticatedFetch('/api/chat', {
     method: 'POST',
@@ -16,12 +40,8 @@ export const startChatStream = async (
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      chatId,
-      message,
-      model,
-      stream,
-    }),
+    body: JSON.stringify({ chatId, message, model, images }),
+    signal,
   });
 
   if (!response.ok) {
@@ -29,44 +49,54 @@ export const startChatStream = async (
       `Network response was not ok: ${response.status} ${response.statusText}`
     );
   }
-  // TODO: Handle streaming responses properly
-  // if (stream) {
-  //   // For streaming responses, aggregate the streamed content
-  //   let fullContent = '';
-  //   const reader = response.body?.getReader();
-  //   if (!reader) {
-  //     throw new Error('No reader available');
-  //   }
 
-  //   while (true) {
-  //     const { done, value } = await reader.read();
-  //     if (done) break;
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body to read');
+  }
 
-  //     const text = new TextDecoder().decode(value);
-  //     const lines = text.split('\n\n');
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let content = '';
 
-  //     for (const line of lines) {
-  //       if (line.startsWith('data: ')) {
-  //         const data = line.slice(5);
-  //         if (data === '[DONE]') break;
-  //         try {
-  //           const { content } = JSON.parse(data);
-  //           if (content) {
-  //             fullContent += content;
-  //           }
-  //         } catch (e) {
-  //           console.error('Error parsing SSE data:', e);
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return fullContent;
-  // } else {
-  //   // For non-streaming responses, return the content directly
-  //   const data = await response.json();
-  //   return data.content;
-  // }
+  const handle = (line: string) => {
+    if (!line.trim()) return;
+    let event: { t?: string; v?: string; arg?: string };
+    try {
+      event = JSON.parse(line);
+    } catch {
+      return; // a torn frame; the next read completes it
+    }
+    switch (event.t) {
+      case 'text':
+        content += event.v ?? '';
+        onText?.(event.v ?? '');
+        break;
+      case 'tool':
+        onTool?.(event.v ?? '', event.arg);
+        break;
+      case 'error':
+        onError?.(event.v ?? 'The agent failed.');
+        break;
+    }
+  };
 
-  const data = await response.json();
-  return data.content;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Only whole lines are complete events; keep the tail for the next read.
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      lines.forEach(handle);
+    }
+    handle(buffer + decoder.decode());
+  } catch (error) {
+    // An abort is the user pressing stop, not a failure — keep what streamed.
+    if ((error as Error)?.name !== 'AbortError') throw error;
+  }
+
+  return content;
 };

@@ -7,7 +7,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import PullModel from './pull-model';
 import {
   AvatarFallback,
   AvatarImage,
@@ -20,7 +19,7 @@ import { useMemo, useState, memo, useEffect } from 'react';
 import { EventEnum } from '../const/EventEnum';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { LogOut } from 'lucide-react';
-import { normalizeAvatarUrl } from './avatar-uploader';
+import { mediaUrl } from '@/lib/media';
 
 interface UserSettingsProps {
   isSimple: boolean;
@@ -57,7 +56,7 @@ export const UserSettingsBar = ({ isSimple }: UserSettingsProps) => {
 
   // Normalize the avatar URL
   const normalizedAvatarUrl = useMemo(() => {
-    return normalizeAvatarUrl(user?.avatarUrl);
+    return mediaUrl(user?.avatarUrl);
   }, [user?.avatarUrl]);
 
   const handleSettingsClick = () => {

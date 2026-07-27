@@ -53,11 +53,11 @@ export default function OAuthCallbackPage() {
 
   return (
     <div className="flex h-screen w-full items-center justify-center">
-      <div className="text-center p-8 max-w-md rounded-xl bg-white dark:bg-zinc-900 shadow-lg">
+      <div className="text-center p-8 max-w-md rounded-xl bg-background shadow-lg">
         <h1 className="text-2xl font-bold mb-4">
           Completing authentication...
         </h1>
-        <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+        <p className="text-muted-foreground mb-4">
           Please wait while we sign you in.
         </p>
         <div className="flex justify-center">

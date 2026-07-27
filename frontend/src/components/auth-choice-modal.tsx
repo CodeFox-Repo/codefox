@@ -26,12 +26,12 @@ export function AuthChoiceModal({
           <DialogTitle>Choose Authentication Method</DialogTitle>
         </VisuallyHidden>
 
-        <BackgroundGradient className="rounded-[22px] p-4 bg-white dark:bg-zinc-900">
+        <BackgroundGradient className="rounded-[22px] p-4 bg-background">
           <div className="w-full p-6 space-y-6">
             <h2 className="text-2xl font-semibold text-center dark:text-white">
               Welcome to CodeFox
             </h2>
-            <p className="text-center text-neutral-600 dark:text-neutral-400">
+            <p className="text-center text-muted-foreground">
               Choose how you want to continue
             </p>
             <div className="space-y-4">

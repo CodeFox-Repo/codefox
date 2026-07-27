@@ -24,7 +24,8 @@ import {
 } from '@/graphql/mutations/auth';
 import { useRouter } from 'next/navigation';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { AlertCircle, CheckCircle, Mail, Clock, Github } from 'lucide-react';
+import { AlertCircle, CheckCircle, Mail, Clock } from 'lucide-react';
+import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { logger } from '@/app/log/logger';
 
@@ -193,14 +194,14 @@ export function SignUpModal({
           </DialogDescription>
         </VisuallyHidden>
 
-        <BackgroundGradient className="rounded-[22px] p-4 bg-white dark:bg-zinc-900 overflow-hidden">
+        <BackgroundGradient className="rounded-[22px] p-4 bg-background overflow-hidden">
           <div className="w-full">
             {registrationSuccess ? (
               <>
                 <TextureCardHeader className="flex flex-col gap-1 items-center justify-center p-4">
                   <CheckCircle className="h-12 w-12 text-green-500 mb-2" />
                   <TextureCardTitle>Verification Email Sent</TextureCardTitle>
-                  <p className="text-center text-neutral-600 dark:text-neutral-400">
+                  <p className="text-center text-muted-foreground">
                     Please check your email to complete registration. We have
                     sent a verification link to{' '}
                     <span className="font-medium">{email}</span>.
@@ -208,10 +209,10 @@ export function SignUpModal({
                 </TextureCardHeader>
                 <TextureSeparator />
                 <TextureCardContent className="space-y-4">
-                  <div className="flex flex-col gap-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+                  <div className="flex flex-col gap-2 p-4 rounded-lg bg-secondary border border-border">
                     <div className="flex items-center gap-2">
-                      <Mail className="h-5 w-5 text-blue-500" />
-                      <span className="font-medium text-blue-700 dark:text-blue-300">
+                      <Mail className="h-5 w-5 text-primary" />
+                      <span className="font-medium text-foreground">
                         Email Verification Required
                       </span>
                     </div>
@@ -226,7 +227,7 @@ export function SignUpModal({
                       className={`flex items-center gap-2 text-sm p-2 rounded-md ${
                         resendMessage.includes('has been resent')
                           ? 'bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 text-green-700 dark:text-green-400'
-                          : 'bg-primary-50 dark:bg-zinc-800 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400'
+                          : 'bg-primary-50 dark:bg-secondary border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400'
                       }`}
                     >
                       {resendMessage.includes('has been resent') ? (
@@ -266,7 +267,7 @@ export function SignUpModal({
               <>
                 <TextureCardHeader className="flex flex-col gap-1 items-center justify-center p-4">
                   <TextureCardTitle>Create account</TextureCardTitle>
-                  <p className="text-center text-neutral-600 dark:text-neutral-400">
+                  <p className="text-center text-muted-foreground">
                     Enter your information to create your account
                   </p>
                 </TextureCardHeader>
@@ -277,7 +278,13 @@ export function SignUpModal({
                     className="flex items-center justify-center gap-2 w-full"
                     type="button"
                     onClick={() => {
-                      // Redirect to your NestJS backend's Google OAuth endpoint
+                      // Same guard as the sign-in modal: the backend route
+                      // 302s to Google with whatever client id is configured,
+                      // so without one the user lands on a Google error page.
+                      if (!process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED) {
+                        toast.error('Google sign-up is not configured yet.');
+                        return;
+                      }
                       window.location.href =
                         process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
                         'http://localhost:8080/auth/google';
@@ -291,25 +298,13 @@ export function SignUpModal({
                     <span>Continue with Google</span>
                   </Button>
 
-                  {/* GitHub Sign Up Button - added below Google */}
-                  <div className="mt-4">
-                    <Button
-                      variant="outline"
-                      className="flex items-center justify-center gap-2 w-full"
-                      type="button"
-                    >
-                      <Github className="w-5 h-5 text-black dark:text-white" />
-                      <span>Continue with GitHub</span>
-                    </Button>
-                  </div>
-
                   {/* Divider with "or" text */}
                   <div className="relative my-6">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                      <div className="w-full border-t border-border"></div>
                     </div>
                     <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white dark:bg-zinc-900 text-gray-500">
+                      <span className="px-2 bg-background text-muted-foreground">
                         Or continue with
                       </span>
                     </div>
@@ -365,7 +360,7 @@ export function SignUpModal({
                         <div className="mt-2 space-y-2">
                           <div className="flex items-center gap-2">
                             <div className="text-sm">Password strength:</div>
-                            <div className="flex h-2 w-full max-w-[100px] overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                            <div className="flex h-2 w-full max-w-[100px] overflow-hidden rounded-full bg-secondary">
                               <div
                                 className={`h-full ${
                                   passwordStrength === 'weak'
@@ -385,7 +380,7 @@ export function SignUpModal({
                             </div>
                           </div>
 
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                          <div className="text-xs text-muted-foreground">
                             Password must:
                             <ul className="list-disc pl-5 mt-1 space-y-1">
                               <li
@@ -449,7 +444,7 @@ export function SignUpModal({
                     </div>
 
                     {errorMessage && (
-                      <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400 text-sm p-2 rounded-md bg-primary-50 dark:bg-zinc-800 border border-primary-200 dark:border-primary-800">
+                      <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400 text-sm p-2 rounded-md bg-primary-50 dark:bg-secondary border border-primary-200 dark:border-primary-800">
                         <AlertCircle className="h-4 w-4" />
                         <span>{errorMessage}</span>
                       </div>

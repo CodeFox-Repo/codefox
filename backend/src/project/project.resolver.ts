@@ -7,7 +7,6 @@ import {
   ResolveField,
   Parent,
   ID,
-  Int,
 } from '@nestjs/graphql';
 import { ProjectService } from './project.service';
 import { Project } from './project.model';
@@ -18,8 +17,8 @@ import {
   UpdateProjectPhotoInput,
 } from './dto/project.input';
 import { Logger, UseGuards } from '@nestjs/common';
-import { ProjectGuard } from '../guard/project.guard';
-import { GetUserIdFromToken } from '../decorator/get-auth-token.decorator';
+import { ProjectGuard } from '../common/guards/project.guard';
+import { GetUserIdFromToken } from '../common/decorators/get-auth-token.decorator';
 import { Chat } from 'src/chat/chat.model';
 import { User } from 'src/user/user.model';
 import { validateAndBufferFile } from 'src/common/security/file_check';
@@ -80,15 +79,6 @@ export class ProjectsResolver {
     return (await chats)?.filter((chat) => !chat.isDeleted) || [];
   }
 
-  @Mutation(() => Project)
-  async subscribeToProject(
-    @GetUserIdFromToken() userId: string,
-    @Args('projectId', { type: () => ID }) projectId: string,
-  ): Promise<Project> {
-    this.logger.log(`User ${userId} subscribing to project ${projectId}`);
-    return this.projectService.subscribeToProject(userId, projectId);
-  }
-
   @UseGuards(ProjectGuard)
   @Mutation(() => Project)
   async updateProjectPhoto(
@@ -136,17 +126,8 @@ export class ProjectsResolver {
     return this.projectService.forkProject(userId, projectId);
   }
 
-  @Query(() => [Project])
-  async getSubscribedProjects(
-    @GetUserIdFromToken() userId: string,
-  ): Promise<Project[]> {
-    this.logger.log(`Fetching subscribed projects for user ${userId}`);
-    return this.projectService.getSubscribedProjects(userId);
-  }
-
   /**
-   * Fetch public projects with limittation
-   * TODO(Sma1lboy): handle Rate limit later - each MAC shouldn't exceed 20 requests per minute
+   * Fetch public projects
    * @param input the inputs
    * @returns return some projects
    */
@@ -157,24 +138,16 @@ export class ProjectsResolver {
     return this.projectService.fetchPublicProjects(input);
   }
 
-  // In ProjectsResolver:
-  @Query(() => Int)
-  async getRemainingProjectLimit(
-    @GetUserIdFromToken() userId: string,
-  ): Promise<number> {
-    return this.projectService.getRemainingProjectLimit(userId);
-  }
-
-  @Mutation(() => Project)
-  async syncProjectToGitHub(
-    @Args('projectId') projectId: string,
-    @GetUserIdFromToken() userId: string,
-  ) {
-    // TODO: MAKE PUBLIC DYNAMIC
-    return this.projectService.syncProjectToGitHub(
-      userId,
-      projectId,
-      true /* isPublic? */,
-    );
-  }
+  // @Mutation(() => Project)
+  // async syncProjectToGitHub(
+  //   @Args('projectId') projectId: string,
+  //   @GetUserIdFromToken() userId: string,
+  // ) {
+  //   // TODO: MAKE PUBLIC DYNAMIC
+  //   return this.projectService.syncProjectToGitHub(
+  //     userId,
+  //     projectId,
+  //     true /* isPublic? */,
+  //   );
+  // }
 }

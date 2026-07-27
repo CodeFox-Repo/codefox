@@ -1,7 +1,8 @@
 'use client';
 
+import { FoxMark } from '@/components/root/fox-mark';
+import { Wordmark } from '@/components/root/wordmark';
 import { Button } from '@/components/ui/button';
-import Image from 'next/image';
 import { memo, useCallback, useContext, useState } from 'react';
 import SidebarSkeleton from './sidebar-skeleton';
 import UserSettingsBar from './user-settings-bar';
@@ -9,12 +10,9 @@ import { SideBarItem } from './sidebar-item';
 import { Chat } from '@/graphql/type';
 import { EventEnum } from '../const/EventEnum';
 import { useRouter } from 'next/navigation';
-import { FixedSizeList, ListChildComponentProps } from 'react-window';
 
 import {
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
   SidebarTrigger,
   Sidebar,
   SidebarRail,
@@ -27,7 +25,6 @@ import { logger } from '@/app/log/logger';
 import { useChatList } from '@/hooks/useChatList';
 import { cn } from '@/lib/utils';
 import { PlusIcon } from 'lucide-react';
-import { HomeIcon } from '@radix-ui/react-icons';
 
 interface SidebarProps {
   setIsModalOpen: (value: boolean) => void;
@@ -42,48 +39,6 @@ interface SidebarProps {
   error: unknown;
   onRefetch: () => void;
 }
-
-interface ChatRowData {
-  chats: Chat[];
-  currentChatId: string;
-  onSelect: (chatId: string) => void;
-  onRefetch: () => void;
-}
-
-interface ChatRowProps extends ListChildComponentProps {
-  data: ChatRowData;
-}
-
-// Row renderer for react-window
-const ChatRow = memo(
-  ({ index, style, data }: ChatRowProps) => {
-    const { onSelect, chats, currentChatId, onRefetch } = data;
-    const chat = chats[index];
-
-    return (
-      <div style={style}>
-        <SideBarItem
-          key={chat.id}
-          id={chat.id}
-          currentChatId={currentChatId}
-          title={chat.title}
-          onSelect={() => onSelect(chat.id)}
-          refetchChats={onRefetch}
-        />
-      </div>
-    );
-  },
-  (prevProps: ChatRowProps, nextProps: ChatRowProps) => {
-    // Only re-render if chatId or currentChatId changes
-    return (
-      prevProps.data.chats[prevProps.index].id ===
-        nextProps.data.chats[nextProps.index].id &&
-      prevProps.data.currentChatId === nextProps.data.currentChatId
-    );
-  }
-);
-
-ChatRow.displayName = 'ChatRow';
 
 function ChatSideBarComponent({
   setIsModalOpen,
@@ -122,116 +77,111 @@ function ChatSideBarComponent({
     <div
       data-collapsed={isCollapsed}
       // Unified text & background style:
-      className="relative flex flex-col h-full justify-between bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 font-sans"
+      className="relative flex flex-col h-full justify-between bg-background text-foreground font-sans"
     >
       <Sidebar
         collapsible="icon"
         side="left"
         // Give the sidebar a border on the right to match the rest of the layout
-        className="border-r flex-col  border-gray-200 dark:border-gray-700"
+        className="flex-col border-r border-border"
       >
         {/* Header Row */}
         <div
-          className={`flex items-center ${
-            isCollapsed ? 'justify-center w-full px-0' : 'justify-between px-3'
-          } pt-3`}
+          className={
+            isCollapsed
+              ? 'flex flex-col items-center gap-1 px-2 pt-3'
+              : 'flex h-14 items-center justify-between gap-1 px-3'
+          }
         >
-          {!isCollapsed && (
-            <div className="flex flex-1 items-center justify-between">
-              {/* Logo + Title */}
-              <Button
-                onClick={() => router.push('/')}
-                variant="ghost"
-                className="inline-flex items-center gap-2 pl-0 rounded-md"
-              >
-                <Image
-                  src="/codefox.svg"
-                  alt="CodeFox Logo"
-                  width={36}
-                  height={36}
-                  className="dark:invert"
-                />
-                <span className="text-primary-500 font-semibold text-base">
-                  CodeFox
-                </span>
-              </Button>
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            aria-label="CodeFox home"
+            tabIndex={-1}
+            className="flex h-9 items-center rounded-md transition-opacity hover:opacity-80"
+          >
+            {isCollapsed ? (
+              <FoxMark className="h-5 w-5 text-foreground" />
+            ) : (
+              <Wordmark />
+            )}
+          </button>
 
-              {/* Collapse Trigger */}
-              <SidebarTrigger
-                className="flex items-center justify-center w-10 h-10 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-              />
-            </div>
-          )}
-
-          {isCollapsed && (
-            <SidebarTrigger
-              className="flex items-center justify-center w-full p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-            />
-          )}
+          {/* Always reachable — collapsing must be reversible. */}
+          <SidebarTrigger
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+          />
         </div>
 
-        {/* Divider Line */}
-        <div className="border-t border-gray-200 dark:border-gray-700 my-2 w-full" />
+        <div className="w-full border-t border-border" />
 
-        {/* New Project Button */}
+        {/* Primary action */}
         <div
-          className={`flex ${
-            isCollapsed ? 'justify-center items-center w-full px-0' : ''
-          } w-full mt-3`}
+          className={`mt-2 ${isCollapsed ? 'flex justify-center px-2' : 'px-3'}`}
         >
-          <Button
-            onClick={() => {
-              router.push('/');
-              // if (isCollapsed) {
-              //   router.push('/');
-              // } else {
-              //   setIsModalOpen(true);
-              // }
-            }}
-            variant="ghost"
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            title="New project"
             className={cn(
-              'h-9 px-5 text-sm font-medium flex justify-start items-center gap-2 rounded-sm transition-colors  w-full',
-              isCollapsed &&
-                'justify-center w-11 h-11 px-0 bg-white border-gray-700/30 border dark:bg-gray-800 dark:border-gray-700'
+              'flex h-9 items-center rounded-md text-sm font-medium transition-colors hover:bg-accent',
+              isCollapsed ? 'w-9 justify-center' : 'w-full justify-start'
             )}
           >
-            <HomeIcon className="h-4 w-4" />
-            {!isCollapsed && <span>Home</span>}
-          </Button>
+            <span className="flex w-5 shrink-0 justify-center">
+              <PlusIcon
+                className="h-5 w-5"
+                style={{ color: 'hsl(var(--primary))' }}
+              />
+            </span>
+            {!isCollapsed && <span className="ml-2">New project</span>}
+          </button>
         </div>
-        {/* Chat List with Virtualization */}
-        <SidebarContent className="">
-          <SidebarGroup>
-            <SidebarGroupContent>
-              {!isCollapsed && chats.length > 0 && (
-                <FixedSizeList
-                  height={Math.min(
-                    // Adjust the max height for your layout
-                    window.innerHeight - 300,
-                    chats.length * 56
-                  )}
-                  width="100%"
-                  itemCount={chats.length}
-                  itemSize={56}
-                  itemData={{
-                    chats,
-                    currentChatId: currentChatid,
-                    onSelect: handleChatSelect,
-                    onRefetch,
-                  }}
-                >
-                  {ChatRow}
-                </FixedSizeList>
+
+        {/* Chat list. A plain scroll container: the virtualized version sized
+            itself from `window.innerHeight - 300`, which was wrong at every
+            viewport but one and never updated on resize. */}
+        <SidebarContent className="mt-3">
+          {!isCollapsed && (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex items-baseline justify-between px-3 pb-1">
+                <span className="font-mono text-[10px] tracking-[0.12em] text-primary">
+                  RECENT
+                </span>
+                {chats.length > 0 && (
+                  <span className="font-mono text-[10px] text-muted-foreground/70">
+                    {chats.length}
+                  </span>
+                )}
+              </div>
+
+              {chats.length === 0 ? (
+                <p className="px-3 py-2 text-[13px] text-muted-foreground">
+                  No projects yet.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-px overflow-y-auto px-3">
+                  {chats.map((chat) => (
+                    <SideBarItem
+                      key={chat.id}
+                      id={chat.id}
+                      currentChatId={currentChatid}
+                      title={chat.title}
+                      createdAt={chat.createdAt}
+                      onSelect={handleChatSelect}
+                      refetchChats={onRefetch}
+                    />
+                  ))}
+                </div>
               )}
-            </SidebarGroupContent>
-          </SidebarGroup>
+            </div>
+          )}
         </SidebarContent>
 
         {/* Footer Settings */}
         <SidebarFooter
-          className={`mt-auto border-t border-gray-200  dark:border-gray-700 ${
+          className={`mt-auto border-t border-border ${
             isCollapsed ? 'flex justify-center items-center  px-0' : 'px-3'
           }`}
         >
@@ -253,12 +203,12 @@ export const ChatSideBar = memo(
     if (prevProps.isCollapsed !== nextProps.isCollapsed) return false;
     if (prevProps.loading !== nextProps.loading) return false;
     if (prevProps.error !== nextProps.error) return false;
-    if (prevProps.chats.length !== nextProps.chats.length) return false;
-
-    // Compare chat IDs only
-    const prevIds = prevProps.chats.map((chat) => chat.id).join(',');
-    const nextIds = nextProps.chats.map((chat) => chat.id).join(',');
-    return prevIds === nextIds;
+    // Titles change without the list changing shape — on rename, and when a
+    // new chat gets auto-titled from its first message. Comparing ids alone
+    // skipped both, leaving the sidebar showing a stale name for the session.
+    const key = (chats: Chat[]) =>
+      chats.map((chat) => `${chat.id}:${chat.title}`).join(',');
+    return key(prevProps.chats) === key(nextProps.chats);
   }
 );
 
@@ -292,14 +242,12 @@ export function SidebarWrapper({
   );
 
   return (
-    <div className="min-h-screen flex bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 font-sans">
+    <div className="min-h-screen flex bg-background text-foreground font-sans">
+      {/* Persistent chrome: it should already be there, not fly in on every
+          navigation. Width still animates when you collapse it. */}
       {isAuthorized && (
-        <motion.div
-          initial={{ x: isCollapsed ? -55 : -250, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: isCollapsed ? -55 : -250, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 80, damping: 20 }}
-          className="fixed left-0 top-0 h-full z-50"
+        <div
+          className="fixed left-0 top-0 z-50 h-full transition-[width] duration-300"
           style={{ width: isCollapsed ? '55px' : '250px' }}
         >
           <ChatSideBar
@@ -315,7 +263,7 @@ export function SidebarWrapper({
             error={error}
             onRefetch={refetchChats}
           />
-        </motion.div>
+        </div>
       )}
       <div
         className="transition-all duration-300 flex justify-center w-full"

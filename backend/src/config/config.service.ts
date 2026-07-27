@@ -35,13 +35,6 @@ export class AppConfigService {
   }
 
   /**
-   * Get OpenAI API base URI
-   */
-  get openaiBaseUri(): string {
-    return this.configService.get('OPENAI_BASE_URI');
-  }
-
-  /**
    * Get S3/Cloudflare R2 configuration object
    */
   get s3Config() {
@@ -85,24 +78,10 @@ export class AppConfigService {
   }
 
   /**
-   * Check if using remote database
+   * Get database connection URL
    */
-  get useRemoteDb(): boolean {
-    return this.configService.get('USE_REMOTE_DB') === 'true';
-  }
-
-  /**
-   * Get database configuration
-   */
-  get dbConfig() {
-    return {
-      host: this.configService.get('DB_HOST'),
-      port: parseInt(this.configService.get('DB_PORT'), 10),
-      username: this.configService.get('DB_USERNAME'),
-      password: this.configService.get('DB_PASSWORD'),
-      database: this.configService.get('DB_DATABASE') || 'postgres',
-      region: this.configService.get('DB_REGION'),
-    };
+  get databaseUrl(): string {
+    return this.configService.get('DATABASE_URL');
   }
 
   /**
@@ -115,7 +94,7 @@ export class AppConfigService {
       clientId: this.configService.get('GITHUB_CLIENT_ID'),
       clientSecret: this.configService.get('GITHUB_CLIENT_SECRET'),
       webhookSecret: this.configService.get('GITHUB_WEBHOOK_SECRET'),
-      enabled: !!this.configService.get('GITHUB_ENABLED'),
+      enabled: this.githubEnabled,
     };
   }
 

@@ -1,7 +1,7 @@
-import { CreateDateColumn, UpdateDateColumn, ColumnType } from 'typeorm';
+import { CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /**
- * Universal date column options
+ * Date column options
  */
 interface UniversalDateOptions {
   nullable?: boolean;
@@ -9,22 +9,12 @@ interface UniversalDateOptions {
 }
 
 /**
- * Get database column type based on environment
- * @returns 'timestamp' for remote database, 'datetime' for local
- */
-function getDateColumnType(): ColumnType {
-  // FIXME: optimize this logic to use a config file or environment variable
-  // const useRemoteDb = process.env.USE_REMOTE_DB === 'true';
-  // use timestamp for remote database
-  return 'datetime' as ColumnType;
-}
-
-/**
- * Universal create date column decorator that handles both remote and local databases
+ * Create date column decorator. No explicit `type` — TypeORM maps it per
+ * driver (`timestamp` on postgres, `datetime` on sqlite); sqlite has no
+ * `timestamp` type and throws if one is forced.
  */
 export function UniversalCreateDateColumn(options: UniversalDateOptions = {}) {
   return CreateDateColumn({
-    type: getDateColumnType(),
     nullable: options.nullable,
     transformer: {
       to: (value: Date) => value,
@@ -34,11 +24,10 @@ export function UniversalCreateDateColumn(options: UniversalDateOptions = {}) {
 }
 
 /**
- * Universal update date column decorator that handles both remote and local databases
+ * Update date column decorator. See UniversalCreateDateColumn on `type`.
  */
 export function UniversalUpdateDateColumn(options: UniversalDateOptions = {}) {
   return UpdateDateColumn({
-    type: getDateColumnType(),
     nullable: options.nullable,
     transformer: {
       to: (value: Date) => value,

@@ -3,7 +3,7 @@
 // @Author: Jackson Chen
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Role } from '../auth/role/role.model';
+import { Role } from '../auth/role.model';
 import { InitRolesService } from './init-roles.service';
 
 @Module({

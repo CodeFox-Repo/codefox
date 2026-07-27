@@ -14,7 +14,7 @@ import { AuthService } from 'src/auth/auth.service';
 import {
   GetAuthToken,
   GetUserIdFromToken,
-} from 'src/decorator/get-auth-token.decorator';
+} from 'src/common/decorators/get-auth-token.decorator';
 import { Logger } from '@nestjs/common';
 import { EmailConfirmationResponse } from 'src/auth/auth.resolver';
 import { ResendEmailInput } from './dto/resend-email.input';
@@ -114,14 +114,5 @@ export class UserResolver {
       // Rethrow the exception to be handled by the GraphQL error handler
       throw error;
     }
-  }
-
-  /**
-   * Get the avatar URL for a user
-   */
-  @Query(() => String, { nullable: true })
-  async getUserAvatar(@Args('userId') userId: string): Promise<string | null> {
-    const user = await this.userService.getUser(userId);
-    return user ? user.avatarUrl : null;
   }
 }

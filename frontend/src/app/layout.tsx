@@ -1,15 +1,18 @@
 // frontend/src/app/layout.tsx
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display } from 'next/font/google';
+import { Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { BaseProviders } from '@/providers/BaseProvider';
-import NavLayout from '@/components/root/nav-layout';
 import RootLayout from '@/components/root/root-layout';
+import { DevAuthToggle } from '@/components/dev/auth-toggle';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const playfair = Playfair_Display({
+const grotesk = Space_Grotesk({
   subsets: ['latin'],
-  variable: '--font-playfair',
+  variable: '--font-grotesk',
+});
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
 });
 
 export const metadata: Metadata = {
@@ -27,10 +30,11 @@ export const viewport: Viewport = {
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${playfair.variable}  font-sans`}>
+      <body className={`${grotesk.variable} ${jetbrains.variable} font-sans`}>
         <BaseProviders>
-          <div className="min-h-screen w-full bg-gray-50 dark:bg-gray-900 transition-colors">
+          <div className="min-h-screen w-full bg-background transition-colors">
             <RootLayout>{children}</RootLayout>
+            <DevAuthToggle />
           </div>
         </BaseProviders>
       </body>

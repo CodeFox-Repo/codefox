@@ -8,33 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { logger } from '@/app/log/logger';
-
-// Avatar URL normalization helper
-export function normalizeAvatarUrl(
-  avatarUrl: string | null | undefined
-): string {
-  if (!avatarUrl) return '';
-
-  // Check if it's already an absolute URL (S3 case)
-  if (avatarUrl.startsWith('https:') || avatarUrl.startsWith('http:')) {
-    return avatarUrl;
-  }
-
-  // Check if it's a relative media path
-  if (avatarUrl.startsWith('media/')) {
-    // Convert to API route path
-    return `/api/${avatarUrl}`;
-  }
-
-  // Handle paths that might not have the media/ prefix
-  if (avatarUrl.includes('avatars/')) {
-    const parts = avatarUrl.split('avatars/');
-    return `/api/media/avatars/${parts[parts.length - 1]}`;
-  }
-
-  // Return as is for other cases
-  return avatarUrl;
-}
+import { mediaUrl } from '@/lib/media';
 
 interface AvatarUploaderProps {
   currentAvatarUrl: string;
@@ -115,7 +89,7 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({
   };
 
   // Use preview URL if available, otherwise use the normalized current avatar URL
-  const displayUrl = previewUrl || normalizeAvatarUrl(currentAvatarUrl);
+  const displayUrl = previewUrl || mediaUrl(currentAvatarUrl);
 
   return (
     <button

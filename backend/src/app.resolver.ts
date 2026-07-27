@@ -1,5 +1,5 @@
 import { Query, Resolver } from '@nestjs/graphql';
-import { RequireRoles } from './decorator/auth.decorator';
+import { RequireRoles } from './common/decorators/auth.decorator';
 
 @Resolver()
 export class AppResolver {

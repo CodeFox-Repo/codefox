@@ -14,9 +14,9 @@ import { User } from 'src/user/user.model';
 import { In, Repository } from 'typeorm';
 import { CheckTokenInput } from './dto/check-token.input';
 import { JwtCacheService } from 'src/jwt-cache/jwt-cache.service';
-import { Menu } from './menu/menu.model';
-import { Role } from './role/role.model';
-import { RefreshToken } from './refresh-token/refresh-token.model';
+import { Menu } from './menu.model';
+import { Role } from './role.model';
+import { RefreshToken } from './refresh-token.model';
 import { randomUUID } from 'crypto';
 import { compare, hash } from 'bcrypt';
 import {

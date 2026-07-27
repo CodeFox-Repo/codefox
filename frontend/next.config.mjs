@@ -36,14 +36,19 @@ const nextConfig = {
     ],
   },
 
-  // Add proxy configuration for API
+  // Proxy to the NestJS backend. `fallback` runs only after Next's own
+  // filesystem routes AND its dynamic routes are checked — the default
+  // (afterFiles) still beat dynamic segments, so every multi-segment route
+  // like /api/media/[...path] was being proxied away and 404ing.
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8080/api/:path*',
-      },
-    ];
+    return {
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:8080/api/:path*',
+        },
+      ],
+    };
   },
 };
 

@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CodeFox — one prompt, a project that actually runs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root{
+  --color-bg:        oklch(17.5% 0.003 100);
+  --color-surface:   oklch(20% 0.004 95);
+  --color-inset:     oklch(23.5% 0.005 95);
+  --color-well:      oklch(14% 0.003 95);
+  --color-text:      oklch(92.5% 0.011 95);
+  --color-muted:     oklch(69.5% 0.015 90);
+  --color-faint:     oklch(56% 0.014 90);
+  --color-rule:      oklch(25.7% 0.01 85);
+  --color-rule-soft: oklch(22% 0.008 85);
+  --color-accent:    oklch(65% 0.107 41);
+  --color-accent-2:  oklch(75% 0.085 45);
+  --color-accent-ink:oklch(14% 0.02 45);
+  --color-ok:        oklch(78.5% 0.1 136);
+  --color-warn:      oklch(75.5% 0.104 79);
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --radius-base: 0.625rem;
+  --radius-lg: 0.875rem;
+  --space-unit: 1rem;
+  --page-max: 1180px;
+  --ease-out: cubic-bezier(.16,1,.3,1);
+}
+.chip{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--color-rule);border-radius:6px;padding:.4rem .7rem;font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--color-muted);background:oklch(20% .004 95 / .55);backdrop-filter:blur(6px)}
+.chip:hover{border-color:var(--color-accent-line,var(--color-accent));color:var(--color-text)}
+/* Crop marks at the hero's grid corners — borrowed from Elydora's frame. */
+.crop{position:absolute;width:11px;height:11px;pointer-events:none;color:var(--color-rule)}
+.crop::before,.crop::after{content:'';position:absolute;background:currentColor}
+.crop::before{left:5px;top:0;width:1px;height:11px}
+.crop::after{top:5px;left:0;height:1px;width:11px}
+.cmdtabs input{position:absolute;opacity:0;pointer-events:none}
+.cmdtabs label{cursor:pointer;font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.09em;text-transform:uppercase;color:var(--color-faint);padding:0 0 .5rem;border-bottom:2px solid transparent;transition:color 120ms,border-color 120ms}
+.cmdtabs label:hover{color:var(--color-muted)}
+#c-pnpm:checked~.cmdlist label[for=c-pnpm],#c-npm:checked~.cmdlist label[for=c-npm],#c-git:checked~.cmdlist label[for=c-git]{color:var(--color-accent);border-color:var(--color-accent)}
+#c-pnpm:checked~.cmdbox .c-pnpm,#c-npm:checked~.cmdbox .c-npm,#c-git:checked~.cmdbox .c-git{display:flex}
+.cmdbox button{margin-left:auto;flex-shrink:0}
+.cmdbox{display:flex;align-items:center;gap:.75rem}
+.cmdbox>div{display:none;align-items:center;gap:.75rem;flex:1;min-width:0}
+.opsrow{display:grid;grid-template-columns:1.15fr .9fr .8fr auto;gap:.75rem;padding:.5rem .9rem;font-family:var(--font-mono);font-size:.75rem;border-top:1px solid var(--color-rule-soft)}
+.opsrow:first-of-type{border-top:0}
+*{box-sizing:border-box}
+html,body{background:var(--color-bg);overflow-x:clip}
+body{color:var(--color-text);font-family:var(--font-display);margin:0;line-height:1.6}
+main{animation:fade .18s var(--ease-out) both}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.wrap{max-width:var(--page-max);margin:0 auto;padding-inline:clamp(20px,4vw,40px)}
+.mono{font-family:var(--font-mono)}
+.eyebrow{font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent)}
+.display{font-size:clamp(2.5rem,5.4vw,4.25rem);line-height:1.02;letter-spacing:-.035em;font-weight:700}
+.h2{font-size:clamp(1.75rem,3.4vw,2.5rem);line-height:1.08;letter-spacing:-.025em;font-weight:700}
+.h3{font-size:1.1875rem;letter-spacing:-.015em;font-weight:700}
+.body{font-size:1.0625rem;line-height:1.65;color:var(--color-muted);max-width:62ch}
+.cap{font-family:var(--font-mono);font-size:.75rem;color:var(--color-faint)}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px;border-radius:4px}
+.btn{display:inline-flex;align-items:center;gap:.5rem;border-radius:var(--radius-base);padding:.75rem 1.15rem;font-size:.9375rem;font-weight:500;text-decoration:none;transition:transform 120ms var(--ease-out),background 120ms,box-shadow 160ms,border-color 120ms}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--color-accent);color:var(--color-accent-ink);font-weight:700}
+.btn-primary:hover{background:var(--color-accent-2)}
+.btn-ghost{border:1px solid var(--color-rule);color:var(--color-text)}
+.btn-ghost:hover{border-color:var(--color-accent)}
+.rule{border-top:3px solid var(--color-rule)}
+.hair{border-top:1px solid var(--color-rule-soft)}
+.card{background:var(--color-surface);border:1px solid var(--color-rule);border-radius:var(--radius-lg)}
+.grain{position:absolute;inset:0;pointer-events:none;opacity:.035;mix-blend-mode:overlay}
+.glow{position:absolute;inset-inline:0;top:-120px;height:620px;pointer-events:none;
+  background:radial-gradient(ellipse 60% 46% at 22% 0%, oklch(65% 0.107 41 / .17), transparent 68%),
+             radial-gradient(ellipse 44% 38% at 82% 6%, oklch(78.5% 0.1 136 / .07), transparent 70%)}
+.grid-bg{position:absolute;inset-inline:0;top:0;height:820px;pointer-events:none;opacity:.055;
+  background-image:linear-gradient(currentColor 1px,transparent 1px),linear-gradient(90deg,currentColor 1px,transparent 1px);
+  background-size:62px 62px;
+  -webkit-mask-image:radial-gradient(ellipse 88% 54% at 50% 0%,#000 28%,transparent 78%);
+  mask-image:radial-gradient(ellipse 88% 54% at 50% 0%,#000 28%,transparent 78%)}
+.term{font-family:var(--font-mono);font-size:.8125rem;line-height:1.95;white-space:pre;overflow-x:auto;color:oklch(88% .012 95)}
+.pill{display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--color-rule);border-radius:999px;padding:.2rem .6rem;font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.06em;text-transform:uppercase;color:var(--color-muted)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--color-ok);box-shadow:0 0 0 0 oklch(78.5% .1 136 / .55);animation:pulse 2.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 oklch(78.5% .1 136 / .5)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.bignum{font-size:clamp(2.25rem,4.2vw,3.25rem);font-weight:700;letter-spacing:-.04em;line-height:1;font-family:var(--font-display)}
+.lift{transition:transform 120ms var(--ease-out),border-color 120ms}
+.lift:hover{transform:translateY(-2px);border-color:var(--color-accent)}
+.tabs input{position:absolute;opacity:0;pointer-events:none}
+.tabs label{cursor:pointer;border-bottom:2px solid transparent;transition:color 120ms,border-color 120ms}
+.tabs label:hover{color:var(--color-text)}
+.panel{display:none;animation:panel .22s var(--ease-out) both}
+@keyframes panel{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+#t-files:checked~.tablist label[for=t-files],#t-diff:checked~.tablist label[for=t-diff],#t-prev:checked~.tablist label[for=t-prev]{color:var(--color-accent);border-color:var(--color-accent)}
+#t-files:checked~.panels .p-files,#t-diff:checked~.panels .p-diff,#t-prev:checked~.panels .p-prev{display:block}
+details summary{cursor:pointer;list-style:none;transition:color 120ms}
+details summary::-webkit-details-marker{display:none}
+details summary:hover{color:var(--color-accent-2)}
+details[open] .chev{transform:rotate(90deg)}
+.chev{transition:transform 180ms var(--ease-out)}
+.kbd{font-family:var(--font-mono);font-size:.6875rem;border:1px solid var(--color-rule);border-bottom-width:2px;border-radius:5px;padding:.1rem .35rem;color:var(--color-muted)}
+.tip{position:relative}
+.tip::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%) translateY(3px);background:var(--color-inset);border:1px solid var(--color-rule);color:var(--color-text);font-family:var(--font-mono);font-size:.6875rem;padding:.3rem .5rem;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity 140ms,transform 140ms}
+.tip:hover::after{opacity:1;transform:translateX(-50%)}
+.add{color:var(--color-ok)}.del{color:oklch(70% .11 25)}
+/* Inverted band — same hues, flipped lightness, so it still reads as one brand. */
+.light-band{background:oklch(94% .006 85);color:oklch(20% .01 85);
+  --color-text:oklch(20% .01 85);--color-muted:oklch(42% .012 85);--color-faint:oklch(52% .012 85);
+  --color-rule:oklch(84% .008 85);--color-rule-soft:oklch(88% .006 85);
+  --color-surface:oklch(97% .004 85);--color-well:oklch(91% .006 85);
+  --color-accent:oklch(50% .12 41);--color-ok:oklch(48% .11 136)}
+.light-band .term{color:oklch(26% .012 85)}
+.light-band .pill{background:oklch(97% .004 85)}
+/* Display words pushed to opposite edges, the FEATURED⋯WORK device. */
+.edgeline{display:flex;align-items:center;justify-content:space-between;gap:var(--space-unit)}
+.edgeline .w{font-weight:700;letter-spacing:-.04em;line-height:.9;font-size:clamp(2rem,6.4vw,4.5rem)}
+.edgeline .mid{writing-mode:vertical-rl;font-family:var(--font-mono);font-size:.625rem;letter-spacing:.3em;text-transform:uppercase;color:var(--color-faint)}
+</style>
+</head>
+<body>
+
+<header class="relative">
+  <div class="grid-bg" aria-hidden="true"></div>
+  <div class="glow" aria-hidden="true"></div>
+  <nav class="relative mx-auto mt-5 flex max-w-[1180px] items-center justify-between gap-4 rounded-full border px-5 py-2.5" style="border-color:var(--color-rule);background:oklch(20% .004 95 / .72);backdrop-filter:blur(10px);width:calc(100% - 2*clamp(20px,4vw,40px))">
+    <a href="#top" class="flex items-center gap-2.5 no-underline" aria-label="CodeFox home">
+      <svg viewBox="0 0 32 32" fill="none" class="h-7 w-7" aria-hidden="true">
+        <path d="M4.5 3.5 10.5 11h11l6-7.5L28 13 16 28.5 4 13Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M11 15h2.4M18.6 15h2.4" stroke="var(--color-accent)" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      <span class="mono text-sm"><span style="color:var(--color-accent)">$</span> <strong>codefox</strong></span>
+    </a>
+    <div class="flex items-center gap-2">
+      <a href="#run" class="btn btn-ghost mono text-xs hidden sm:inline-flex">See a real run</a>
+      <a href="#start" class="btn btn-primary mono text-xs">Get started</a>
+      <span class="cap hidden md:inline" style="letter-spacing:.1em">[2026]</span>
+    </div>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- ░░ 1 · HERO ░░ -->
+  <section class="wrap relative pb-20 pt-16 md:pt-24">
+    <span class="crop" style="left:-6px;top:0"></span>
+    <span class="crop" style="right:-6px;top:0"></span>
+
+    <div class="grid gap-14 lg:grid-cols-[1.02fr_1fr] lg:items-start">
+      <div>
+        <div class="mb-8 flex flex-wrap gap-2">
+          <span class="chip">Local-first</span>
+          <span class="chip">Claude Code inside</span>
+          <a href="#start" class="chip no-underline">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.35c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>
+            75 stars
+          </a>
+        </div>
+
+        <h1 class="display max-w-[15ch]">One prompt.<br />A repo that <span style="color:var(--color-accent)">already runs</span>.</h1>
+
+        <p class="body mt-7">CodeFox scaffolds a real Next.js project on your disk, points Claude Code at it, and boots a dev server beside the chat. Not a preview of code — the code, on a port, in your browser.</p>
+
+        <!-- install command, Elydora-style: tabbed, monospaced, its own block -->
+        <div class="cmdtabs mt-9">
+          <input type="radio" name="cmd" id="c-pnpm" checked />
+          <input type="radio" name="cmd" id="c-npm" />
+          <input type="radio" name="cmd" id="c-git" />
+          <div class="cmdlist flex gap-5 border-b" style="border-color:var(--color-rule-soft)">
+            <label for="c-pnpm">pnpm</label>
+            <label for="c-npm">npm</label>
+            <label for="c-git">from source</label>
+          </div>
+          <div class="cmdbox mt-0 rounded-b-[var(--radius-base)] border border-t-0 px-4 py-3.5" style="border-color:var(--color-rule);background:var(--color-well)">
+            <div class="c-pnpm"><span class="mono text-sm" style="color:var(--color-accent)">$</span><span class="mono text-sm">pnpm install &amp;&amp; pnpm dev</span></div>
+            <div class="c-npm"><span class="mono text-sm" style="color:var(--color-accent)">$</span><span class="mono text-sm">npm install &amp;&amp; npm run dev</span></div>
+            <div class="c-git"><span class="mono text-sm" style="color:var(--color-accent)">$</span><span class="mono text-sm">git clone github.com/Sma1lboy/codefox</span></div>
+            <button id="copy" class="ml-auto shrink-0" data-cmd="pnpm install &amp;&amp; pnpm dev" aria-label="Copy command">
+              <span id="copy-state" class="cap">copy</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap items-center gap-3">
+          <a href="#start" class="btn btn-primary" style="padding:.9rem 1.5rem">Get started</a>
+          <a href="#run" class="btn btn-ghost" style="padding:.9rem 1.5rem">See a real run →</a>
+        </div>
+        <p class="cap mt-5">Node 18+ · no database to install · no cloud API key</p>
+      </div>
+
+      <!-- hero visual: the agent's actual tool stream -->
+      <div class="card overflow-hidden lg:mt-[4.5rem]" style="background:var(--color-well)">
+        <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--color-rule)">
+          <span class="pill"><span class="dot" aria-hidden="true"></span>Live agent</span>
+          <span class="cap">claude-sonnet-5 · local</span>
+        </div>
+        <div class="px-4 py-2">
+          <div class="opsrow" style="color:var(--color-faint)">
+            <span>TOOL</span><span>TARGET</span><span>RESULT</span><span></span>
+          </div>
+          <div class="opsrow"><span style="color:var(--color-accent)">read</span><span>src/app/page.tsx</span><span style="color:var(--color-faint)">74 lines</span><span class="add">✓</span></div>
+          <div class="opsrow"><span style="color:var(--color-accent)">bash</span><span>ls src/components</span><span style="color:var(--color-faint)">42 parts</span><span class="add">✓</span></div>
+          <div class="opsrow"><span style="color:var(--color-accent)">read</span><span>mode-toggle.tsx</span><span style="color:var(--color-faint)">reused</span><span class="add">✓</span></div>
+          <div class="opsrow"><span style="color:var(--color-accent)">grep</span><span>"ModeToggle"</span><span style="color:var(--color-faint)">2 hits</span><span class="add">✓</span></div>
+          <div class="opsrow"><span style="color:var(--color-accent)">edit</span><span>src/app/page.tsx</span><span class="add">+12 −5</span><span class="add">✓</span></div>
+          <div class="opsrow"><span style="color:var(--color-accent)">edit</span><span>src/app/page.tsx</span><span class="add">+3 −0</span><span class="add">✓</span></div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3" style="border-top:1px solid var(--color-rule);background:var(--color-surface)">
+          <span class="cap">6 calls · 1 file · 0 scaffolding rewritten</span>
+          <span class="cap" style="color:var(--color-ok)">▲ localhost:50481</span>
+        </div>
+      </div>
+    </div>
+
+    <span class="crop" style="left:-6px;bottom:-20px"></span>
+    <span class="crop" style="right:-6px;bottom:-20px"></span>
+  </section>
+
+  <!-- ░░ 2 · REALITY STRIP ░░ -->
+  <section class="wrap py-10">
+    <div class="rule pt-8 grid gap-8 sm:grid-cols-3">
+      <div>
+        <p class="bignum" style="color:var(--color-accent)">365</p>
+        <p class="h3 mt-2">files scaffolded</p>
+        <p class="cap mt-1">Next.js 15 + shadcn starter, copied per project</p>
+      </div>
+      <div>
+        <p class="bignum">1</p>
+        <p class="h3 mt-2">dependency install, ever</p>
+        <p class="cap mt-1">629 packages cached once, symlinked into every project</p>
+      </div>
+      <div>
+        <p class="bignum" style="color:var(--color-ok)">0</p>
+        <p class="h3 mt-2">cloud keys required</p>
+        <p class="cap mt-1">Points at any OpenAI- or Anthropic-compatible endpoint</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ 3 · THE ACTUAL PIPELINE ░░ -->
+  <section class="wrap py-14">
+    <div class="rule pt-8">
+      <p class="eyebrow mb-4">What actually happens</p>
+      <h2 class="h2 max-w-[16ch]">Four steps, none of them a mock.</h2>
+    </div>
+
+    <div class="mt-10 grid gap-px" style="background:var(--color-rule-soft);border:1px solid var(--color-rule-soft);border-radius:var(--radius-lg);overflow:hidden">
+      <div class="grid md:grid-cols-[7rem_1fr_1.1fr] gap-5 p-6" style="background:var(--color-bg)">
+        <span class="eyebrow">01 · Scaffold</span>
+        <div>
+          <h3 class="h3">A directory, not a plan</h3>
+          <p class="body text-[.9375rem] mt-2">The starter template is cloned once and copied per project. Your project has a real <code class="mono" style="color:var(--color-accent-2)">package.json</code> before the model writes a single line.</p>
+        </div>
+        <pre class="term">git clone --depth 1 template
+cp -r template .codefox/projects/&lt;id&gt;
+ln -s cache/node_modules ./node_modules</pre>
+      </div>
+
+      <div class="grid md:grid-cols-[7rem_1fr_1.1fr] gap-5 p-6" style="background:var(--color-bg)">
+        <span class="eyebrow">02 · Agent</span>
+        <div>
+          <h3 class="h3">Claude Code, embedded</h3>
+          <p class="body text-[.9375rem] mt-2">Not a homegrown loop. The real agent runs through the AI SDK harness with its own read, edit, search and shell tools.</p>
+        </div>
+        <pre class="term">read   src/app/page.tsx
+bash   ls src/components/ui
+read   src/components/mode-toggle.tsx
+edit   src/app/page.tsx</pre>
+      </div>
+
+      <div class="grid md:grid-cols-[7rem_1fr_1.1fr] gap-5 p-6" style="background:var(--color-bg)">
+        <span class="eyebrow">03 · Sandbox</span>
+        <div>
+          <h3 class="h3">Your machine is the sandbox</h3>
+          <p class="body text-[.9375rem] mt-2">A local sandbox provider gives the agent a scoped directory, real child processes and a localhost port — so it can use the Claude CLI you are already signed into.</p>
+        </div>
+        <pre class="term">provider  codefox-local
+cwd       .codefox/projects/&lt;id&gt;
+bridge    ws://127.0.0.1:&lt;port&gt;
+auth      your existing login</pre>
+      </div>
+
+      <div class="grid md:grid-cols-[7rem_1fr_1.1fr] gap-5 p-6" style="background:var(--color-bg)">
+        <span class="eyebrow">04 · Preview</span>
+        <div>
+          <h3 class="h3">A dev server, not a screenshot</h3>
+          <p class="body text-[.9375rem] mt-2">Each project gets its own <code class="mono" style="color:var(--color-accent-2)">next dev</code> on a free port, reused between visits and torn down with the app.</p>
+        </div>
+        <pre class="term">▲ Next.js 15.2.2
+  ready on http://127.0.0.1:50481
+  reused   1.0s
+  files    365 · build output hidden</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ 4 · A REAL RUN (interactive) ░░ -->
+  <!-- Full-bleed light band. A page that is dark end to end reads flat no
+       matter how good the palette is; the tonal switch is the rhythm. -->
+  <section id="run" class="light-band py-20">
+   <div class="wrap">
+    <p class="eyebrow mb-6">One turn, start to finish</p>
+    <h2 class="edgeline mb-4">
+      <span class="w">Reset</span>
+      <span class="mid">captured live</span>
+      <span class="w">Streaks</span>
+    </h2>
+    <p class="cap mb-8">the whole prompt: “Add a Reset Streaks button under the weekly summary.”</p>
+
+    <div class="tabs mt-8">
+      <input type="radio" name="run" id="t-files" checked />
+      <input type="radio" name="run" id="t-diff" />
+      <input type="radio" name="run" id="t-prev" />
+
+      <div class="tablist flex gap-6 mb-5" role="tablist">
+        <label for="t-files" class="mono text-sm pb-2" style="color:var(--color-muted)">Tool calls</label>
+        <label for="t-diff" class="mono text-sm pb-2" style="color:var(--color-muted)">Diff</label>
+        <label for="t-prev" class="mono text-sm pb-2" style="color:var(--color-muted)">Preview</label>
+      </div>
+
+      <div class="panels">
+        <div class="panel p-files card p-6" style="background:var(--color-well)">
+          <pre class="term"><span style="color:var(--color-faint)">the agent decided this needed client state, on its own</span>
+
+<span style="color:var(--color-accent)">read</span>   src/app/page.tsx
+<span style="color:var(--color-accent)">bash</span>   ls src/components
+<span style="color:var(--color-accent)">read</span>   src/components/theme-provider.tsx
+<span style="color:var(--color-accent)">bash</span>   grep -r "ModeToggle" src
+<span style="color:var(--color-accent)">edit</span>   src/app/page.tsx        +12 −5
+<span style="color:var(--color-accent)">edit</span>   src/app/page.tsx        +3  −0
+
+<span class="add">✓</span> 6 tool calls · 1 file touched · no scaffolding rewritten</pre>
+        </div>
+
+        <div class="panel p-diff card p-6" style="background:var(--color-well)">
+          <pre class="term"><span style="color:var(--color-faint)">src/app/page.tsx</span>
+<span class="add">+ 'use client';</span>
+<span class="add">+ import { useState } from 'react';</span>
+<span class="add">+ import { Button } from '@/registry/new-york-v4/ui/button';</span>
+
+<span class="del">- const habits: Habit[] = [</span>
+<span class="add">+ const initialHabits: Habit[] = [</span>
+
+<span class="del">- const totalGoal = habits.reduce((s, h) =&gt; s + h.weeklyGoal, 0);</span>
+<span class="add">+ const [habits, setHabits] = useState(initialHabits);</span>
+<span class="add">+ const resetStreaks = () =&gt;</span>
+<span class="add">+   setHabits((p) =&gt; p.map((h) =&gt; ({ ...h, streak: 0 })));</span></pre>
+          <p class="cap mt-4">It found the template's existing <span class="mono" style="color:var(--color-accent-2)">ModeToggle</span> and reused it instead of writing a new one.</p>
+        </div>
+
+        <div class="panel p-prev card overflow-hidden" style="background:var(--color-well)">
+          <div class="flex items-center gap-2 px-4 py-2.5 hair" style="border-top:0;border-bottom:1px solid var(--color-rule)">
+            <span class="cap">127.0.0.1:50481</span>
+            <span class="pill ml-auto"><span class="dot" aria-hidden="true"></span>live</span>
+          </div>
+          <div class="p-6">
+            <p class="h3">Habit Tracker</p>
+            <p class="cap mt-1">Stay consistent and keep your streaks alive.</p>
+            <div class="mt-4 grid gap-2">
+              <div class="flex items-center justify-between rounded-lg p-3" style="background:var(--color-inset)">
+                <span class="text-sm">Morning Run</span><span class="pill" style="color:var(--color-accent-2)">12 day streak</span>
+              </div>
+              <div class="flex items-center justify-between rounded-lg p-3" style="background:var(--color-inset)">
+                <span class="text-sm">Read 20 Pages</span><span class="pill" style="color:var(--color-accent-2)">27 day streak</span>
+              </div>
+            </div>
+            <button class="btn btn-ghost mono text-xs mt-4">↺ Reset Streaks</button>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ░░ 5 · BEFORE / AFTER (architecture) ░░ -->
+  <section class="wrap py-14">
+    <div class="rule pt-8">
+      <p class="eyebrow mb-4">Why it got better</p>
+      <h2 class="h2 max-w-[20ch]">We deleted our agent and used a real one.</h2>
+    </div>
+
+    <div class="mt-9 grid gap-4 md:grid-cols-2">
+      <div class="card p-6" style="border-color:var(--color-rule-soft)">
+        <p class="cap mb-4">BEFORE · hand-rolled workflow</p>
+        <pre class="term" style="color:var(--color-faint)">prompt → XML → parse → tool table
+  listFiles  readFile  writeFile</pre>
+        <ul class="mt-5 space-y-2 text-sm" style="color:var(--color-faint)">
+          <li>3 tools, written and maintained by us</li>
+          <li>Ran in the browser tab</li>
+          <li>Whole-file rewrites only</li>
+          <li>Broke when the model's XML drifted</li>
+        </ul>
+      </div>
+      <div class="card p-6" style="border-color:var(--color-accent)">
+        <p class="cap mb-4" style="color:var(--color-accent)">AFTER · Claude Code via AI SDK harness</p>
+        <pre class="term">prompt → agent → sandbox
+  read edit bash grep glob todo …</pre>
+        <ul class="mt-5 space-y-2 text-sm">
+          <li>Full toolset, maintained upstream</li>
+          <li>Runs in a scoped sandbox on your box</li>
+          <li>Surgical edits — it reads before it writes</li>
+          <li>No parsing layer left to break</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-px sm:grid-cols-3" style="background:var(--color-rule-soft);border:1px solid var(--color-rule-soft);border-radius:var(--radius-base);overflow:hidden">
+      <div class="p-5" style="background:var(--color-bg)">
+        <p class="cap">Tools available</p>
+        <p class="mt-2 mono text-sm"><span style="color:var(--color-faint)">3</span> <span style="color:var(--color-faint)">→</span> <span class="add">full toolset</span></p>
+      </div>
+      <div class="p-5" style="background:var(--color-bg)">
+        <p class="cap">Parsing layers</p>
+        <p class="mt-2 mono text-sm"><span style="color:var(--color-faint)">1 (XML)</span> <span style="color:var(--color-faint)">→</span> <span class="add">0</span></p>
+      </div>
+      <div class="p-5" style="background:var(--color-bg)">
+        <p class="cap">Code we maintain</p>
+        <p class="mt-2 mono text-sm"><span style="color:var(--color-faint)">4 files</span> <span style="color:var(--color-faint)">→</span> <span class="add">deleted</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ 6 · BRING YOUR OWN MODEL ░░ -->
+  <section class="wrap py-14">
+    <div class="rule pt-8 grid gap-10 lg:grid-cols-[1fr_1.05fr] items-start">
+      <div>
+        <p class="eyebrow mb-4">Model routing</p>
+        <h2 class="h2 max-w-[15ch]">Bring the model you already pay for.</h2>
+        <p class="body mt-5">The LLM backend is any OpenAI-compatible base URL. Point it at a local proxy in front of the CLI you are already signed into and nothing leaves your machine — or leave it unset and it falls back to OpenRouter.</p>
+        <div class="mt-6 flex flex-wrap gap-2">
+          <span class="pill tip" data-tip="Anthropic-compatible /v1/messages">claude-sonnet-5</span>
+          <span class="pill tip" data-tip="OpenAI-compatible /v1/chat/completions">gpt-5.3-codex-spark</span>
+          <span class="pill">ollama</span>
+          <span class="pill">openrouter</span>
+        </div>
+      </div>
+      <div class="card p-6" style="background:var(--color-well)">
+        <div class="flex items-center justify-between mb-3">
+          <span class="cap">backend/.env</span>
+          <span class="pill">4 lines</span>
+        </div>
+        <pre class="term"><span style="color:var(--color-faint)"># any OpenAI-compatible endpoint</span>
+LLM_BASE_URL="http://127.0.0.1:8317/v1"
+LLM_API_KEY="local"
+LLM_MODELS="claude-sonnet-5,gpt-5.3-codex-spark"
+
+<span style="color:var(--color-faint)"># unset DATABASE_URL → sqlite, zero setup</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ 7 · HONEST LIMITS ░░ -->
+  <section class="wrap py-14">
+    <div class="rule pt-8">
+      <p class="eyebrow mb-4">Read this before you star it</p>
+      <h2 class="h2 max-w-[17ch]">What it does not do yet.</h2>
+      <p class="body mt-5">Every generator demo looks the same. Here is the part the demo leaves out.</p>
+    </div>
+
+    <div class="mt-8 grid gap-px" style="background:var(--color-rule-soft);border:1px solid var(--color-rule-soft);border-radius:var(--radius-base);overflow:hidden">
+      <details class="p-5" style="background:var(--color-bg)">
+        <summary class="flex items-center gap-3">
+          <span class="chev mono" style="color:var(--color-accent)">›</span>
+          <span class="h3">The sandbox is not isolation</span>
+          <span class="pill ml-auto" style="color:var(--color-warn);border-color:var(--color-warn)">by design</span>
+        </summary>
+        <p class="body text-[.9375rem] mt-3 pl-7">The agent runs with the backend process's privileges in a scoped directory. That is the trade for using your own local login. Swap in a network sandbox provider for anything untrusted — the interface is the same.</p>
+      </details>
+      <details class="p-5" style="background:var(--color-bg)">
+        <summary class="flex items-center gap-3">
+          <span class="chev mono" style="color:var(--color-accent)">›</span>
+          <span class="h3">Projects share one node_modules</span>
+          <span class="pill ml-auto">known</span>
+        </summary>
+        <p class="body text-[.9375rem] mt-3 pl-7">Every project comes from the same template, so they symlink a single install. That stops being true the moment the agent is allowed to add a dependency.</p>
+      </details>
+      <details class="p-5" style="background:var(--color-bg)">
+        <summary class="flex items-center gap-3">
+          <span class="chev mono" style="color:var(--color-accent)">›</span>
+          <span class="h3">One template, one stack</span>
+          <span class="pill ml-auto">roadmap</span>
+        </summary>
+        <p class="body text-[.9375rem] mt-3 pl-7">Next.js 15 + Tailwind + shadcn is the only starter today. The scaffolder takes a git URL, so a second template is configuration rather than code — but nothing selects between them yet.</p>
+      </details>
+      <details class="p-5" style="background:var(--color-bg)">
+        <summary class="flex items-center gap-3">
+          <span class="chev mono" style="color:var(--color-accent)">›</span>
+          <span class="h3">A fresh install has nothing to show you</span>
+          <span class="pill ml-auto">empty state</span>
+        </summary>
+        <div class="pl-7 mt-3">
+          <p class="body text-[.9375rem]">Projects created before the scaffolder existed have no directory, so the preview says so instead of spinning forever.</p>
+          <div class="card mt-4 p-6 flex flex-col items-center gap-3" style="background:var(--color-well)">
+            <svg viewBox="0 0 64 40" class="w-24" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="62" height="38" rx="6" stroke="var(--color-rule)" stroke-dasharray="4 4"/>
+              <path d="M20 26h24M20 20h16" stroke="var(--color-rule)" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="32" cy="13" r="3.5" stroke="var(--color-faint)" stroke-width="2"/>
+            </svg>
+            <p class="cap">This project has no files to preview yet.</p>
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ░░ 8 · CLOSING CTA ░░ -->
+  <section id="start" class="wrap pt-14 pb-24">
+    <div class="rule pt-12 text-center">
+      <h2 class="h2 mx-auto max-w-[16ch]">Clone it, run one command, type one sentence.</h2>
+      <p class="body mx-auto mt-5 text-center" style="max-width:52ch">Everything above happens on your machine. If it does not work in the first minute, that is a bug worth filing.</p>
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <a href="#top" class="btn btn-primary text-sm">Read the quick start</a>
+        <a href="#run" class="btn btn-ghost text-sm">See the run again</a>
+      </div>
+      <p class="cap mt-6">MIT · Node 18+ · macOS, Linux, WSL</p>
+    </div>
+  </section>
+</main>
+
+<footer class="hair">
+  <div class="wrap flex flex-wrap items-center justify-between gap-4 py-8">
+    <div class="flex items-center gap-2.5">
+      <svg viewBox="0 0 32 32" fill="none" class="h-5 w-5" aria-hidden="true">
+        <path d="M4.5 3.5 10.5 11h11l6-7.5L28 13 16 28.5 4 13Z" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+      </svg>
+      <span class="cap">CodeFox — local-first project generator</span>
+    </div>
+    <div class="flex items-center gap-5">
+      <a href="#run" class="cap no-underline hover:underline">Live run</a>
+      <a href="#start" class="cap no-underline hover:underline">Quick start</a>
+      <span class="cap">2026</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Copy-to-clipboard with an acknowledgement, then revert.
+  const btn = document.getElementById('copy');
+  const state = document.getElementById('copy-state');
+  btn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(btn.dataset.cmd);
+      state.textContent = '✓ copied';
+      state.style.color = 'var(--color-ok)';
+    } catch {
+      state.textContent = 'press ⌘C';
+      state.style.color = 'var(--color-warn)';
+    }
+    setTimeout(() => { state.textContent = 'copy'; state.style.color = ''; }, 1800);
+  });
+</script>
+</body>
+</html>

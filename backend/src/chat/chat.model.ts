@@ -8,7 +8,7 @@ import {
   RelationId,
 } from 'typeorm';
 import { Message } from 'src/chat/message.model';
-import { SystemBaseModel } from 'src/system-base-model/system-base.model';
+import { SystemBaseModel } from 'src/common/models/system-base.model';
 import { User } from 'src/user/user.model';
 import { Project } from 'src/project/project.model';
 

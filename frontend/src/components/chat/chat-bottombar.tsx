@@ -2,8 +2,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TextareaAutosize from 'react-textarea-autosize';
-import { PaperclipIcon, Send, X } from 'lucide-react';
+import { PaperclipIcon, Send, Square, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { Message } from '../../const/MessageType';
 import Image from 'next/image';
 import {
@@ -17,12 +18,17 @@ interface ChatBottombarProps {
   messages: Message[];
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  handleSubmit: (
+    e: React.FormEvent<HTMLFormElement>,
+    images?: string[]
+  ) => void;
   stop: () => void;
   formRef: React.RefObject<HTMLFormElement>;
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   setMessages: (messages: Message[]) => void;
   setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
+  isStreaming?: boolean;
+  activity?: { tool?: string; file?: string } | null;
 }
 
 export default function ChatBottombar({
@@ -34,6 +40,9 @@ export default function ChatBottombar({
   setInput,
   setMessages,
   setSelectedModel,
+  stop,
+  isStreaming = false,
+  activity,
 }: ChatBottombarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -58,30 +67,67 @@ export default function ChatBottombar({
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (isStreaming) return;
       submitWithAttachments(e as unknown as React.FormEvent<HTMLFormElement>);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const fileArray = Array.from(e.target.files);
-      setAttachments((prev) => [...prev, ...fileArray]);
+    const picked = Array.from(e.target.files ?? []);
+    const images = picked.filter((f) => f.type.startsWith('image/'));
+    if (images.length < picked.length) {
+      toast.error('Only images can be attached right now.');
     }
+    if (images.length) setAttachments((prev) => [...prev, ...images]);
+    e.target.value = ''; // let the same file be picked again
   };
 
   const handleFileSelect = () => {
     fileInputRef.current?.click();
   };
 
+  // Screenshots arrive as clipboard files, not text — grab them before the
+  // textarea swallows the paste as an empty string.
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const images = Array.from(e.clipboardData.files).filter((f) =>
+      f.type.startsWith('image/')
+    );
+    if (images.length === 0) return;
+    e.preventDefault();
+    setAttachments((prev) => [...prev, ...images]);
+  };
+
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Sent as data URLs, not prompt image parts: the claude-code harness rejects
+  // non-text parts, so the backend writes these into the project and points the
+  // agent at the paths instead.
   const submitWithAttachments = (e: React.FormEvent<HTMLFormElement>) => {
-    // Here you would normally handle attachments with your form submission
-    // For this example, we'll just clear them after submission
-    handleSubmit(e);
-    setAttachments([]);
+    if (attachments.length === 0) {
+      handleSubmit(e);
+      return;
+    }
+
+    e.preventDefault();
+    const pending = attachments;
+    Promise.all(
+      pending.map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          })
+      )
+    )
+      .then((images) => {
+        setAttachments([]);
+        handleSubmit(e, images);
+      })
+      .catch(() => toast.error('Could not read that image'));
   };
 
   useEffect(() => {
@@ -91,7 +137,22 @@ export default function ChatBottombar({
   }, []);
 
   return (
-    <div className="px-4 pb-4 pt-2 bg-white dark:bg-[#151718]">
+    <div className="bg-background px-4 pb-4 pt-2">
+      {isStreaming && (
+        <p className="mb-2 flex items-center gap-2 px-1 font-mono text-xs text-muted-foreground">
+          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+          {activity?.tool ? (
+            <>
+              <span className="text-primary">{activity.tool}</span>
+              {activity.file && (
+                <span className="truncate">{activity.file}</span>
+              )}
+            </>
+          ) : (
+            <span>thinking…</span>
+          )}
+        </p>
+      )}
       <motion.div
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -99,9 +160,9 @@ export default function ChatBottombar({
         className={cn(
           'relative border shadow-sm rounded-lg overflow-hidden',
           isFocused
-            ? 'ring-1 ring-blue-500 border-blue-500'
-            : 'border-gray-200 hover:border-gray-300 dark:border-zinc-700 dark:hover:border-zinc-600',
-          'bg-white dark:bg-[#1e1e1e]'
+            ? 'ring-1 ring-ring border-ring'
+            : 'border-border hover:border-primary/45',
+          'bg-card'
         )}
       >
         {/* Attachments preview */}
@@ -111,41 +172,46 @@ export default function ChatBottombar({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="flex flex-wrap gap-2 p-2 border-b border-gray-100 dark:border-zinc-800"
+              className="border-b border-border p-2"
             >
-              {attachments.map((file, index) => (
-                <motion.div
-                  key={`${file.name}-${index}`}
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  className="relative group"
-                >
-                  <div className="w-16 h-16 rounded border overflow-hidden bg-gray-50 dark:bg-zinc-800">
-                    {file.type.startsWith('image/') ? (
-                      <div className="relative w-full h-full">
-                        <Image
-                          src={URL.createObjectURL(file)}
-                          alt={file.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-gray-500 dark:text-zinc-400 p-1 overflow-hidden">
-                        {file.name}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(index)}
-                    className="absolute -top-1 -right-1 size-5 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              <p className="mb-2 px-1 font-mono text-[11px] text-warning">
+                Images are staged but the agent cannot read them yet.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((file, index) => (
+                  <motion.div
+                    key={`${file.name}-${index}`}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    className="relative group"
                   >
-                    <X className="size-3" />
-                  </button>
-                </motion.div>
-              ))}
+                    <div className="w-16 h-16 rounded border overflow-hidden bg-secondary">
+                      {file.type.startsWith('image/') ? (
+                        <div className="relative w-full h-full">
+                          <Image
+                            src={URL.createObjectURL(file)}
+                            alt={file.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground p-1 overflow-hidden">
+                          {file.name}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(index)}
+                      className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full border border-border bg-background text-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -160,6 +226,7 @@ export default function ChatBottombar({
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
+            accept="image/*"
             className="hidden"
             multiple
           />
@@ -171,45 +238,16 @@ export default function ChatBottombar({
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    className="p-1.5 text-gray-400 dark:text-zinc-400 rounded-md cursor-not-allowed opacity-50"
-                    aria-label="Attach file (not available)"
-                    disabled
+                    onClick={handleFileSelect}
+                    disabled={isStreaming}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Attach an image"
                   >
                     <PaperclipIcon className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>Feature not available yet</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="p-1.5 text-gray-400 dark:text-zinc-400 rounded-md cursor-not-allowed opacity-50"
-                    aria-label="Record (not available)"
-                    disabled
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <circle cx="12" cy="12" r="4"></circle>
-                    </svg>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Feature not available yet</p>
+                  <p>Attach an image — or just paste one</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -222,35 +260,50 @@ export default function ChatBottombar({
               value={input}
               ref={inputRef}
               onKeyDown={handleKeyPress}
+              onPaste={handlePaste}
+              disabled={isStreaming}
               onChange={handleInputChange}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               name="message"
-              placeholder="Message Agent..."
-              className="resize-none px-2 py-2.5 w-full focus:outline-none bg-transparent text-gray-800 dark:text-zinc-200 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-400"
+              placeholder={
+                isStreaming ? 'Agent is working…' : 'Message Agent...'
+              }
+              className="resize-none px-2 py-2.5 w-full focus:outline-none bg-transparent text-foreground text-sm placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
               maxRows={5}
             />
           </div>
 
           {/* Right side - feedback & send */}
           <div className="flex items-center mr-2 gap-2">
-            <div className="text-sm text-gray-400 dark:text-zinc-400">
+            <div className="text-sm text-muted-foreground">
               <span>Have feedback?</span>
             </div>
 
-            <button
-              type="submit"
-              className={cn(
-                'h-7 w-7 rounded-md flex items-center justify-center',
-                input.trim() || attachments.length > 0
-                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200'
-                  : 'bg-gray-50 text-gray-300 cursor-not-allowed dark:bg-zinc-800 dark:text-zinc-500'
-              )}
-              disabled={!input.trim() && attachments.length === 0}
-              aria-label="Send message"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={stop}
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                aria-label="Stop the agent"
+              >
+                <Square className="h-3 w-3" fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  input.trim()
+                    ? 'bg-primary text-primary-foreground hover:opacity-90'
+                    : 'cursor-not-allowed bg-secondary text-muted-foreground'
+                )}
+                disabled={!input.trim()}
+                aria-label="Send message"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </form>
       </motion.div>

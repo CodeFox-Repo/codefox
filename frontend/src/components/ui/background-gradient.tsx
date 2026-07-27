@@ -10,7 +10,7 @@ export const BackgroundGradient = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        'relative background-gradient group/card dark:hover:shadow-2xl dark:hover:shadow-emerald-500/[0.1] dark:bg-zinc-900',
+        'relative background-gradient group/card dark:hover:shadow-2xl dark:hover:shadow-emerald-500/[0.1] dark:bg-background',
         className
       )}
       {...props}

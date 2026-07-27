@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useContext } from 'react';
+import { useState, useCallback, useEffect, useContext, useRef } from 'react';
 import { useMutation } from '@apollo/client';
 import { CREATE_CHAT, SAVE_MESSAGE } from '@/graphql/request';
 import { Message } from '@/const/MessageType';
@@ -8,16 +8,13 @@ import { useAuthContext } from '@/providers/AuthProvider';
 import { startChatStream } from '@/api/ChatStreamAPI';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { ChatInputType } from '@/graphql/type';
-import { managerAgent } from './multi-agent/managerAgent';
 
 export interface UseChatStreamProps {
   chatId: string;
   input: string;
   setInput: (input: string) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  setThinkingProcess: React.Dispatch<React.SetStateAction<Message[]>>;
   selectedModel: string;
-  setIsTPUpdating: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const useChatStream = ({
@@ -25,11 +22,19 @@ export const useChatStream = ({
   input,
   setInput,
   setMessages,
-  setThinkingProcess,
   selectedModel,
-  setIsTPUpdating,
 }: UseChatStreamProps) => {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  /** What the agent is doing right now, surfaced while the turn streams. */
+  const [activity, setActivity] = useState<{
+    tool?: string;
+    file?: string;
+  } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  /** Attachments for the turn being submitted. A ref because the first turn of
+   *  a new chat is dispatched from createChat's onCompleted, outside the
+   *  handleSubmit closure. */
+  const pendingImagesRef = useRef<string[] | undefined>(undefined);
   const [currentChatId, setCurrentChatId] = useState<string>(chatId);
   const { token } = useAuthContext();
   const { curProject, refreshProjects, setFilePath, editorRef } =
@@ -70,7 +75,7 @@ export const useChatStream = ({
     onCompleted: async (data) => {
       const newChatId = data.createChat.id;
       setCurrentChatId(newChatId);
-      await handleChatResponse(newChatId, input);
+      await handleChatResponse(newChatId, input, pendingImagesRef.current);
       window.history.pushState({}, '', `/chat?id=${newChatId}`);
       logger.info(`new chat: ${newChatId}`);
     },
@@ -80,7 +85,12 @@ export const useChatStream = ({
     },
   });
 
-  const handleChatResponse = async (targetChatId: string, message: string) => {
+  const handleChatResponse = async (
+    targetChatId: string,
+    message: string,
+    images?: string[]
+  ) => {
+    const replyId = `${targetChatId}-${Date.now()}`;
     try {
       setInput('');
       const userInput: ChatInputType = {
@@ -95,30 +105,80 @@ export const useChatStream = ({
         },
       });
 
-      const tempId = `${targetChatId}-${Date.now()}`;
+      // The agent loop runs on the backend, against the project's real files.
+      // The bubble appears with the first text delta rather than up front, so a
+      // failed turn does not leave an empty message behind.
+      const appendText = (delta: string) =>
+        setMessages((prev) =>
+          prev.some((m) => m.id === replyId)
+            ? prev.map((m) =>
+                m.id === replyId ? { ...m, content: m.content + delta } : m
+              )
+            : [
+                ...prev,
+                {
+                  id: replyId,
+                  role: 'assistant',
+                  content: delta,
+                  createdAt: new Date().toISOString(),
+                },
+              ]
+        );
 
-      await managerAgent(
-        tempId,
-        userInput,
-        setMessages,
-        curProjectPath,
-        saveMessage,
-        token,
-        refreshProjects,
-        setFilePath,
-        editorRef,
-        setThinkingProcess,
-        setIsTPUpdating,
-        setLoadingSubmit
-      );
+      let touchedFiles = false;
+
+      // Wire the controller the stop button aborts. Hanging up the response is
+      // what actually halts the agent server-side.
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const reply = await startChatStream(userInput, token, {
+        signal: controller.signal,
+        images,
+        onText: appendText,
+        // `activity` drives the "what is it doing right now" line while the
+        // turn streams, so a long tool run is not a blank wait.
+        onTool: (tool, target) => {
+          // The agent stream carries no file-change parts, so a write is
+          // inferred from the tool that ran.
+          if (/edit|write|create|delete/i.test(tool)) touchedFiles = true;
+          setActivity({ tool, file: target });
+        },
+        onError: (m) => toast.error(m),
+      });
+
+      setActivity(null);
+
+      if (!reply.trim()) return;
+
+      await saveMessage({
+        variables: {
+          input: {
+            chatId: targetChatId,
+            message: reply,
+            model: selectedModel,
+            role: 'assistant',
+          } as ChatInputType,
+        },
+      });
+
+      // Only re-read the project when the agent actually wrote something.
+      if (touchedFiles) await refreshProjects();
     } catch (err) {
       toast.error('Failed to get chat response' + err);
+    } finally {
+      abortRef.current = null;
+      setActivity(null);
       setLoadingSubmit(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    images?: string[]
+  ) => {
     e.preventDefault();
+    pendingImagesRef.current = images;
 
     const content = input;
 
@@ -149,7 +209,7 @@ export const useChatStream = ({
         return;
       }
     } else {
-      await handleChatResponse(currentChatId, content);
+      await handleChatResponse(currentChatId, content, images);
     }
   };
 
@@ -160,15 +220,20 @@ export const useChatStream = ({
     [setInput]
   );
 
+  // Aborting the request closes the response; the backend sees the hang-up and
+  // stops the agent, so this is a real stop rather than just hiding the spinner.
   const stop = useCallback(() => {
-    if (loadingSubmit) {
-      setLoadingSubmit(false);
-      toast.info('Message generation stopped');
-    }
+    if (!loadingSubmit) return;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setActivity(null);
+    setLoadingSubmit(false);
+    toast.info('Stopped');
   }, [loadingSubmit]);
 
   return {
     loadingSubmit,
+    activity,
     handleSubmit,
     handleInputChange,
     stop,

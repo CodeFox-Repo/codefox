@@ -23,158 +23,45 @@ https://github.com/user-attachments/assets/8c588e83-b155-445c-bfa7-ed67fb57e77f
 ✨ **Live Preview**: Interact with your project while engaging in AI-powered conversations to make real-time modifications.
 🔧 **Precise Code Customization**: Leverage targeted and efficient visual tools for precise module adjustments.
 
-## Prerequisites
+## Quick start
 
-### System Requirements
-
-- Node.js >= 18.0.0
-- PostgreSQL >= 14.0
-- GPU (Optional, for local LLM model running)
-- Memory: Minimum 16GB RAM recommended
-- Storage: At least 10GB free space
-
-### Development Tools
-
-- PNPM 9.1.2 (`npm install -g pnpm@9.1.2`)
-- Tmux >= 3.2
-- Tmuxinator >= 3.0.0 (`gem install tmuxinator`)
-
-### Optional Requirements
-
-- NVIDIA CUDA Toolkit (for GPU acceleration)
-- Docker & Docker Compose (for containerized development)
-
-## Installation
-
-1. **Clone the repository**
+Node.js >= 18 and pnpm. Nothing else — no database to install, no tmux.
 
 ```bash
 git clone <repository-url>
 cd codefox
-```
-
-2. **Install dependencies**
-
-```bash
 pnpm install
+pnpm dev
 ```
 
-3. **Environment Configuration**
+`pnpm dev` generates `backend/.env` and `frontend/.env` on first run (with
+fresh JWT secrets), then starts both servers:
 
-Create and configure environment files for each service:
+- Frontend — http://localhost:3000
+- Backend GraphQL — http://localhost:8080/graphql
 
-**Backend (.env)**
+Data lands in a SQLite file at `.codefox/data/codefox.db`. To use PostgreSQL
+instead, set `DATABASE_URL` to a `postgresql://` URL in `backend/.env`; any
+other value (or none) keeps SQLite.
 
-```env
-PORT=8080
-JWT_SECRET=<your-jwt-secret>
-JWT_REFRESH=<your-refresh-token-secret>
-SALT_ROUNDS=10
-OPENAI_BASE_URI=http://localhost:3001
-```
+To use chat, put an [OpenRouter key](https://openrouter.ai/keys) in
+`backend/.env` as `OPENROUTER_API_KEY`. Configured models:
 
-**Frontend (.env)**
+- **Claude Sonnet 4.5** (default) — `anthropic/claude-sonnet-4.5`
+- **GPT-4o-mini** — `openai/gpt-4o-mini`
 
-```env
-NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8080/graphql
-```
-
-**LLM Server (.env)**
-
-```env
-PORT=3001
-MODEL_PATH=/path/to/model
-MODEL_TYPE=llama
-NODE_ENV=development
-```
-
-**Model Configuration (.codefox/config.json)**
-
-Configure the AI models for chat and embedding. For cloud-based models, provide endpoint and token. For local models, omit the endpoint.
-
-```json
-{
-  "$schema": "../config.schema.json",
-  "chat": [
-    {
-      "model": "openai/gpt-4o-mini", // Required: Model identifier
-      "alias": "gpt-4o-mini", // Required: Model alias for reference
-      "endpoint": "https://openrouter.ai/api/v1", // Optional: API endpoint (omit for local models)
-      "token": "<your-openrouter-token>", // Optional: API token (required if endpoint is specified)
-      "default": true, // Optional: Set as default model
-      "rps": 30 // Optional: Requests per second limit
-    }
-  ],
-  "embedding": [
-    {
-      "model": "openai/text-embedding-ada-002", // Required: Model identifier
-      "endpoint": "https://api.openai.com", // Optional: API endpoint (omit for local models)
-      "token": "<your-openai-token>" // Optional: API token (required if endpoint is specified)
-    }
-  ]
-}
-```
-
-Model Configuration Fields:
-
-- **Chat Models**:
-
-  - `model`: (Required) Model identifier
-  - `alias`: (Required) Model reference name in the system
-  - `endpoint`: (Optional) API endpoint URL. Omit for local models
-  - `token`: (Optional) API access token. Required if endpoint is specified
-  - `default`: (Optional) Set as the default model for chat
-  - `rps`: (Optional) Rate limit for API requests per second
-
-- **Embedding Models**:
-  - `model`: (Required) Model identifier
-  - `endpoint`: (Optional) API endpoint URL. Omit for local models
-  - `token`: (Optional) API access token. Required if endpoint is specified
-
-## Development
-
-### Using Tmuxinator (Recommended)
-
-Start all services with the pre-configured Tmuxinator setup:
+### Other dev commands
 
 ```bash
-pnpm dev
+pnpm dev:tmux      # same stack in a tmuxinator session (needs tmux + tmuxinator)
+pnpm demo:record   # re-record the landing-page demo against the running app
 ```
 
-This creates a development environment with:
-
-- Backend server (http://localhost:8080)
-- Frontend development server (http://localhost:3000)
-- LLM server (http://localhost:3001)
-- GraphQL codegen watcher
-
-### Manual Development
-
-Start services individually:
-
-```bash
-# Start backend
-cd backend
-pnpm dev
-
-# Start frontend
-cd frontend
-pnpm dev
-
-# Start LLM server
-cd llm-server
-pnpm dev
-```
-
-### Development URLs
-
-- Frontend: http://localhost:3000
-- Backend GraphQL Playground: http://localhost:8080/graphql
-- LLM Server: http://localhost:3001
+Start services individually with `pnpm dev` inside `backend/` or `frontend/`.
 
 ## Architecture Overview
 
-CodeFox consists of three main components that work together:
+CodeFox consists of two main components that work together:
 
 ```
         +-------------+
@@ -189,16 +76,16 @@ CodeFox consists of three main components that work together:
         | (NestJS)    |
         +------+------+
                |
-               | HTTP/WebSocket
+               | OpenAI API
                |
         +------v------+
-        | LLM Server  |
+        | OpenRouter/ |
+        |   OpenAI    |
         +-------------+
 ```
 
 - **Frontend (Next.js)**: Provides the user interface and handles client-side logic
-- **Backend (NestJS)**: Manages business logic, authentication, and project generation
-- **LLM Server**: Handles AI model interactions and code generation
+- **Backend (NestJS)**: Manages business logic, authentication, project generation, and AI model interactions
 
 ### Build System Architecture
 

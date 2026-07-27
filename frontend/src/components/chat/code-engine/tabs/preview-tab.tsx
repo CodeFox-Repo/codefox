@@ -1,10 +1,10 @@
 'use client';
 import WebPreview from '../web-view';
 
-const PreviewTab = () => {
+const PreviewTab = ({ project }: { project?: any }) => {
   return (
-    <div className="w-full h-full">
-      <WebPreview />
+    <div className="h-full w-full">
+      <WebPreview project={project} />
     </div>
   );
 };

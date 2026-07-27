@@ -1,7 +1,25 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { getProjectsDir } from 'codefox-common';
+import { getProjectsDir } from '../../../backend/src/common/utils/common-path';
 import { logger } from '@/app/log/logger';
+
+// Not part of the user's project: shared dependency link, vcs metadata, the
+// build output the preview dev server writes into the project directory, and
+// the images staged for the agent to read.
+const IGNORED_ENTRIES = new Set([
+  'node_modules',
+  '.codefox-uploads',
+  '.git',
+  '.next',
+  '.turbo',
+  '.vercel',
+  '.cache',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.DS_Store',
+]);
 
 export class FileReader {
   private static instance: FileReader;
@@ -45,7 +63,7 @@ export class FileReader {
     try {
       const items = await fs.readdir(dir, { withFileTypes: true });
       for (const item of items) {
-        if (item.name.includes('node_modules')) continue;
+        if (IGNORED_ENTRIES.has(item.name)) continue;
         const fullPath = path.join(dir, item.name);
         const relativePath = path.relative(this.basePath, fullPath);
 

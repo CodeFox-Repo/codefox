@@ -9,14 +9,14 @@ import {
 import { motion } from 'framer-motion';
 import Editor from '@monaco-editor/react';
 import { useTheme } from 'next-themes';
-import { TreeItem, TreeItemIndex } from 'react-complex-tree';
+import type { TreeNode } from '../file-structure';
 import { ProjectContext } from '../project-context';
 import FileExplorerButton from '../file-explorer-button';
 import FileStructure from '../file-structure';
 
 interface CodeTabProps {
   editorRef: MutableRefObject<any>;
-  fileStructureData: Record<TreeItemIndex, TreeItem<any>>;
+  fileStructureData: Record<string, TreeNode>;
   newCode: string;
   isFileStructureLoading: boolean;
   updateSavingStatus: (value: string) => void;

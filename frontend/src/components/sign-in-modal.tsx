@@ -85,11 +85,11 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
           </DialogDescription>
         </VisuallyHidden>
 
-        <BackgroundGradient className="rounded-[22px] p-4 bg-white dark:bg-zinc-900">
+        <BackgroundGradient className="rounded-[22px] p-4 bg-background">
           <div className="w-full">
             <TextureCardHeader className="flex flex-col gap-1 items-center justify-center p-4">
               <TextureCardTitle>Welcome back</TextureCardTitle>
-              <p className="text-center text-neutral-600 dark:text-neutral-400">
+              <p className="text-center text-muted-foreground">
                 Sign in to your account
               </p>
             </TextureCardHeader>
@@ -127,7 +127,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
 
                 {/* Show error message if login fails */}
                 {errorMessage && (
-                  <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400 text-sm p-2 rounded-md bg-primary-50 dark:bg-zinc-800 border border-primary-200 dark:border-primary-800">
+                  <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400 text-sm p-2 rounded-md bg-primary-50 dark:bg-secondary border border-primary-200 dark:border-primary-800">
                     <AlertCircle className="h-4 w-4" />
                     <span>{errorMessage}</span>
                   </div>
@@ -144,7 +144,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                     <span className="w-full border-t" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white dark:bg-zinc-900 px-2 text-muted-foreground">
+                    <span className="bg-background px-2 text-muted-foreground">
                       Or continue with
                     </span>
                   </div>
@@ -155,7 +155,13 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                     variant="outline"
                     className="flex items-center gap-2 w-full"
                     onClick={() => {
-                      // Redirect to your NestJS backend's Google OAuth endpoint
+                      // The backend route exists but 302s to Google with
+                      // whatever client id is configured; say so rather than
+                      // bouncing the user to a Google error page.
+                      if (!process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED) {
+                        toast.error('Google sign-in is not configured yet.');
+                        return;
+                      }
                       window.location.href =
                         process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
                         'http://localhost:8080/auth/google';
@@ -167,13 +173,6 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                       className="w-5 h-5"
                     />
                     <span>Google</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2 w-full"
-                  >
-                    <Github className="w-5 h-5 text-black dark:text-white" />
-                    <span>GitHub</span>
                   </Button>
                 </div>
               </div>
