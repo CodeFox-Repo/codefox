@@ -1,10 +1,10 @@
 'use client';
 
 import { useRef, useContext, useState } from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { AuthChoiceModal } from '@/components/auth-choice-modal';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { ProjectsSection } from '@/components/root/projects-section';
 import { PromptForm, PromptFormRef } from '@/components/root/prompt-form';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { SignInModal } from '@/components/sign-in-modal';
@@ -13,37 +13,67 @@ import { Workbench } from '@/components/root/workbench';
 import { useRouter } from 'next/navigation';
 import { logger } from '../log/logger';
 
-// Narrative-workflow stages, kobe-style: prose on the left, real terminal
-// output on the right. No drawn diagrams.
-const STAGES = [
+/**
+ * The signed-out landing page.
+ *
+ * Everything stated here is something the product actually does — the tool
+ * sequence, the file counts and the diff below are from a recorded run, not
+ * illustrative copy.
+ */
+
+const TOOL_CALLS = [
+  { tool: 'read', target: 'src/app/page.tsx', result: '74 lines' },
+  { tool: 'bash', target: 'ls src/components', result: '42 parts' },
+  { tool: 'read', target: 'mode-toggle.tsx', result: 'reused' },
+  { tool: 'grep', target: '"ModeToggle"', result: '2 hits' },
+  { tool: 'edit', target: 'src/app/page.tsx', result: '+12 −5' },
+  { tool: 'edit', target: 'src/app/page.tsx', result: '+3 −0' },
+];
+
+const FACTS = [
   {
-    no: '01',
-    title: 'Describe it once',
-    body: 'One prompt in, one project out. CodeFox reads the intent, picks a stack, and writes the plan before it writes a line of code.',
-    term: `$ codefox new "a habit tracker with streaks"
-  → stack     next.js · nestjs · postgres
-  → entities  User, Habit, CheckIn
-  → routes    12 planned`,
+    n: '365',
+    title: 'files scaffolded',
+    hint: 'Next.js 15 + shadcn starter, copied per project',
+    accent: true,
   },
   {
-    no: '02',
-    title: 'Agents do the wiring',
-    body: 'A crew of agents splits the work — schema, API, UI, tests — and each one owns its slice end to end. You watch the diff, not the prompt engineering.',
-    term: `  agent:schema    ✓ 3 models, 2 relations
-  agent:api       ✓ 12 resolvers
-  agent:ui        ⠋ 6/9 screens
-  agent:tests     · queued`,
+    n: '1',
+    title: 'dependency install, ever',
+    hint: '629 packages cached once, shared by every project',
   },
   {
-    no: '03',
-    title: 'Run it before you trust it',
-    body: 'Live preview boots the generated project next to the chat. Change your mind mid-sentence and the running app follows.',
-    term: `$ codefox dev
-  ready on http://localhost:3000
-  db      sqlite · .codefox/data
-  hot     12 modules in 340ms`,
+    n: '0',
+    title: 'cloud keys required',
+    hint: 'Any OpenAI- or Anthropic-compatible endpoint works',
   },
 ];
+
+const LIMITS = [
+  {
+    title: 'The sandbox is not isolation',
+    tag: 'by design',
+    body: 'The agent runs with the backend process privileges inside a scoped directory. That is the trade for using the CLI you are already signed into. Swap in a network sandbox provider for anything untrusted — same interface.',
+  },
+  {
+    title: 'Projects share one node_modules',
+    tag: 'known',
+    body: 'Every project comes from the same template, so they symlink a single install. That stops being true the moment the agent is allowed to add a dependency.',
+  },
+  {
+    title: 'One template, one stack',
+    tag: 'roadmap',
+    body: 'The scaffolder takes a git URL, so a second starter is configuration rather than code — but nothing selects between them yet.',
+  },
+];
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-md border border-border bg-card/60 px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground backdrop-blur">
+      {children}
+    </span>
+  );
+}
 
 export default function HomePage() {
   const [showAuthChoice, setShowAuthChoice] = useState(false);
@@ -72,8 +102,7 @@ export default function HomePage() {
     }
   };
 
-  // Signed in? Skip the pitch entirely — go straight to the composer and the
-  // user's own work. The marketing page below is for visitors.
+  // Signed in? Skip the pitch — go straight to the composer and your work.
   if (isAuthorized) {
     return (
       <Workbench
@@ -85,101 +114,264 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-clip">
-      {/* Faint grid, masked to the top of the page */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[900px] opacity-[0.06]
-                   [background-image:linear-gradient(currentColor_1px,transparent_1px),linear-gradient(90deg,currentColor_1px,transparent_1px)]
-                   [background-size:64px_64px]
-                   [mask-image:radial-gradient(ellipse_90%_55%_at_50%_0%,#000_30%,transparent_80%)]"
-      />
+    <div className="relative overflow-x-clip">
+      {/* ---------- hero ---------- */}
+      <section className="relative">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[780px] opacity-[0.05]
+                     [background-image:linear-gradient(currentColor_1px,transparent_1px),linear-gradient(90deg,currentColor_1px,transparent_1px)]
+                     [background-size:62px_62px]
+                     [mask-image:radial-gradient(ellipse_85%_55%_at_45%_0%,#000_25%,transparent_78%)]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-24 h-[620px]
+                     bg-[radial-gradient(ellipse_55%_45%_at_25%_0%,hsl(var(--primary)/0.16),transparent_70%)]"
+        />
 
-      <div className="relative mx-auto w-full max-w-[1180px] px-5 sm:px-10">
-        {/* ---- hero ---- */}
-        <motion.section
-          className="pt-24 pb-14"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <p className="font-mono text-xs tracking-[0.12em] text-primary mb-5">
-            AI SEQUENCE FULL-STACK GENERATOR
-          </p>
+        <div className="relative mx-auto grid w-full max-w-[1180px] gap-12 px-5 pb-20 pt-12 sm:px-10 lg:grid-cols-[1fr_1.08fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-20">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="mb-7 flex flex-wrap gap-2">
+              <Chip>Local-first</Chip>
+              <Chip>Claude Code inside</Chip>
+              <Chip>MIT</Chip>
+            </div>
 
-          <h1 className="font-display max-w-[20ch] text-[clamp(2.375rem,5vw,3.875rem)] font-bold leading-[1.02] tracking-[-0.03em] text-foreground">
-            From idea to <span className="text-primary">full-stack</span> in
-            seconds
-          </h1>
+            <h1 className="font-display text-[clamp(2.5rem,5vw,4rem)] font-bold leading-[1.02] tracking-[-0.035em] text-foreground">
+              One prompt.
+              <br />A repo that{' '}
+              <span className="text-primary">already runs</span>.
+            </h1>
 
-          <p className="mt-6 max-w-[52ch] font-mono text-base leading-relaxed text-muted-foreground">
-            A multi-agent crew plans the schema, writes the API, builds the UI,
-            and hands you a project that already runs.
-          </p>
+            <p className="mt-6 max-w-[54ch] text-[1.0625rem] leading-relaxed text-muted-foreground">
+              CodeFox scaffolds a real Next.js project on your disk, points
+              Claude Code at it, and boots a dev server beside the chat. Not a
+              preview of code — the code, on a port, in your browser.
+            </p>
 
-          <div className="mt-10 max-w-3xl rounded-xl border border-border bg-card">
-            <PromptForm
-              ref={promptFormRef}
-              isAuthorized={isAuthorized}
-              onSubmit={handleSubmit}
-              onAuthRequired={() => setShowAuthChoice(true)}
-              isLoading={isLoading}
-            />
-          </div>
+            <div className="mt-9 max-w-xl rounded-xl border border-border bg-card">
+              <PromptForm
+                ref={promptFormRef}
+                isAuthorized={isAuthorized}
+                onSubmit={handleSubmit}
+                onAuthRequired={() => setShowAuthChoice(true)}
+                isLoading={isLoading}
+                compact
+              />
+            </div>
 
-          <p className="mt-4 font-mono text-xs text-muted-foreground">
-            Node 18+ · no database to install · <code>pnpm dev</code> and go
-          </p>
-        </motion.section>
+            <p className="mt-4 font-mono text-xs text-muted-foreground">
+              Node 18+ · no database to install · no cloud API key
+            </p>
+          </motion.div>
 
-        {/* ---- quicklook ---- */}
-        <section className="pb-6">
-          <figure className="overflow-hidden rounded-xl border border-border bg-card">
-            <video
-              className="block h-auto w-full"
-              src="/demo/quicklook.mp4"
-              poster="/demo/quicklook-poster.jpg"
-              autoPlay
-              muted
-              loop
-              playsInline
-            />
-          </figure>
-          <figcaption className="mt-3 text-center font-mono text-xs text-muted-foreground">
-            one prompt → planned → generated → running
-          </figcaption>
-        </section>
-
-        {/* ---- narrative workflow ---- */}
-        <section className="mt-24">
-          {STAGES.map((stage) => (
-            <div
-              key={stage.no}
-              className="grid gap-10 border-t-[3px] border-border py-10 md:grid-cols-2 md:gap-16"
-            >
-              <div>
-                <span className="mb-4 block font-mono text-sm tracking-[0.12em] text-primary">
-                  {stage.no}
+          {/* Real product, not an illustration. Bleeds off the right edge. */}
+          <motion.div
+            className="relative lg:-mr-24 xl:-mr-40"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+                <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                  codefox — StreakKeeper
                 </span>
-                <h2 className="font-display text-[clamp(1.75rem,3.6vw,2.625rem)] font-bold leading-[1.08] tracking-[-0.02em] text-foreground">
-                  {stage.title}
-                </h2>
-                <p className="mt-4 max-w-[52ch] font-mono text-sm leading-[1.7] text-muted-foreground">
-                  {stage.body}
-                </p>
               </div>
-              <pre className="min-w-0 self-center overflow-x-auto border-l-2 border-border py-2 pl-6 font-mono text-sm leading-[2] text-foreground/80">
-                {stage.term}
-              </pre>
+              <Image
+                src="/demo/product-shot.png"
+                alt="CodeFox running: chat on the left, the generated project's file tree and a live preview on the right"
+                width={1600}
+                height={1000}
+                className="block h-auto w-full"
+                priority
+              />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ---------- the numbers ---------- */}
+      <section className="mx-auto w-full max-w-[1180px] px-5 pb-16 sm:px-10">
+        <div className="grid gap-8 border-t-[3px] border-border pt-8 sm:grid-cols-3">
+          {FACTS.map((f) => (
+            <div key={f.title}>
+              <p
+                className={`font-display text-[clamp(2.25rem,4vw,3rem)] font-bold leading-none tracking-[-0.04em] ${
+                  f.accent ? 'text-primary' : 'text-foreground'
+                }`}
+              >
+                {f.n}
+              </p>
+              <p className="mt-2 text-[1.0625rem] font-bold tracking-[-0.015em] text-foreground">
+                {f.title}
+              </p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                {f.hint}
+              </p>
             </div>
           ))}
-        </section>
+        </div>
+      </section>
 
-        {/* ---- public projects ---- */}
-        <section className="mt-16 mb-24 border-t-[3px] border-border pt-10">
-          <ProjectsSection />
-        </section>
-      </div>
+      {/* ---------- inverted band: one real turn ----------
+          A page that stays one tone reads flat no matter how good the palette
+          is. This band flips surface and ink while keeping the same accent. */}
+      <section className="bg-foreground py-20 text-background">
+        <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-10">
+          <p className="mb-6 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
+            One turn, start to finish
+          </p>
+
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="font-display text-[clamp(2rem,6vw,4.25rem)] font-bold leading-[0.9] tracking-[-0.04em]">
+              Reset
+            </h2>
+            <span className="hidden font-mono text-[10px] uppercase tracking-[0.3em] opacity-50 [writing-mode:vertical-rl] sm:block">
+              captured live
+            </span>
+            <h2 className="font-display text-[clamp(2rem,6vw,4.25rem)] font-bold leading-[0.9] tracking-[-0.04em]">
+              Streaks
+            </h2>
+          </div>
+          <p className="mb-10 font-mono text-xs opacity-60">
+            the whole prompt: “Add a Reset Streaks button under the weekly
+            summary.”
+          </p>
+
+          <div className="grid gap-10 lg:grid-cols-2">
+            <div>
+              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] opacity-50">
+                What the agent did
+              </p>
+              <div className="rounded-xl border border-background/15">
+                {TOOL_CALLS.map((c, i) => (
+                  <div
+                    key={`${c.tool}-${i}`}
+                    className={`grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 px-4 py-2.5 font-mono text-xs ${
+                      i > 0 ? 'border-t border-background/10' : ''
+                    }`}
+                  >
+                    <span className="text-primary">{c.tool}</span>
+                    <span className="truncate">{c.target}</span>
+                    <span className="opacity-55">{c.result}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 font-mono text-xs opacity-55">
+                6 calls · 1 file touched · no scaffolding rewritten
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] opacity-50">
+                What changed on disk
+              </p>
+              <pre className="overflow-x-auto rounded-xl border border-background/15 p-4 font-mono text-xs leading-[1.9]">
+                <span className="opacity-50">src/app/page.tsx</span>
+                {'\n'}
+                <span className="text-primary">+ &apos;use client&apos;;</span>
+                {'\n'}
+                <span className="text-primary">
+                  + import {'{'} useState {'}'} from &apos;react&apos;;
+                </span>
+                {'\n\n'}
+                <span className="opacity-45">- const habits: Habit[] = [</span>
+                {'\n'}
+                <span className="text-primary">
+                  + const initialHabits: Habit[] = [
+                </span>
+                {'\n\n'}
+                <span className="text-primary">
+                  + const [habits, setHabits] = useState(initialHabits);
+                </span>
+                {'\n'}
+                <span className="text-primary">
+                  + const resetStreaks = () =&gt;
+                </span>
+              </pre>
+              <p className="mt-3 font-mono text-xs opacity-55">
+                It found the template&apos;s existing ModeToggle and reused it
+                instead of writing a new one.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- honest limits ---------- */}
+      <section className="mx-auto w-full max-w-[1180px] px-5 py-20 sm:px-10">
+        <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
+          Read this before you star it
+        </p>
+        <h2 className="max-w-[17ch] font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
+          What it does not do yet.
+        </h2>
+
+        <div className="mt-9 overflow-hidden rounded-xl border border-border">
+          {LIMITS.map((l, i) => (
+            <details
+              key={l.title}
+              className={`p-5 ${i > 0 ? 'border-t border-border' : ''}`}
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+                <span className="font-mono text-primary transition-transform">
+                  ›
+                </span>
+                <span className="text-[1.0625rem] font-bold tracking-[-0.015em] text-foreground">
+                  {l.title}
+                </span>
+                <span className="ml-auto rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                  {l.tag}
+                </span>
+              </summary>
+              <p className="mt-3 max-w-[70ch] pl-7 text-[0.9375rem] leading-relaxed text-muted-foreground">
+                {l.body}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* ---------- close ---------- */}
+      <section className="mx-auto w-full max-w-[1180px] px-5 pb-28 sm:px-10">
+        <div className="border-t-[3px] border-border pt-12 text-center">
+          <h2 className="mx-auto max-w-[17ch] font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
+            Clone it, run one command, type one sentence.
+          </h2>
+          <p className="mx-auto mt-5 max-w-[52ch] text-[1.0625rem] leading-relaxed text-muted-foreground">
+            All of it happens on your machine. If it does not work in the first
+            minute, that is a bug worth filing.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => setShowSignUp(true)}
+              className="rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Get started
+            </button>
+            <a
+              href="https://github.com/Sma1lboy/codefox"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary"
+            >
+              Read the source
+            </a>
+          </div>
+          <p className="mt-6 font-mono text-xs text-muted-foreground">
+            MIT · Node 18+ · macOS, Linux, WSL
+          </p>
+        </div>
+      </section>
 
       <AuthChoiceModal
         isOpen={showAuthChoice}
