@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useChatList } from '@/hooks/useChatList';
 import { PromptForm, PromptFormRef } from '@/components/root/prompt-form';
+import { PublicProjects } from '@/components/root/public-projects';
 
 interface WorkbenchProps {
   promptFormRef: React.RefObject<PromptFormRef>;
@@ -88,6 +89,8 @@ export function Workbench({
           </ul>
         )}
       </section>
+
+      <PublicProjects limit={3} />
     </div>
   );
 }

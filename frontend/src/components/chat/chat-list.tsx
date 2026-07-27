@@ -22,15 +22,11 @@ import {
   ThumbsDown,
 } from 'lucide-react';
 import { useAuthContext } from '@/providers/AuthProvider';
-import ThinkingProcessBlock from './thinking-process-block';
 
 interface ChatListProps {
   messages: Message[];
   loadingSubmit?: boolean;
   onMessageEdit?: (messageId: string, newContent: string) => void;
-  thinkingProcess?: Message[];
-
-  isTPUpdating: boolean;
 }
 
 const isUserMessage = (role: string) => role.toLowerCase() === 'user';
@@ -39,11 +35,7 @@ export default function ChatList({
   messages,
   loadingSubmit,
   onMessageEdit,
-  thinkingProcess,
-
-  isTPUpdating,
 }: ChatListProps) {
-  console.log(thinkingProcess);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthContext();
 
@@ -256,21 +248,6 @@ export default function ChatList({
                             </div>
                           ) : (
                             <>
-                              {(() => {
-                                const tpMsg = thinkingProcess.find(
-                                  (tp) => tp.id === message.id
-                                );
-                                if (tpMsg) {
-                                  return (
-                                    <ThinkingProcessBlock
-                                      key={message.id}
-                                      thinking={tpMsg}
-                                    />
-                                  );
-                                }
-                                return null;
-                              })()}
-
                               <div className="mt-4 prose dark:prose-invert prose-sm max-w-none">
                                 {renderMessageContent(message.content)}
                               </div>
@@ -364,14 +341,6 @@ export default function ChatList({
             </div>
             <div className="flex-grow">
               <div className="px-4 py-2 flex flex-col">
-                {isTPUpdating &&
-                  thinkingProcess &&
-                  thinkingProcess.length > 0 && (
-                    <ThinkingProcessBlock
-                      key="loading-tp"
-                      thinking={thinkingProcess[thinkingProcess.length - 1]}
-                    />
-                  )}
                 <div className="flex items-center mt-2">
                   <div className="flex gap-1.5">
                     <span className="size-2 rounded-full bg-foreground/30 animate-bounce"></span>

@@ -14,12 +14,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DELETE_CHAT } from '@/graphql/request';
+import {
+  CLEAR_CHAT_HISTORY,
+  DELETE_CHAT,
+  UPDATE_CHAT_TITLE,
+} from '@/graphql/request';
 import { cn } from '@/lib/utils';
 import { useMutation } from '@apollo/client';
-import { MoreHorizontal, Trash2 } from 'lucide-react';
+import { Eraser, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { EventEnum } from '../const/EventEnum';
 import { logger } from '@/app/log/logger';
@@ -61,8 +65,47 @@ function SideBarItemComponent({
   refetchChats,
 }: SideBarItemProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const isSelected = currentChatId === id;
+
+  useEffect(() => setDraft(title), [title]);
+  useEffect(() => {
+    if (renaming) inputRef.current?.select();
+  }, [renaming]);
+
+  const [updateTitle] = useMutation(UPDATE_CHAT_TITLE, {
+    onCompleted: () => refetchChats(),
+    onError: (error) => {
+      logger.error('Error renaming chat:', error);
+      toast.error('Could not rename this chat');
+      setDraft(title);
+    },
+  });
+
+  const [clearHistory] = useMutation(CLEAR_CHAT_HISTORY, {
+    onCompleted: () => {
+      toast.success('History cleared');
+      // The open conversation is now stale — reload it from the server.
+      if (isSelected) window.dispatchEvent(new Event(EventEnum.CHAT));
+    },
+    onError: (error) => {
+      logger.error('Error clearing history:', error);
+      toast.error('Could not clear this chat');
+    },
+  });
+
+  const commitRename = () => {
+    setRenaming(false);
+    const next = draft.trim();
+    if (!next || next === title) {
+      setDraft(title);
+      return;
+    }
+    updateTitle({ variables: { input: { chatId: id, title: next } } });
+  };
 
   const [deleteChat] = useMutation(DELETE_CHAT, {
     onCompleted: () => {
@@ -104,25 +147,45 @@ function SideBarItemComponent({
         />
       )}
 
-      <button
-        type="button"
-        onClick={() => onSelect(id)}
-        aria-current={isSelected ? 'page' : undefined}
-        title={title || 'New chat'}
-        className="flex h-[34px] min-w-0 flex-1 items-center gap-2 text-left"
-      >
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-[13px]',
-            isSelected ? 'font-medium text-foreground' : 'text-muted-foreground'
-          )}
+      {renaming ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitRename();
+            if (e.key === 'Escape') {
+              setDraft(title);
+              setRenaming(false);
+            }
+          }}
+          aria-label="Chat title"
+          className="h-[34px] min-w-0 flex-1 rounded bg-background px-2 text-[13px] text-foreground outline-none ring-1 ring-ring"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => onSelect(id)}
+          aria-current={isSelected ? 'page' : undefined}
+          title={title || 'New chat'}
+          className="flex h-[34px] min-w-0 flex-1 items-center gap-2 text-left"
         >
-          {title || 'New chat'}
-        </span>
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70 transition-opacity group-hover/row:opacity-0">
-          {relativeTime(createdAt)}
-        </span>
-      </button>
+          <span
+            className={cn(
+              'min-w-0 flex-1 truncate text-[13px]',
+              isSelected
+                ? 'font-medium text-foreground'
+                : 'text-muted-foreground'
+            )}
+          >
+            {title || 'New chat'}
+          </span>
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70 transition-opacity group-hover/row:opacity-0">
+            {relativeTime(createdAt)}
+          </span>
+        </button>
+      )}
 
       {/* Revealed on hover or keyboard focus so it never competes with titles. */}
       <DropdownMenu>
@@ -136,6 +199,16 @@ function SideBarItemComponent({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setRenaming(true)}>
+            <Pencil className="mr-2 h-4 w-4 shrink-0" />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => clearHistory({ variables: { chatId: id } })}
+          >
+            <Eraser className="mr-2 h-4 w-4 shrink-0" />
+            Clear history
+          </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => setIsDialogOpen(true)}
             className="text-destructive focus:text-destructive"

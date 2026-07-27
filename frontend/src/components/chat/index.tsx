@@ -23,7 +23,6 @@ export default function Chat() {
   const urlParams = new URLSearchParams(window.location.search);
   const [chatId, setChatId] = useState('');
   const [messages, setMessages] = useState([]);
-  const [thinkingProcess, setThinkingProcess] = useState([]);
   const [input, setInput] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
   const { models } = useModels();
@@ -36,7 +35,6 @@ export default function Chat() {
   }, [models, selectedModel]);
   const { refetchChats } = useChatList();
 
-  const [isTPUpdating, setIsTPUpdating] = useState(false);
   // Project status monitoring for the current chat
   const { isReady, projectId, projectName, error } =
     useProjectStatusMonitor(chatId);
@@ -55,7 +53,6 @@ export default function Chat() {
               role: msg.role,
               content: content.final_response,
               createdAt: msg.createdAt,
-              thinking_process: content.thinking_process,
             };
           } catch (e) {
             return msg;
@@ -63,17 +60,6 @@ export default function Chat() {
         });
 
         setMessages(processedMessages);
-
-        const tpMessages = processedMessages
-          .filter((msg) => msg.thinking_process)
-          .map((msg) => ({
-            id: msg.id,
-            role: msg.role,
-            content: msg.thinking_process,
-            createdAt: msg.createdAt,
-          }));
-
-        setThinkingProcess(tpMessages);
       }
     },
     onError: () => {
@@ -88,9 +74,7 @@ export default function Chat() {
       input,
       setInput,
       setMessages,
-      setThinkingProcess,
       selectedModel,
-      setIsTPUpdating,
     });
 
   // Callback to clear the chat ID
@@ -148,7 +132,6 @@ export default function Chat() {
             chatId={chatId}
             setSelectedModel={setSelectedModel}
             messages={messages}
-            thinkingProcess={thinkingProcess}
             input={input}
             handleInputChange={handleInputChange}
             handleSubmit={handleSubmit}
@@ -158,8 +141,6 @@ export default function Chat() {
             formRef={formRef}
             setInput={setInput}
             setMessages={setMessages}
-            setThinkingProcess={setThinkingProcess}
-            isTPUpdating={isTPUpdating}
           />
         </div>
       </ResizablePanel>
@@ -187,7 +168,6 @@ export default function Chat() {
         chatId={chatId}
         setSelectedModel={setSelectedModel}
         messages={messages}
-        thinkingProcess={thinkingProcess}
         input={input}
         handleInputChange={handleInputChange}
         handleSubmit={handleSubmit}
@@ -196,8 +176,6 @@ export default function Chat() {
         formRef={formRef}
         setInput={setInput}
         setMessages={setMessages}
-        setThinkingProcess={setThinkingProcess}
-        isTPUpdating={isTPUpdating}
       />
     </div>
   );

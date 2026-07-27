@@ -155,7 +155,13 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                     variant="outline"
                     className="flex items-center gap-2 w-full"
                     onClick={() => {
-                      // Redirect to your NestJS backend's Google OAuth endpoint
+                      // The backend route exists but 302s to Google with
+                      // whatever client id is configured; say so rather than
+                      // bouncing the user to a Google error page.
+                      if (!process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED) {
+                        toast.error('Google sign-in is not configured yet.');
+                        return;
+                      }
                       window.location.href =
                         process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
                         'http://localhost:8080/auth/google';
@@ -167,13 +173,6 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                       className="w-5 h-5"
                     />
                     <span>Google</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2 w-full"
-                  >
-                    <Github className="w-5 h-5 text-black dark:text-white" />
-                    <span>GitHub</span>
                   </Button>
                 </div>
               </div>

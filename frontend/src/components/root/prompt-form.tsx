@@ -164,8 +164,8 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
 
         <div className="border-t border-border" />
 
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
             {/* visibility */}
             <Select
               value={visibility}

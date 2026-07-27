@@ -3,10 +3,12 @@ import * as path from 'path';
 import { getProjectsDir } from '../../../backend/src/common/utils/common-path';
 import { logger } from '@/app/log/logger';
 
-// Not part of the user's project: shared dependency link, vcs metadata, and
-// the build output the preview dev server writes into the project directory.
+// Not part of the user's project: shared dependency link, vcs metadata, the
+// build output the preview dev server writes into the project directory, and
+// the images staged for the agent to read.
 const IGNORED_ENTRIES = new Set([
   'node_modules',
+  '.codefox-uploads',
   '.git',
   '.next',
   '.turbo',
