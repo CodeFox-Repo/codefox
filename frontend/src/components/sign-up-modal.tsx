@@ -24,7 +24,8 @@ import {
 } from '@/graphql/mutations/auth';
 import { useRouter } from 'next/navigation';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { AlertCircle, CheckCircle, Mail, Clock, Github } from 'lucide-react';
+import { AlertCircle, CheckCircle, Mail, Clock } from 'lucide-react';
+import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { logger } from '@/app/log/logger';
 
@@ -277,7 +278,13 @@ export function SignUpModal({
                     className="flex items-center justify-center gap-2 w-full"
                     type="button"
                     onClick={() => {
-                      // Redirect to your NestJS backend's Google OAuth endpoint
+                      // Same guard as the sign-in modal: the backend route
+                      // 302s to Google with whatever client id is configured,
+                      // so without one the user lands on a Google error page.
+                      if (!process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED) {
+                        toast.error('Google sign-up is not configured yet.');
+                        return;
+                      }
                       window.location.href =
                         process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
                         'http://localhost:8080/auth/google';
@@ -290,18 +297,6 @@ export function SignUpModal({
                     />
                     <span>Continue with Google</span>
                   </Button>
-
-                  {/* GitHub Sign Up Button - added below Google */}
-                  <div className="mt-4">
-                    <Button
-                      variant="outline"
-                      className="flex items-center justify-center gap-2 w-full"
-                      type="button"
-                    >
-                      <Github className="w-5 h-5 text-black dark:text-white" />
-                      <span>Continue with GitHub</span>
-                    </Button>
-                  </div>
 
                   {/* Divider with "or" text */}
                   <div className="relative my-6">

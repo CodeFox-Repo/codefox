@@ -1,13 +1,14 @@
 'use client';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Code as CodeIcon,
   Copy,
+  Globe,
+  Lock,
   Download,
   Eye,
   GitFork,
-  Github,
   Share2,
   Terminal,
   Loader,
@@ -16,7 +17,8 @@ import { useAuthContext } from '@/providers/AuthProvider';
 import { logger } from '@/app/log/logger';
 import { useMutation, useQuery, gql } from '@apollo/client';
 import { toast } from 'sonner';
-import { SYNC_PROJECT_TO_GITHUB, GET_PROJECT } from '../../../graphql/request';
+import { GET_PROJECT } from '../../../graphql/request';
+import { ProjectContext } from './project-context';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 interface ResponsiveToolbarProps {
@@ -39,49 +41,15 @@ const ResponsiveToolbar = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const { token, user, refreshUserInfo } = useAuthContext();
 
-  // Poll for GitHub installation status when needed
-  const [isPollingGitHub, setIsPollingGitHub] = useState(false);
-
   // Apollo mutations and queries
-  const [syncProject, { loading: isPublishingToGitHub }] = useMutation(
-    SYNC_PROJECT_TO_GITHUB,
-    {
-      onCompleted: (data) => {
-        const syncResult = data.syncProjectToGitHub;
-
-        toast.success('Successfully published to GitHub!');
-
-        // Offer to open the repo in a new tab
-        const repoUrl = syncResult.githubRepoUrl;
-        console.log('GitHub repo URL:', repoUrl);
-        if (repoUrl) {
-          const shouldOpen = window.confirm(
-            'Would you like to open the GitHub repository?'
-          );
-          if (shouldOpen) {
-            window.open(repoUrl, '_blank');
-          }
-        }
-      },
-      onError: (error) => {
-        logger.error('Error publishing to GitHub:', error);
-        toast.error(`Error publishing to GitHub: ${error.message}`);
-      },
-    }
-  );
-
   // Query to check if the project is already synced
-  const { data: projectData } = useQuery(GET_PROJECT, {
+  const { setProjectPublicStatus } = useContext(ProjectContext);
+  const [togglingVisibility, setTogglingVisibility] = useState(false);
+  const { data: projectData, refetch: refetchProject } = useQuery(GET_PROJECT, {
     variables: { projectId },
     skip: !projectId,
     fetchPolicy: 'cache-and-network',
   });
-
-  // Determine if GitHub sync is complete based on query data
-  const isGithubSyncComplete =
-    projectData?.getProject?.isSyncedWithGitHub || false;
-
-  const githubRepoUrl = projectData?.getProject?.githubRepoUrl || '';
 
   // Observe container width changes
   useEffect(() => {
@@ -114,95 +82,9 @@ const ResponsiveToolbar = ({
     }
   }, [containerWidth]);
 
-  // Poll for GitHub installation completion
-  useEffect(() => {
-    let pollInterval: NodeJS.Timeout;
-
-    if (isPollingGitHub) {
-      pollInterval = setInterval(async () => {
-        console.log('Polling backend for GitHub installation status...');
-        try {
-          // Call to refresh user info (from backend)
-          await refreshUserInfo();
-
-          // Check if user now has installation ID
-          if (user?.githubInstallationId) {
-            console.log('GitHub installation complete!');
-            setIsPollingGitHub(false);
-            clearInterval(pollInterval);
-          }
-        } catch (error) {
-          logger.error('Polling error:', error);
-          setIsPollingGitHub(false);
-        }
-      }, 3000); // Poll every 3s
-    }
-
-    return () => {
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [isPollingGitHub, user?.githubInstallationId, refreshUserInfo]);
-
-  const handlePublishToGitHub = async () => {
-    // If already publishing, do nothing
-    if (isPublishingToGitHub) return;
-
-    // If the user hasn't installed the GitHub App yet
-    if (!user?.githubInstallationId) {
-      try {
-        // Prompt the user to install the GitHub App
-        const shouldInstall = window.confirm(
-          'You need to install the GitHub App to publish your project. Would you like to do this now?'
-        );
-
-        if (shouldInstall) {
-          // Start polling for installation completion
-          setIsPollingGitHub(true);
-
-          // This format ensures GitHub will prompt the user to choose where to install
-          const installUrl = `https://github.com/apps/codefox-project-fork/installations/new`;
-          window.open(installUrl, '_blank');
-        }
-        return;
-      } catch (error) {
-        logger.error('Error opening GitHub installation:', error);
-        setIsPollingGitHub(false);
-        toast.error(
-          'Error opening GitHub installation page. Please try again.'
-        );
-        return;
-      }
-    }
-
-    // Ensure we have a project ID
-    if (!projectId) {
-      toast.error('Cannot publish: No project ID available');
-      return;
-    }
-
-    // If already synced and we have the URL, offer to open it
-    if (isGithubSyncComplete && githubRepoUrl) {
-      const shouldOpen = window.confirm(
-        'This project is already published to GitHub. Would you like to open the repository?'
-      );
-      if (shouldOpen) {
-        window.open(projectData.getProject.githubRepoUrl, '_blank');
-      }
-      return;
-    }
-
-    // Execute the mutation
-    try {
-      await syncProject({
-        variables: {
-          projectId,
-        },
-      });
-    } catch (error) {
-      // Error is handled by the mutation's onError callback
-      logger.error('Error in handlePublishToGitHub:', error);
-    }
-  };
+  // Undefined until the query resolves. Do NOT default to false: the button
+  // toggles to `!isPublic`, so an unknown state would publish the project.
+  const isPublic: boolean | undefined = projectData?.getProject?.isPublic;
 
   const handleDownload = async () => {
     // If projectId is available, initiate download
@@ -323,7 +205,13 @@ const ResponsiveToolbar = ({
             variant="ghost"
             size="sm"
             className={`p-0 ${compactIcons ? 'hidden' : 'block'}`}
-            disabled={isLoading}
+            disabled={isLoading || !projectId}
+            aria-label="Copy project id"
+            onClick={() => {
+              if (!projectId) return;
+              navigator.clipboard.writeText(projectId);
+              toast.success('Project id copied');
+            }}
           >
             <Copy className="w-3 h-3" />
           </Button>
@@ -331,24 +219,41 @@ const ResponsiveToolbar = ({
         <div className="flex items-center space-x-2">
           {!compactIcons && (
             <>
-              {/* 
-              //TODO: FIX ME (ALLEN)
               <Button
                 variant="outline"
                 size="sm"
                 className="text-sm"
-                disabled={isLoading}
+                disabled={
+                  isLoading ||
+                  !projectId ||
+                  togglingVisibility ||
+                  isPublic === undefined
+                }
+                onClick={async () => {
+                  if (!projectId || isPublic === undefined) return;
+                  setTogglingVisibility(true);
+                  await setProjectPublicStatus(projectId, !isPublic);
+                  await refetchProject();
+                  setTogglingVisibility(false);
+                }}
+                title={
+                  isPublic
+                    ? 'Anyone can see and fork this project'
+                    : 'Only you can see this project'
+                }
+                aria-busy={isPublic === undefined}
               >
-                Supabase
+                {isPublic ? (
+                  <Globe className="w-3 h-3 mr-1" />
+                ) : (
+                  <Lock className="w-3 h-3 mr-1" />
+                )}
+                {isPublic === undefined
+                  ? 'Visibility'
+                  : isPublic
+                    ? 'Public'
+                    : 'Private'}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm"
-                disabled={isLoading}
-              >
-                Publish
-              </Button> */}
               <Button
                 variant="outline"
                 size="sm"
@@ -363,34 +268,10 @@ const ResponsiveToolbar = ({
                 )}
                 Download
               </Button>
-              <Button
-                variant={isGithubSyncComplete ? 'secondary' : 'outline'}
-                size="sm"
-                className="text-sm"
-                disabled={
-                  isLoading ||
-                  !projectId ||
-                  isPublishingToGitHub ||
-                  isPollingGitHub
-                }
-                onClick={handlePublishToGitHub}
-              >
-                {isPublishingToGitHub ? (
-                  <Loader className="w-3 h-3 mr-1 animate-spin" />
-                ) : (
-                  <Github className="w-3 h-3 mr-1" />
-                )}
-                {isGithubSyncComplete ? 'View on GitHub' : 'GitHub'}
-              </Button>
             </>
           )}
           {compactIcons && (
             <>
-              {/* 
-              //TODO: FIX ME (ALLEN)
-              <Button variant="outline" className="p-2" disabled={isLoading}>
-                <Share2 className="w-4 h-4" />
-              </Button> */}
               <Button
                 variant="outline"
                 size="icon"
@@ -402,23 +283,6 @@ const ResponsiveToolbar = ({
                   <Loader className="w-3 h-3 animate-spin" />
                 ) : (
                   <Download className="w-3 h-3" />
-                )}
-              </Button>
-              <Button
-                variant={isGithubSyncComplete ? 'secondary' : 'outline'}
-                className="p-2"
-                disabled={
-                  isLoading ||
-                  !projectId ||
-                  isPublishingToGitHub ||
-                  isPollingGitHub
-                }
-                onClick={handlePublishToGitHub}
-              >
-                {isPublishingToGitHub ? (
-                  <Loader className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Github className="w-3 h-3" />
                 )}
               </Button>
             </>

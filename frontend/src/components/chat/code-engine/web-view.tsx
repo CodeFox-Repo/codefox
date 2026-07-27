@@ -267,7 +267,7 @@ function PreviewContent({
   return (
     <div className="flex flex-col w-full h-full">
       {/* URL Bar */}
-      <div className="flex items-center gap-2 px-3 h-11 border-b bg-muted">
+      <div className="flex h-9 items-center gap-2 border-b border-border bg-muted px-3">
         {/* Navigation Controls */}
         <div className="flex items-center gap-1">
           <Button
@@ -307,7 +307,7 @@ function PreviewContent({
             type="text"
             value={displayPath}
             onChange={(e) => handlePathChange(e.target.value)}
-            className="h-8 bg-secondary"
+            className="h-7 bg-secondary text-xs"
             placeholder="/"
             disabled={!baseUrl || !isServiceReady}
           />

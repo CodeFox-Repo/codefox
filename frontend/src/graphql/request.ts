@@ -23,6 +23,7 @@ export const FETCH_PUBLIC_PROJECTS = gql`
       id
       projectName
       projectPath
+      userId
       createdAt
       user {
         username
@@ -55,25 +56,6 @@ export const GET_CHAT_HISTORY = gql`
   }
 `;
 
-export const CHAT_STREAM = gql`
-  subscription ChatStream($input: ChatInputType!) {
-    chatStream(input: $input) {
-      id
-      created
-      choices {
-        delta {
-          content
-        }
-        finishReason
-        index
-      }
-      model
-      object
-      status
-    }
-  }
-`;
-
 export const GET_USER_CHATS = gql`
   query GetUserChats {
     getUserChats {
@@ -90,6 +72,21 @@ export const GET_USER_CHATS = gql`
   }
 `;
 
+export const UPDATE_CHAT_TITLE = gql`
+  mutation UpdateChatTitle($input: UpdateChatTitleInput!) {
+    updateChatTitle(updateChatTitleInput: $input) {
+      id
+      title
+    }
+  }
+`;
+
+export const CLEAR_CHAT_HISTORY = gql`
+  mutation ClearChatHistory($chatId: String!) {
+    clearChatHistory(chatId: $chatId)
+  }
+`;
+
 export const DELETE_CHAT = gql`
   mutation DeleteChat($chatId: String!) {
     deleteChat(chatId: $chatId)
@@ -99,17 +96,12 @@ export const DELETE_CHAT = gql`
 export const GET_USER_INFO = gql`
   query me {
     me {
+      id
       username
       email
       avatarUrl
       githubInstallationId
     }
-  }
-`;
-
-export const TRIGGER_CHAT = gql`
-  mutation TriggerChatStream($input: ChatInputType!) {
-    triggerChatStream(input: $input)
   }
 `;
 
@@ -169,15 +161,6 @@ export const GET_CHAT_DETAILS = gql`
     }
   }
 `;
-export const GET_CUR_PROJECT = gql`
-  query GetCurProject($chatId: String!) {
-    getCurProject(chatId: $chatId) {
-      id
-      projectName
-      projectPath
-    }
-  }
-`;
 export const SAVE_MESSAGE = gql`
   mutation SaveMessage($input: ChatInputType!) {
     saveMessage(input: $input)
@@ -230,7 +213,7 @@ export const UPDATE_PROJECT_PUBLIC_STATUS = gql`
     updateProjectPublicStatus(projectId: $projectId, isPublic: $isPublic) {
       id
       projectName
-      path
+      isPublic
     }
   }
 `;
@@ -245,22 +228,6 @@ export const UPDATE_PROJECT_PHOTO_URL = gql`
   }
 `;
 
-// Query to get subscribed/forked projects
-export const GET_SUBSCRIBED_PROJECTS = gql`
-  query GetSubscribedProjects {
-    getSubscribedProjects {
-      id
-      projectName
-      projectPath
-      isPublic
-      photoUrl
-      userId
-      forkedFromId
-      subNumber
-    }
-  }
-`;
-
 // mutation to upload a user avatar
 export const UPLOAD_AVATAR = gql`
   mutation UploadAvatar($file: Upload!) {
@@ -271,33 +238,13 @@ export const UPLOAD_AVATAR = gql`
   }
 `;
 
-//query to get user avatar
-export const GET_USER_AVATAR = gql`
-  query GetUserAvatar($userId: String!) {
-    getUserAvatar(userId: $userId)
-  }
-`;
-
 // sync project with github
-export const SYNC_PROJECT_TO_GITHUB = gql`
-  mutation SyncProjectToGitHub($projectId: String!) {
-    syncProjectToGitHub(projectId: $projectId) {
-      id
-      projectName
-      isSyncedWithGitHub
-      githubOwner
-      githubRepoName
-      githubRepoUrl
-    }
-  }
-`;
-
 export const GET_PROJECT = gql`
   query GetProject($projectId: String!) {
     getProject(projectId: $projectId) {
       id
-      isSyncedWithGitHub
-      githubRepoUrl
+      projectName
+      isPublic
     }
   }
 `;

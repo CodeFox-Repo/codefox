@@ -203,12 +203,12 @@ export const ChatSideBar = memo(
     if (prevProps.isCollapsed !== nextProps.isCollapsed) return false;
     if (prevProps.loading !== nextProps.loading) return false;
     if (prevProps.error !== nextProps.error) return false;
-    if (prevProps.chats.length !== nextProps.chats.length) return false;
-
-    // Compare chat IDs only
-    const prevIds = prevProps.chats.map((chat) => chat.id).join(',');
-    const nextIds = nextProps.chats.map((chat) => chat.id).join(',');
-    return prevIds === nextIds;
+    // Titles change without the list changing shape — on rename, and when a
+    // new chat gets auto-titled from its first message. Comparing ids alone
+    // skipped both, leaving the sidebar showing a stale name for the session.
+    const key = (chats: Chat[]) =>
+      chats.map((chat) => `${chat.id}:${chat.title}`).join(',');
+    return key(prevProps.chats) === key(nextProps.chats);
   }
 );
 
