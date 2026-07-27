@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "corepack enable && pnpm install --frozen-lockfile && pnpm --filter codefox-backend build"
+  },
+  "deploy": {
+    "startCommand": "node --experimental-specifier-resolution=node backend/dist/main",
+    "healthcheckPath": "/graphql?query=%7B__typename%7D",
+    "healthcheckTimeout": 120,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}

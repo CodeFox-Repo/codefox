@@ -65,8 +65,10 @@ export class AppConfigService {
   /**
    * Check if production environment
    */
+  /** Accepts both the Node convention and this repo's legacy PROD spelling. */
   get isProduction(): boolean {
-    return this.configService.get('NODE_ENV') === 'production';
+    const env = String(this.configService.get('NODE_ENV') ?? '');
+    return env === 'production' || env === 'PROD';
   }
 
   /**

@@ -150,7 +150,7 @@ export class AuthService {
   get isRegistrationOpen(): boolean {
     const flag = process.env.ALLOW_REGISTRATION;
     if (flag != null) return flag === 'true';
-    return process.env.NODE_ENV !== 'production';
+    return !['production', 'PROD'].includes(process.env.NODE_ENV ?? '');
   }
 
   async register(registerUserInput: RegisterUserInput): Promise<User> {

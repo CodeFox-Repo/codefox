@@ -9,8 +9,14 @@ export class EnvironmentVariables {
   @IsNumber()
   PORT: number = 8000;
 
+  /**
+   * Both spellings are accepted. The validator used to allow only DEV/PROD/
+   * TEST while every runtime check compares against 'production', so PROD
+   * booted with development settings and 'production' failed validation
+   * outright — production was unreachable either way.
+   */
   @IsString()
-  @IsIn(['DEV', 'PROD', 'TEST'])
+  @IsIn(['development', 'production', 'test', 'DEV', 'PROD', 'TEST'])
   NODE_ENV: string;
 
   @IsString()

@@ -3,7 +3,7 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   experimental: {
-    serverComponentsExternalPackages: ['pino', 'pino-pretty']
+    serverComponentsExternalPackages: ['pino', 'pino-pretty'],
   },
   webpack: (config, { isServer }) => {
     // Fixes npm packages that depend on `fs` module
@@ -41,11 +41,15 @@ const nextConfig = {
   // (afterFiles) still beat dynamic segments, so every multi-segment route
   // like /api/media/[...path] was being proxied away and 404ing.
   async rewrites() {
+    // Hardcoding localhost here meant a deployed frontend proxied /api to
+    // nothing. Same default as the GraphQL client so `pnpm dev` is unchanged.
+    const backend =
+      process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080';
     return {
       fallback: [
         {
           source: '/api/:path*',
-          destination: 'http://localhost:8080/api/:path*',
+          destination: `${backend}/api/:path*`,
         },
       ],
     };

@@ -10,7 +10,17 @@ const APP_NAME = 'codefox';
 
 const WORKSPACE_ROOT = path.resolve(cwd(), '..');
 
-const ROOT_DIR = path.join(WORKSPACE_ROOT, `.${APP_NAME}`);
+/**
+ * Everything the server owns at runtime — generated projects, the SQLite
+ * file, uploaded media — lives here.
+ *
+ * Deriving it from cwd is right for a checkout but wrong for a container,
+ * where the filesystem is replaced on every deploy and users would find their
+ * projects gone. CODEFOX_DATA_DIR points it at a mounted volume instead.
+ */
+const ROOT_DIR = process.env.CODEFOX_DATA_DIR
+  ? path.resolve(process.env.CODEFOX_DATA_DIR)
+  : path.join(WORKSPACE_ROOT, `.${APP_NAME}`);
 
 export const TEMPLATE_PATH = path.join(WORKSPACE_ROOT, 'backend/template');
 export const PROJECT_EVENT_PATH = path.join(ROOT_DIR, 'project-events');
@@ -104,13 +114,13 @@ export const cleanTempDir = async (): Promise<void> => {
   const tempDir = getTempDir();
   const files = await promises.readdir(tempDir);
   await Promise.all(
-    files.map((file) => promises.unlink(path.join(tempDir, file)))
+    files.map((file) => promises.unlink(path.join(tempDir, file))),
   );
 };
 
 // Access Project Structure
 export const getProjectStructure = (
-  projectId: string
+  projectId: string,
 ): {
   root: string;
   src: string;
