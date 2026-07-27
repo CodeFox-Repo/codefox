@@ -14,9 +14,7 @@ export interface UseChatStreamProps {
   input: string;
   setInput: (input: string) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  setThinkingProcess: React.Dispatch<React.SetStateAction<Message[]>>;
   selectedModel: string;
-  setIsTPUpdating: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const useChatStream = ({
@@ -24,9 +22,7 @@ export const useChatStream = ({
   input,
   setInput,
   setMessages,
-  setThinkingProcess,
   selectedModel,
-  setIsTPUpdating,
 }: UseChatStreamProps) => {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   /** What the agent is doing right now, surfaced while the turn streams. */
@@ -35,6 +31,10 @@ export const useChatStream = ({
     file?: string;
   } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  /** Attachments for the turn being submitted. A ref because the first turn of
+   *  a new chat is dispatched from createChat's onCompleted, outside the
+   *  handleSubmit closure. */
+  const pendingImagesRef = useRef<string[] | undefined>(undefined);
   const [currentChatId, setCurrentChatId] = useState<string>(chatId);
   const { token } = useAuthContext();
   const { curProject, refreshProjects, setFilePath, editorRef } =
@@ -75,7 +75,7 @@ export const useChatStream = ({
     onCompleted: async (data) => {
       const newChatId = data.createChat.id;
       setCurrentChatId(newChatId);
-      await handleChatResponse(newChatId, input);
+      await handleChatResponse(newChatId, input, pendingImagesRef.current);
       window.history.pushState({}, '', `/chat?id=${newChatId}`);
       logger.info(`new chat: ${newChatId}`);
     },
@@ -85,7 +85,11 @@ export const useChatStream = ({
     },
   });
 
-  const handleChatResponse = async (targetChatId: string, message: string) => {
+  const handleChatResponse = async (
+    targetChatId: string,
+    message: string,
+    images?: string[]
+  ) => {
     const replyId = `${targetChatId}-${Date.now()}`;
     try {
       setInput('');
@@ -130,6 +134,7 @@ export const useChatStream = ({
 
       const reply = await startChatStream(userInput, token, {
         signal: controller.signal,
+        images,
         onText: appendText,
         // `activity` drives the "what is it doing right now" line while the
         // turn streams, so a long tool run is not a blank wait.
@@ -168,8 +173,12 @@ export const useChatStream = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    images?: string[]
+  ) => {
     e.preventDefault();
+    pendingImagesRef.current = images;
 
     const content = input;
 
@@ -200,7 +209,7 @@ export const useChatStream = ({
         return;
       }
     } else {
-      await handleChatResponse(currentChatId, content);
+      await handleChatResponse(currentChatId, content, images);
     }
   };
 

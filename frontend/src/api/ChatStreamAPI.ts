@@ -13,6 +13,8 @@ export interface ChatStreamHandlers {
 export interface ChatStreamOptions extends ChatStreamHandlers {
   /** Aborts the request; the backend stops the agent when the client hangs up. */
   signal?: AbortSignal;
+  /** Attached images as `data:<mime>;base64,<data>` URLs. */
+  images?: string[];
 }
 
 /**
@@ -25,7 +27,7 @@ export interface ChatStreamOptions extends ChatStreamHandlers {
 export const startChatStream = async (
   input: ChatInputType,
   token: string,
-  { onText, onTool, onError, signal }: ChatStreamOptions = {}
+  { onText, onTool, onError, signal, images }: ChatStreamOptions = {}
 ): Promise<string> => {
   if (!token) {
     throw new Error('Not authenticated');
@@ -38,7 +40,7 @@ export const startChatStream = async (
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ chatId, message, model }),
+    body: JSON.stringify({ chatId, message, model, images }),
     signal,
   });
 

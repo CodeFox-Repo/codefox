@@ -1,4 +1,10 @@
-import { IsString, IsBoolean, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsArray,
+  ArrayMaxSize,
+} from 'class-validator';
 
 export class ChatRestDto {
   @IsString()
@@ -13,4 +19,11 @@ export class ChatRestDto {
   @IsBoolean()
   @IsOptional()
   stream?: boolean = false;
+
+  /** Attached images as `data:<mime>;base64,<data>` URLs. */
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(4)
+  @IsOptional()
+  images?: string[];
 }

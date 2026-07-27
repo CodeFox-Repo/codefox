@@ -42,6 +42,10 @@ export function CodeEngine({
   const [timerActive, setTimerActive] = useState(false);
   const initialTime = 6 * 60; // 初始总时间（6分钟）
   const [projectCompleted, setProjectCompleted] = useState(false);
+  /** The poll came back empty: this chat was created without a project and
+   *  will never get one, so the progress animation is a promise it cannot
+   *  keep. */
+  const [hasNoProject, setHasNoProject] = useState(false);
   // 添加一个状态来跟踪完成动画
   const [isCompleting, setIsCompleting] = useState(false);
   // 添加一个ref来持久跟踪项目状态，避免重新渲染时丢失
@@ -77,6 +81,7 @@ export function CodeEngine({
         try {
           setIsLoading(true);
           const project = await pollChatProject(chatId);
+          setHasNoProject(!project);
           if (project) {
             setLocalProject(project);
             // 如果成功加载项目，将状态设置为已完成
@@ -277,7 +282,7 @@ export function CodeEngine({
       case 'preview':
         return <PreviewTab project={activeProject} />;
       case 'console':
-        return <ConsoleTab />;
+        return <ConsoleTab project={activeProject} />;
       default:
         return null;
     }
@@ -320,6 +325,9 @@ export function CodeEngine({
     if (projectCompleted || isProjectLoadedRef.current) {
       return false;
     }
+    if (hasNoProject) {
+      return false;
+    }
     return (
       !isProjectReady ||
       isLoading ||
@@ -331,6 +339,7 @@ export function CodeEngine({
     activeProject,
     projectCompleted,
     localProject,
+    hasNoProject,
   ]);
 
   useEffect(() => {
@@ -402,13 +411,30 @@ export function CodeEngine({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // Nothing to show a code panel for: this chat was started without a project,
+  // so the tabs, the file tree and the preview all have no subject.
+  if (hasNoProject) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+        <p className="font-mono text-sm tracking-[0.12em] text-primary">
+          NO PROJECT
+        </p>
+        <p className="max-w-[42ch] font-mono text-xs text-muted-foreground">
+          This conversation was started on its own, so there are no files to
+          show. Describe what you want built from the home page to get a project
+          alongside the chat.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-scroll">
       <ResponsiveToolbar
         isLoading={showLoader}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        projectId={curProject?.id || projectId}
+        projectId={activeProject?.id || projectId}
       />
 
       <div className="relative h-[calc(100vh-48px-4rem)]">

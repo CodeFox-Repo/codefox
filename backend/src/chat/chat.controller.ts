@@ -88,6 +88,8 @@ export class ChatController {
     const { result, session } = await runProjectAgent({
       projectPath: project.projectPath,
       message: chatDto.message,
+      images: chatDto.images,
+      model: chatDto.model,
     });
 
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
@@ -138,23 +140,40 @@ export class ChatController {
     }
   }
 
+  /**
+   * Same newline-delimited JSON protocol as `pipeAgent`. It used to write the
+   * raw text stream instead, which the client — a JSON-per-line parser —
+   * dropped line by line, so a chat with no project answered with silence.
+   */
   private async pipePlainCompletion(chatDto: ChatRestDto, res: Response) {
     const result = streamText({
       model: openrouter(chatDto.model || DEFAULT_MODEL),
-      messages: [{ role: 'user', content: chatDto.message }],
+      prompt: chatDto.message,
     });
 
-    const streamResponse = result.toTextStreamResponse();
-    streamResponse.headers.forEach((value: string, key: string) => {
-      res.setHeader(key, value);
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    let clientGone = false;
+    res.on('close', () => {
+      clientGone = true;
     });
 
-    const reader = streamResponse.body!.getReader();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
+    try {
+      for await (const delta of result.textStream) {
+        if (clientGone) break;
+        res.write(`${JSON.stringify({ t: 'text', v: delta })}\n`);
+      }
+    } catch (error) {
+      this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
+      if (!res.writableEnded) {
+        res.write(
+          `${JSON.stringify({ t: 'error', v: 'The reply failed.' })}\n`,
+        );
+      }
+    } finally {
+      res.end();
     }
-    res.end();
   }
 }
