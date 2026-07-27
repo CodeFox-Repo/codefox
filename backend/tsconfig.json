@@ -26,7 +26,13 @@
       // node` ignores the package's exports map — so the subpath resolves to
       // the package's own source and drags it into our build. Point types at
       // the built declarations; runtime resolution still uses exports.
+      //
+      // Both candidates are listed because the package only lands in the root
+      // node_modules when the installer hoists it. A clean pnpm install keeps
+      // a direct dependency under backend/node_modules, where the first path
+      // does not exist — which is why this built here and nowhere else.
       "@ai-sdk/harness/agent": [
+        "./node_modules/@ai-sdk/harness/dist/agent/index.d.ts",
         "../node_modules/@ai-sdk/harness/dist/agent/index.d.ts"
       ]
     }
