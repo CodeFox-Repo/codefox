@@ -1,5 +1,5 @@
-import { Resolver, Subscription, Args, Query, Mutation } from '@nestjs/graphql';
-import { Chat, ChatCompletionChunk, StreamStatus } from './chat.model';
+import { Resolver, Args, Query, Mutation } from '@nestjs/graphql';
+import { Chat } from './chat.model';
 import { ChatService } from './chat.service';
 import { UserService } from 'src/user/user.service';
 import { Message } from './message.model';
@@ -9,16 +9,9 @@ import {
   UpdateChatTitleInput,
 } from './dto/chat.input';
 import { GetUserIdFromToken } from 'src/common/decorators/get-auth-token.decorator';
-import { Inject, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { JWTAuth } from 'src/common/decorators/jwt-auth.decorator';
-import { PubSubEngine } from 'graphql-subscriptions';
-import { Project } from 'src/project/project.model';
-import { streamText } from 'ai';
-import {
-  openrouter,
-  DEFAULT_MODEL,
-  AVAILABLE_MODELS,
-} from 'src/common/constants/ai.constants';
+import { AVAILABLE_MODELS } from 'src/common/constants/ai.constants';
 
 @Resolver('Chat')
 export class ChatResolver {
@@ -27,22 +20,8 @@ export class ChatResolver {
   constructor(
     private chatService: ChatService,
     private userService: UserService,
-    @Inject('PUB_SUB') private pubSub: PubSubEngine,
   ) {}
 
-  @Subscription(() => ChatCompletionChunk, {
-    nullable: true,
-    filter: (payload, variables) => {
-      return payload.chatStream.chatId === variables.input.chatId;
-    },
-    resolve: (payload) => payload.chatStream,
-  })
-  async chatStream(@Args('input') input: ChatInput) {
-    const asyncIterator = this.pubSub.asyncIterator(
-      `chat_stream_${input.chatId}`,
-    );
-    return asyncIterator;
-  }
   @Mutation(() => Boolean)
   @JWTAuth()
   async saveMessage(@Args('input') input: ChatInput): Promise<boolean> {
@@ -55,51 +34,6 @@ export class ChatResolver {
       return true;
     } catch (error) {
       this.logger.error('Error in saveMessage:', error);
-      throw error;
-    }
-  }
-  @Mutation(() => Boolean)
-  @JWTAuth()
-  async triggerChatStream(@Args('input') input: ChatInput): Promise<boolean> {
-    try {
-      const result = streamText({
-        model: openrouter(input.model || DEFAULT_MODEL),
-        messages: [{ role: 'user', content: input.message }],
-      });
-
-      const stream = result.textStream;
-
-      for await (const chunk of stream) {
-        await this.pubSub.publish(`chat_stream_${input.chatId}`, {
-          chatStream: {
-            chatId: input.chatId,
-            choices: [
-              {
-                delta: {
-                  content: chunk,
-                },
-              },
-            ],
-            status: StreamStatus.STREAMING,
-          },
-        });
-      }
-
-      await this.pubSub.publish(`chat_stream_${input.chatId}`, {
-        chatStream: {
-          chatId: input.chatId,
-          choices: [
-            {
-              finishReason: 'stop',
-            },
-          ],
-          status: StreamStatus.DONE,
-        },
-      });
-
-      return true;
-    } catch (error) {
-      this.logger.error('Error in triggerChatStream:', error);
       throw error;
     }
   }
@@ -132,19 +66,6 @@ export class ChatResolver {
   @Query(() => Chat, { nullable: true })
   async getChatDetails(@Args('chatId') chatId: string): Promise<Chat> {
     return this.chatService.getChatDetails(chatId);
-  }
-
-  @JWTAuth()
-  @Query(() => Project, { nullable: true })
-  async getCurProject(@Args('chatId') chatId: string): Promise<Project> {
-    try {
-      const response = await this.chatService.getProjectByChatId(chatId);
-      this.logger.log('Loaded project:', response);
-      return response;
-    } catch (error) {
-      this.logger.error('Failed to fetch project:', error);
-      throw new Error('Failed to fetch project');
-    }
   }
 
   @Mutation(() => Chat)

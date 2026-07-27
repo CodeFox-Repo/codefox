@@ -79,15 +79,6 @@ export class ProjectsResolver {
     return (await chats)?.filter((chat) => !chat.isDeleted) || [];
   }
 
-  @Mutation(() => Project)
-  async subscribeToProject(
-    @GetUserIdFromToken() userId: string,
-    @Args('projectId', { type: () => ID }) projectId: string,
-  ): Promise<Project> {
-    this.logger.log(`User ${userId} subscribing to project ${projectId}`);
-    return this.projectService.subscribeToProject(userId, projectId);
-  }
-
   @UseGuards(ProjectGuard)
   @Mutation(() => Project)
   async updateProjectPhoto(
@@ -133,14 +124,6 @@ export class ProjectsResolver {
   ): Promise<Chat> {
     this.logger.log(`User ${userId} forking project ${projectId}`);
     return this.projectService.forkProject(userId, projectId);
-  }
-
-  @Query(() => [Project])
-  async getSubscribedProjects(
-    @GetUserIdFromToken() userId: string,
-  ): Promise<Project[]> {
-    this.logger.log(`Fetching subscribed projects for user ${userId}`);
-    return this.projectService.getSubscribedProjects(userId);
   }
 
   /**

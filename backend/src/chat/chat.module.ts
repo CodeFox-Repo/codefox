@@ -8,7 +8,6 @@ import { Chat } from './chat.model';
 import { ChatGuard } from '../common/guards/chat.guard';
 import { AuthModule } from '../auth/auth.module';
 import { UserService } from 'src/user/user.service';
-import { PubSub } from 'graphql-subscriptions';
 import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { UploadModule } from 'src/upload/upload.module';
 // import { GitHubModule } from 'src/github/github.module';
@@ -22,16 +21,7 @@ import { UploadModule } from 'src/upload/upload.module';
     // GitHubModule,
   ],
   controllers: [ChatController],
-  providers: [
-    ChatResolver,
-    ChatService,
-    ChatGuard,
-    UserService,
-    {
-      provide: 'PUB_SUB',
-      useValue: new PubSub(),
-    },
-  ],
+  providers: [ChatResolver, ChatService, ChatGuard, UserService],
   exports: [ChatService, ChatGuard],
 })
 export class ChatModule {}

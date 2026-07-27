@@ -115,13 +115,4 @@ export class UserResolver {
       throw error;
     }
   }
-
-  /**
-   * Get the avatar URL for a user
-   */
-  @Query(() => String, { nullable: true })
-  async getUserAvatar(@Args('userId') userId: string): Promise<string | null> {
-    const user = await this.userService.getUser(userId);
-    return user ? user.avatarUrl : null;
-  }
 }
