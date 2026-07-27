@@ -11,7 +11,17 @@ interface Preview {
   port: number;
   child: ChildProcess;
   ready: Promise<void>;
+  /** Ring buffer of dev-server output, for the Console tab. */
+  log: LogLine[];
 }
+
+export interface LogLine {
+  at: number;
+  stream: 'out' | 'err';
+  text: string;
+}
+
+const LOG_LINES = 500;
 
 const READY_TIMEOUT_MS = 90_000;
 
@@ -74,12 +84,21 @@ export class PreviewService implements OnModuleDestroy {
       { cwd, env: { ...process.env, NODE_ENV: 'development' } },
     );
 
-    child.stdout?.on('data', (d) =>
-      this.logger.debug(`[${projectPath}] ${String(d).trim()}`),
-    );
-    child.stderr?.on('data', (d) =>
-      this.logger.debug(`[${projectPath}] ${String(d).trim()}`),
-    );
+    const log: LogLine[] = [];
+    const capture = (stream: 'out' | 'err') => (chunk: Buffer) => {
+      const text = String(chunk)
+        .replace(/\u001b\[[0-9;]*m/g, '')
+        .trimEnd();
+      if (!text) return;
+      this.logger.debug(`[${projectPath}] ${text}`);
+      for (const line of text.split('\n')) {
+        log.push({ at: Date.now(), stream, text: line });
+      }
+      // Bounded: a dev server left running for hours must not grow forever.
+      if (log.length > LOG_LINES) log.splice(0, log.length - LOG_LINES);
+    };
+    child.stdout?.on('data', capture('out'));
+    child.stderr?.on('data', capture('err'));
     child.on('exit', (code) => {
       this.logger.log(`[${projectPath}] dev server exited (${code})`);
       this.previews.delete(projectPath);
@@ -93,7 +112,7 @@ export class PreviewService implements OnModuleDestroy {
     });
 
     const ready = this.waitForPort(port, projectPath, () => exited);
-    this.previews.set(projectPath, { port, child, ready });
+    this.previews.set(projectPath, { port, child, ready, log });
 
     await ready;
     return { port };
@@ -116,6 +135,11 @@ export class PreviewService implements OnModuleDestroy {
       await new Promise((r) => setTimeout(r, 500));
     }
     throw new Error(`Preview for ${projectPath} did not start in time`);
+  }
+
+  /** Dev-server output for the Console tab. Empty when nothing is running. */
+  logs(projectPath: string): LogLine[] {
+    return this.previews.get(projectPath)?.log ?? [];
   }
 
   stop(projectPath: string): void {

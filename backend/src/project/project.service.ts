@@ -15,7 +15,7 @@ import {
   IsValidProjectInput,
 } from './dto/project.input';
 import { generateText } from 'ai';
-import { scaffoldProject } from './scaffold';
+import { copyProject, scaffoldProject } from './scaffold';
 import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
@@ -24,7 +24,11 @@ import { UploadService } from 'src/upload/upload.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import archiver from 'archiver';
-import { getProjectPath, getTempDir } from '../common/utils/common-path';
+import {
+  getMediaDir,
+  getProjectPath,
+  getTempDir,
+} from '../common/utils/common-path';
 // import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 
@@ -127,17 +131,11 @@ export class ProjectService {
 
         const result = await generateText({
           model: openrouter(input.model || DEFAULT_MODEL),
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a specialized project name generator. Create a concise, descriptive project title (max 20 words) based on the description. Respond ONLY with the project name, no explanation.',
-            },
-            {
-              role: 'user',
-              content: `Generate a project name for: ${input.description}`,
-            },
-          ],
+          // ai@7 rejects role:'system' inside `messages`; instructions is the
+          // replacement, and the old shape threw before reaching the model.
+          instructions:
+            'You are a specialized project name generator. Create a concise, descriptive project title (max 20 words) based on the description. Respond ONLY with the project name, no explanation.',
+          prompt: `Generate a project name for: ${input.description}`,
         });
 
         projectName = result.text.trim();
@@ -277,52 +275,6 @@ export class ProjectService {
   }
 
   /**
-   * Subscribe to another user's project by creating a copy for the subscriber.
-   * The copy becomes fully owned by the subscriber and can be freely modified.
-   * This is a key feature - allowing users to start with someone else's project
-   * and customize it to their needs.
-   *
-   * @param userId The user ID of the subscriber
-   * @param projectId The project ID to subscribe to
-   * @returns The newly created project copy that the user can modify
-   */
-  async subscribeToProject(
-    userId: string,
-    projectId: string,
-  ): Promise<Project> {
-    const sourceProject = await this.getProjectById(projectId);
-
-    // Check if the project is public
-    if (!sourceProject.isPublic) {
-      throw new ForbiddenException('Cannot subscribe to a private project');
-    }
-
-    // Prevent users from subscribing to their own projects
-    if (sourceProject.userId === userId) {
-      throw new ForbiddenException('Cannot subscribe to your own project');
-    }
-
-    // Create a new project copy for the subscriber
-    const copiedProject = new Project();
-    copiedProject.projectName = sourceProject.projectName;
-    copiedProject.projectPath = sourceProject.projectPath;
-    copiedProject.userId = userId;
-    copiedProject.isPublic = false; // Default to private for the copy
-    copiedProject.uniqueProjectId = uuidv4(); // Generate a new unique ID
-    copiedProject.forkedFromId = sourceProject.uniqueProjectId; // Track original project
-    copiedProject.photoUrl = sourceProject.photoUrl; // Copy the screenshot
-
-    // Save the new project
-    const savedProject = await this.projectsRepository.save(copiedProject);
-
-    // Increment the original project's subscription count
-    sourceProject.subNumber += 1;
-    await this.projectsRepository.save(sourceProject);
-
-    return savedProject;
-  }
-
-  /**
    * Update a project's photo URL
    * @param userId The user ID making the request
    * @param projectId The project ID to update
@@ -349,6 +301,17 @@ export class ProjectService {
         mimeType,
         subdirectory,
       );
+
+      // Drop the cover this one replaces. Previews re-shoot on every open, so
+      // without this every visit leaks another PNG into the media directory.
+      const previous = project.photoUrl;
+      if (previous && previous !== uploadResult.url) {
+        const stale = path.join(
+          getMediaDir(),
+          previous.replace(/^\/media\//, ''),
+        );
+        await fs.promises.unlink(stale).catch(() => undefined);
+      }
 
       // Update the project with the new URL
       project.photoUrl = uploadResult.url;
@@ -420,7 +383,7 @@ export class ProjectService {
       // Create a new project entity
       const newProject = new Project();
       newProject.projectName = `Fork of ${sourceProject.projectName}`;
-      newProject.projectPath = sourceProject.projectPath;
+      newProject.projectPath = ''; // set below, once the id exists
       newProject.userId = userId;
       newProject.isPublic = false; // Default to private
       newProject.uniqueProjectId = uuidv4(); // Generate new unique ID
@@ -429,6 +392,20 @@ export class ProjectService {
 
       // Save the new project
       const savedProject = await this.projectsRepository.save(newProject);
+
+      // Give the fork its own copy of the files. Sharing the source path let
+      // one owner's edits land in the other's project.
+      try {
+        savedProject.projectPath = await copyProject(
+          sourceProject.projectPath,
+          savedProject.id,
+        );
+        await this.projectsRepository.save(savedProject);
+      } catch (error) {
+        this.logger.error(
+          `Failed to copy files for fork ${savedProject.id}: ${error.message}`,
+        );
+      }
 
       // Increment the source project's subscription count
       sourceProject.subNumber += 1;
@@ -444,24 +421,6 @@ export class ProjectService {
         ? error
         : new InternalServerErrorException('Error forking the project.');
     }
-  }
-
-  /**
-   * Get all projects subscribed/forked by a user
-   * @param userId The user ID
-   * @returns Array of projects that are forks of other projects
-   */
-  async getSubscribedProjects(userId: string): Promise<Project[]> {
-    const subscribedProjects = await this.projectsRepository.find({
-      where: {
-        userId: userId,
-        isDeleted: false,
-        forkedFromId: Not(null), // Only get projects that are forks
-      },
-      relations: ['user'],
-    });
-
-    return subscribedProjects;
   }
 
   /**
@@ -569,8 +528,18 @@ export class ProjectService {
     // Pipe the archive to the output file
     archive.pipe(output);
 
-    // Filter unwanted files/folders
-    const ignored = ['node_modules', '.git', '.gitignore', '.env'];
+    // Filter unwanted files/folders. `.next` matters: the preview dev server
+    // builds into the project directory, so without it every download carries
+    // hundreds of megabytes of build output.
+    const ignored = [
+      'node_modules',
+      '.git',
+      '.gitignore',
+      '.env',
+      '.next',
+      '.turbo',
+      '.codefox-uploads',
+    ];
 
     // Add the project directory to the archive
     archive.glob(

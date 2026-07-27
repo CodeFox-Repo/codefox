@@ -11,11 +11,28 @@ export class PreviewController {
    */
   @Get()
   async preview(@Query('projectPath') projectPath: string) {
-    if (!projectPath || projectPath.includes('/') || projectPath.includes('..')) {
+    if (
+      !projectPath ||
+      projectPath.includes('/') ||
+      projectPath.includes('..')
+    ) {
       throw new BadRequestException('Invalid projectPath');
     }
 
     const { port } = await this.previewService.start(projectPath);
     return { domain: `127.0.0.1:${port}`, containerId: `local-${projectPath}` };
+  }
+
+  /** Dev-server output. Does not start a server — reports on a running one. */
+  @Get('logs')
+  logs(@Query('projectPath') projectPath: string) {
+    if (
+      !projectPath ||
+      projectPath.includes('/') ||
+      projectPath.includes('..')
+    ) {
+      throw new BadRequestException('Invalid projectPath');
+    }
+    return { lines: this.previewService.logs(projectPath) };
   }
 }
