@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Project } from './project.model';
 import {
   CreateProjectInput,
@@ -473,10 +473,13 @@ export class ProjectService {
   ): Promise<Project[]> {
     const limit = input.size > 50 ? 50 : input.size;
 
+    // No cover requirement. Covers are screenshots taken from a running
+    // preview, so any project whose screenshot did not land — and none did
+    // while the browser was missing — was published into an empty gallery
+    // with nothing to say why. The card already renders coverless.
     const whereCondition = {
       isPublic: true,
       isDeleted: false,
-      photoUrl: Not(IsNull()),
     };
 
     if (input.strategy === 'latest') {
