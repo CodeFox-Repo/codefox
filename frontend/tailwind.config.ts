@@ -56,6 +56,10 @@ const config = {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
         },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
         destructive: {
           // Fixed typo from "destructivel"
           DEFAULT: 'hsl(var(--destructive))',

@@ -29,6 +29,8 @@
     --accent-foreground: 60 2.6% 7.6%;
     --destructive: 8.8 60.7% 43.9%; /* #B4402C */
     --destructive-foreground: 48 33.3% 97.1%;
+    --warning: 38 72% 34%; /* amber, 5.1:1 on paper */
+    --warning-foreground: 48 33.3% 97.1%;
     --border: 47.1 18.4% 85.1%; /* #E0DDD2 */
     --input: 47.1 18.4% 85.1%;
     --ring: 14.1 57.1% 43.9%;
@@ -59,6 +61,8 @@
     --accent-foreground: 43.6 20.8% 89.6%;
     --destructive: 9.6 56.8% 61%; /* #D47563 */
     --destructive-foreground: 40 6.1% 9.6%;
+    --warning: 45.1 73.1% 66.5%; /* #E8C96B, 9.9:1 on #141413 */
+    --warning-foreground: 40 6.1% 9.6%;
     --border: 36 4.5% 21.8%; /* #3A3835 */
     --input: 36 4.5% 21.8%;
     --ring: 15 52.3% 58%;

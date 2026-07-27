@@ -10,6 +10,7 @@ import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { SignInModal } from '@/components/sign-in-modal';
 import { SignUpModal } from '@/components/sign-up-modal';
 import { Workbench } from '@/components/root/workbench';
+import { PublicProjects } from '@/components/root/public-projects';
 import { useRouter } from 'next/navigation';
 import { logger } from '../log/logger';
 
@@ -130,7 +131,7 @@ export default function HomePage() {
                      bg-[radial-gradient(ellipse_55%_45%_at_25%_0%,hsl(var(--primary)/0.16),transparent_70%)]"
         />
 
-        <div className="relative mx-auto grid w-full max-w-[1180px] gap-12 px-5 pb-20 pt-12 sm:px-10 lg:grid-cols-[1fr_1.08fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-20">
+        <div className="relative mx-auto grid w-full max-w-[1180px] gap-12 px-5 pb-20 pt-12 sm:px-10 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-20">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -154,7 +155,7 @@ export default function HomePage() {
               preview of code — the code, on a port, in your browser.
             </p>
 
-            <div className="mt-9 max-w-xl rounded-xl border border-border bg-card">
+            <div className="mt-9 rounded-xl border border-border bg-card">
               <PromptForm
                 ref={promptFormRef}
                 isAuthorized={isAuthorized}
@@ -183,14 +184,14 @@ export default function HomePage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
                 <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
                 <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                  codefox — StreakKeeper
+                  StreakKeeper — 127.0.0.1:55077
                 </span>
               </div>
               <Image
                 src="/demo/product-shot.png"
-                alt="CodeFox running: chat on the left, the generated project's file tree and a live preview on the right"
+                alt="The generated habit tracker running on localhost inside CodeFox preview"
                 width={1600}
-                height={1000}
+                height={1165}
                 className="block h-auto w-full"
                 priority
               />
@@ -340,6 +341,10 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <div className="mx-auto w-full max-w-[1180px] px-5 pb-20 sm:px-10">
+        <PublicProjects limit={6} />
+      </div>
 
       {/* ---------- close ---------- */}
       <section className="mx-auto w-full max-w-[1180px] px-5 pb-28 sm:px-10">

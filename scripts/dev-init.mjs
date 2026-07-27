@@ -37,6 +37,11 @@ MAIL_ENABLED=false
 GITHUB_ENABLED=false
 `,
   'frontend/.env': () => `NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8080/graphql
+
+# Dev-only throwaway account for the floating auth toggle (bottom right).
+# Created on first use; the toggle and these vars never reach a prod build.
+NEXT_PUBLIC_DEV_EMAIL=dev@codefox.test
+NEXT_PUBLIC_DEV_PASSWORD=Passw0rd!123
 `,
 };
 

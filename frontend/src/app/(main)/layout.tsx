@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import NavLayout from '@/components/root/nav-layout';
 
 export const metadata: Metadata = {
