@@ -1,5 +1,6 @@
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
+import { HealthController } from './health.controller';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from './config/env.validation';
 import { GraphQLModule } from '@nestjs/graphql';
@@ -57,6 +58,7 @@ import { getDatabaseConfig } from './database.config';
     TypeOrmModule.forFeature([User]),
     // GitHubModule,
   ],
+  controllers: [HealthController],
   providers: [
     AppResolver,
     AppConfigService,

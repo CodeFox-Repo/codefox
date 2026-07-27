@@ -62,6 +62,7 @@
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
     "eslint-plugin-unused-imports": "^4.1.4",
+    "express": "^4.21.2",
     "fastembed": "^1.14.1",
     "fs-extra": "^11.2.0",
     "gpt-3-encoder": "^1.1.4",
