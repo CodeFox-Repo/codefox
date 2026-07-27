@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useContext, useState } from 'react';
-import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { AuthChoiceModal } from '@/components/auth-choice-modal';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -10,11 +9,43 @@ import { PromptForm, PromptFormRef } from '@/components/root/prompt-form';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { SignInModal } from '@/components/sign-in-modal';
 import { SignUpModal } from '@/components/sign-up-modal';
+import { Workbench } from '@/components/root/workbench';
 import { useRouter } from 'next/navigation';
 import { logger } from '../log/logger';
-import { AuroraText } from '@/components/magicui/aurora-text';
+
+// Narrative-workflow stages, kobe-style: prose on the left, real terminal
+// output on the right. No drawn diagrams.
+const STAGES = [
+  {
+    no: '01',
+    title: 'Describe it once',
+    body: 'One prompt in, one project out. CodeFox reads the intent, picks a stack, and writes the plan before it writes a line of code.',
+    term: `$ codefox new "a habit tracker with streaks"
+  → stack     next.js · nestjs · postgres
+  → entities  User, Habit, CheckIn
+  → routes    12 planned`,
+  },
+  {
+    no: '02',
+    title: 'Agents do the wiring',
+    body: 'A crew of agents splits the work — schema, API, UI, tests — and each one owns its slice end to end. You watch the diff, not the prompt engineering.',
+    term: `  agent:schema    ✓ 3 models, 2 relations
+  agent:api       ✓ 12 resolvers
+  agent:ui        ⠋ 6/9 screens
+  agent:tests     · queued`,
+  },
+  {
+    no: '03',
+    title: 'Run it before you trust it',
+    body: 'Live preview boots the generated project next to the chat. Change your mind mid-sentence and the running app follows.',
+    term: `$ codefox dev
+  ready on http://localhost:3000
+  db      sqlite · .codefox/data
+  hot     12 modules in 340ms`,
+  },
+];
+
 export default function HomePage() {
-  // States for AuthChoiceModal
   const [showAuthChoice, setShowAuthChoice] = useState(false);
   const router = useRouter();
   const [showSignIn, setShowSignIn] = useState(false);
@@ -32,6 +63,7 @@ export default function HomePage() {
 
     try {
       const chatId = await createProjectFromPrompt(message, isPublic, model);
+      if (!chatId) return; // createProjectFromPrompt already surfaced the error
 
       promptFormRef.current.clearMessage();
       router.push(`/chat?id=${chatId}`);
@@ -40,145 +72,129 @@ export default function HomePage() {
     }
   };
 
-  return (
-    <div className="min-h-screen pt-16 pb-24 px-6 flex flex-col items-center justify-center relative overflow-hidden">
-      <div className="fixed inset-0 -z-20">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary-500/5 rounded-full blur-[120px] transform translate-x-1/2 -translate-y-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-primary-500/5 rounded-full blur-[100px] transform -translate-x-1/2 translate-y-1/2"></div>
-      </div>
+  // Signed in? Skip the pitch entirely — go straight to the composer and the
+  // user's own work. The marketing page below is for visitors.
+  if (isAuthorized) {
+    return (
+      <Workbench
+        promptFormRef={promptFormRef}
+        onSubmit={handleSubmit}
+        isLoading={isLoading}
+      />
+    );
+  }
 
-      <div className="w-full mx-auto flex flex-col items-center mt-40 ">
-        <motion.div
-          className="flex flex-col items-center w-full"
-          initial={{ opacity: 0, y: 20 }}
+  return (
+    <div className="relative min-h-screen overflow-x-clip">
+      {/* Faint grid, masked to the top of the page */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[900px] opacity-[0.06]
+                   [background-image:linear-gradient(currentColor_1px,transparent_1px),linear-gradient(90deg,currentColor_1px,transparent_1px)]
+                   [background-size:64px_64px]
+                   [mask-image:radial-gradient(ellipse_90%_55%_at_50%_0%,#000_30%,transparent_80%)]"
+      />
+
+      <div className="relative mx-auto w-full max-w-[1180px] px-5 sm:px-10">
+        {/* ---- hero ---- */}
+        <motion.section
+          className="pt-24 pb-14"
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="mb-6">
-            <Image
-              src="/codefox.svg"
-              alt="CodeFox Logo"
-              width={120}
-              height={120}
-              className="h-32 w-auto"
+          <p className="font-mono text-xs tracking-[0.12em] text-primary mb-5">
+            AI SEQUENCE FULL-STACK GENERATOR
+          </p>
+
+          <h1 className="font-display max-w-[20ch] text-[clamp(2.375rem,5vw,3.875rem)] font-bold leading-[1.02] tracking-[-0.03em] text-foreground">
+            From idea to <span className="text-primary">full-stack</span> in
+            seconds
+          </h1>
+
+          <p className="mt-6 max-w-[52ch] font-mono text-base leading-relaxed text-muted-foreground">
+            A multi-agent crew plans the schema, writes the API, builds the UI,
+            and hands you a project that already runs.
+          </p>
+
+          <div className="mt-10 max-w-3xl rounded-xl border border-border bg-card">
+            <PromptForm
+              ref={promptFormRef}
+              isAuthorized={isAuthorized}
+              onSubmit={handleSubmit}
+              onAuthRequired={() => setShowAuthChoice(true)}
+              isLoading={isLoading}
             />
           </div>
-          <motion.div
-            className="mb-16 relative"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="flex flex-col items-center">
-              <motion.h1
-                className="text-5xl sm:text-6xl font-bold mb-8 tracking-tight leading-tight text-center"
-                initial={{ y: -20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{
-                  duration: 0.8,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              >
-                From Idea to <AuroraText>Full-Stack</AuroraText> in Seconds
-              </motion.h1>
 
-              <motion.p
-                className="text-xl sm:text-2xl text-gray-600 dark:text-gray-400 max-w-2xl text-center"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{
-                  duration: 0.7,
-                  delay: 0.5,
-                  ease: 'easeOut',
-                }}
-              >
-                CodeFox provides an AI-driven multi-agent crew to help you
-                create your next project instantly
-              </motion.p>
-            </div>
+          <p className="mt-4 font-mono text-xs text-muted-foreground">
+            Node 18+ · no database to install · <code>pnpm dev</code> and go
+          </p>
+        </motion.section>
 
-            <motion.div
-              className="absolute -z-10 left-1/4 -translate-x-1/2 top-0 w-32 h-32 rounded-full bg-primary-500/10 blur-2xl"
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.5, 0.7, 0.5],
-              }}
-              transition={{
-                duration: 6,
-                repeat: Infinity,
-                repeatType: 'reverse',
-              }}
+        {/* ---- quicklook ---- */}
+        <section className="pb-6">
+          <figure className="overflow-hidden rounded-xl border border-border bg-card">
+            <video
+              className="block h-auto w-full"
+              src="/demo/quicklook.mp4"
+              poster="/demo/quicklook-poster.jpg"
+              autoPlay
+              muted
+              loop
+              playsInline
             />
+          </figure>
+          <figcaption className="mt-3 text-center font-mono text-xs text-muted-foreground">
+            one prompt → planned → generated → running
+          </figcaption>
+        </section>
 
-            <motion.div
-              className="absolute -z-10 right-1/4 translate-x-1/2 top-0 w-32 h-32 rounded-full bg-primary-500/10 blur-2xl"
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.5, 0.7, 0.5],
-              }}
-              transition={{
-                duration: 6,
-                delay: 1.5,
-                repeat: Infinity,
-                repeatType: 'reverse',
-              }}
-            />
-          </motion.div>
-
-          <motion.div
-            className="relative w-full max-w-3xl"
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{
-              duration: 0.8,
-              delay: 0.7,
-              ease: 'easeOut',
-            }}
-          >
-            <div className="absolute -z-10 inset-0 bg-gradient-to-r from-primary-500/5 to-primary-600/5 rounded-2xl blur-xl transform scale-105"></div>
-
-            <div className=" bg-white/10 dark:bg-gray-800/30 backdrop-blur-md rounded-lg border border-primary/20 dark:border-gray-700/40 shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_8px_30px_rgba(120,120,255,0.5)] hover:border-primary-500/60">
-              <PromptForm
-                ref={promptFormRef}
-                isAuthorized={isAuthorized}
-                onSubmit={handleSubmit}
-                onAuthRequired={() => setShowAuthChoice(true)}
-                isLoading={isLoading}
-              />
+        {/* ---- narrative workflow ---- */}
+        <section className="mt-24">
+          {STAGES.map((stage) => (
+            <div
+              key={stage.no}
+              className="grid gap-10 border-t-[3px] border-border py-10 md:grid-cols-2 md:gap-16"
+            >
+              <div>
+                <span className="mb-4 block font-mono text-sm tracking-[0.12em] text-primary">
+                  {stage.no}
+                </span>
+                <h2 className="font-display text-[clamp(1.75rem,3.6vw,2.625rem)] font-bold leading-[1.08] tracking-[-0.02em] text-foreground">
+                  {stage.title}
+                </h2>
+                <p className="mt-4 max-w-[52ch] font-mono text-sm leading-[1.7] text-muted-foreground">
+                  {stage.body}
+                </p>
+              </div>
+              <pre className="min-w-0 self-center overflow-x-auto border-l-2 border-border py-2 pl-6 font-mono text-sm leading-[2] text-foreground/80">
+                {stage.term}
+              </pre>
             </div>
-          </motion.div>
+          ))}
+        </section>
 
-          <motion.div
-            className="w-full mb-24 mt-40"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.8 }}
-          >
-            <ProjectsSection />
-          </motion.div>
-        </motion.div>
-
-        <AuthChoiceModal
-          isOpen={showAuthChoice}
-          onClose={() => setShowAuthChoice(false)}
-          onSignUpClick={() => {
-            setShowAuthChoice(false);
-            setTimeout(() => {
-              setShowSignUp(true);
-            }, 100);
-          }}
-          onSignInClick={() => {
-            setShowAuthChoice(false);
-            setTimeout(() => {
-              setShowSignIn(true);
-            }, 100);
-          }}
-        />
-
-        <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} />
-        <SignUpModal isOpen={showSignUp} onClose={() => setShowSignUp(false)} />
+        {/* ---- public projects ---- */}
+        <section className="mt-16 mb-24 border-t-[3px] border-border pt-10">
+          <ProjectsSection />
+        </section>
       </div>
+
+      <AuthChoiceModal
+        isOpen={showAuthChoice}
+        onClose={() => setShowAuthChoice(false)}
+        onSignUpClick={() => {
+          setShowAuthChoice(false);
+          setTimeout(() => setShowSignUp(true), 100);
+        }}
+        onSignInClick={() => {
+          setShowAuthChoice(false);
+          setTimeout(() => setShowSignIn(true), 100);
+        }}
+      />
+      <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} />
+      <SignUpModal isOpen={showSignUp} onClose={() => setShowSignUp(false)} />
     </div>
   );
 }

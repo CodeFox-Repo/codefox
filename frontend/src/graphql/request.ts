@@ -126,11 +126,6 @@ export const GET_USER_PROJECTS = gql`
       userId
       forkedFromId
       isDeleted
-      projectPackages {
-        id
-        content
-        version
-      }
     }
   }
 `;
@@ -236,10 +231,6 @@ export const UPDATE_PROJECT_PUBLIC_STATUS = gql`
       id
       projectName
       path
-      projectPackages {
-        id
-        content
-      }
     }
   }
 `;

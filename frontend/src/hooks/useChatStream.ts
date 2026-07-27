@@ -8,7 +8,6 @@ import { useAuthContext } from '@/providers/AuthProvider';
 import { startChatStream } from '@/api/ChatStreamAPI';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { ChatInputType } from '@/graphql/type';
-import { managerAgent } from './multi-agent/managerAgent';
 
 export interface UseChatStreamProps {
   chatId: string;
@@ -81,6 +80,7 @@ export const useChatStream = ({
   });
 
   const handleChatResponse = async (targetChatId: string, message: string) => {
+    const replyId = `${targetChatId}-${Date.now()}`;
     try {
       setInput('');
       const userInput: ChatInputType = {
@@ -95,24 +95,45 @@ export const useChatStream = ({
         },
       });
 
-      const tempId = `${targetChatId}-${Date.now()}`;
-
-      await managerAgent(
-        tempId,
-        userInput,
-        setMessages,
-        curProjectPath,
-        saveMessage,
-        token,
-        refreshProjects,
-        setFilePath,
-        editorRef,
-        setThinkingProcess,
-        setIsTPUpdating,
-        setLoadingSubmit
+      // The agent loop runs on the backend, against the project's real files.
+      // The bubble appears with the first delta rather than up front, so a
+      // failed turn does not leave an empty message behind.
+      const reply = await startChatStream(userInput, token, true, (delta) =>
+        setMessages((prev) =>
+          prev.some((m) => m.id === replyId)
+            ? prev.map((m) =>
+                m.id === replyId ? { ...m, content: m.content + delta } : m
+              )
+            : [
+                ...prev,
+                {
+                  id: replyId,
+                  role: 'assistant',
+                  content: delta,
+                  createdAt: new Date().toISOString(),
+                },
+              ]
+        )
       );
+
+      if (!reply.trim()) return;
+
+      await saveMessage({
+        variables: {
+          input: {
+            chatId: targetChatId,
+            message: reply,
+            model: selectedModel,
+            role: 'assistant',
+          } as ChatInputType,
+        },
+      });
+
+      // Files on disk changed underneath the editor — pull the new tree in.
+      await refreshProjects();
     } catch (err) {
       toast.error('Failed to get chat response' + err);
+    } finally {
       setLoadingSubmit(false);
     }
   };

@@ -10,12 +10,6 @@ export interface Project {
   isActive: boolean;
   isDeleted: boolean;
   userId: string;
-  projectPackages: ProjectPackage[];
-}
-
-interface ProjectPackage {
-  name: string;
-  version: string;
 }
 
 const ProjectModal = ({ isOpen, onClose, refetchProjects }) => {
@@ -49,7 +43,7 @@ const ProjectModal = ({ isOpen, onClose, refetchProjects }) => {
           <div className="flex justify-end">
             <button
               type="button"
-              className="px-4 py-2 mr-2 bg-gray-300 rounded"
+              className="px-4 py-2 mr-2 bg-secondary rounded"
               onClick={onClose}
             >
               Cancel

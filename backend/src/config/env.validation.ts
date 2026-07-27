@@ -1,9 +1,10 @@
 import { IsOptional, IsString, IsNumber, IsIn } from 'class-validator';
 
 export class EnvironmentVariables {
-  // Database Configuration
+  // Database Configuration. Unset => SQLite file under .codefox/data.
+  @IsOptional()
   @IsString()
-  DATABASE_URL: string;
+  DATABASE_URL?: string;
 
   @IsNumber()
   PORT: number = 8000;
@@ -20,6 +21,28 @@ export class EnvironmentVariables {
 
   @IsNumber()
   SALT_ROUNDS: number;
+
+  // LLM backend — any OpenAI-compatible endpoint. All optional; unset falls
+  // back to OpenRouter via OPENROUTER_API_KEY.
+  @IsOptional()
+  @IsString()
+  LLM_BASE_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  LLM_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  LLM_MODELS?: string;
+
+  @IsOptional()
+  @IsString()
+  LLM_DEFAULT_MODEL?: string;
+
+  @IsOptional()
+  @IsString()
+  OPENROUTER_API_KEY?: string;
 
   // S3/Cloudflare R2 Configuration - all optional
   @IsOptional()
@@ -53,7 +76,8 @@ export class EnvironmentVariables {
   // GitHub Configuration
   @IsOptional()
   @IsString()
-  GITHUB_ENABLED: boolean;
+  @IsIn(['true', 'false'])
+  GITHUB_ENABLED?: string;
 
   @IsOptional()
   @IsString()

@@ -15,6 +15,7 @@ import {
   IsValidProjectInput,
 } from './dto/project.input';
 import { generateText } from 'ai';
+import { scaffoldProject } from './scaffold';
 import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
@@ -163,8 +164,9 @@ export class ProjectService {
     }
   }
 
-  // Background task for project creation
-  // TODO: Replace with AI streaming approach
+  // Background task for project creation: persist the row, then materialise a
+  // working directory from the starter template. The agent edits that
+  // directory; the frontend's file APIs read it.
   private async createProjectInBackground(
     input: CreateProjectInput,
     projectName: string,
@@ -172,21 +174,29 @@ export class ProjectService {
     chat: Chat,
   ): Promise<void> {
     try {
-      this.logger.log(
-        'TODO: Implement AI streaming project generation for: ' + projectName,
-      );
-
       // Create project entity and set properties
       const project = new Project();
       project.projectName = projectName;
-      project.projectPath = ''; // TODO: Set from AI streaming result
+      project.projectPath = '';
       project.userId = userId;
       project.isPublic = input.public || false;
       project.uniqueProjectId = uuidv4();
 
-      // Save project
+      // Save project — the generated id names the project directory.
       const savedProject = await this.projectsRepository.save(project);
       this.logger.debug(`Project created: ${savedProject.id}`);
+
+      try {
+        savedProject.projectPath = await scaffoldProject(savedProject.id);
+        await this.projectsRepository.save(savedProject);
+      } catch (error) {
+        // A failed scaffold leaves projectPath empty; the chat still works,
+        // the agent just has no files. Loud, but not fatal to the request.
+        this.logger.error(
+          `Failed to scaffold project ${savedProject.id}: ${error.message}`,
+          error.stack,
+        );
+      }
 
       // Bind chat to project
       const bindSuccess = await this.bindProjectAndChat(savedProject, chat);

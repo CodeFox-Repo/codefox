@@ -1,14 +1,14 @@
-import { CoreMessage } from 'ai';
+import { ModelMessage } from 'ai';
 import { create } from 'zustand';
 
 interface State {
   base64Images: string[] | null;
-  messages: CoreMessage[];
+  messages: ModelMessage[];
 }
 
 interface Actions {
   setBase64Images: (base64Images: string[] | null) => void;
-  setMessages: (fn: (messages: CoreMessage[]) => CoreMessage[]) => void;
+  setMessages: (fn: (messages: ModelMessage[]) => ModelMessage[]) => void;
 }
 
 const useChatStore = create<State & Actions>()((set) => ({

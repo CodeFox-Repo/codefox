@@ -3,6 +3,16 @@ import * as path from 'path';
 import { getProjectsDir } from '../../../backend/src/common/utils/common-path';
 import { logger } from '@/app/log/logger';
 
+// Not part of the user's project: shared dependency link, vcs metadata, and
+// the build output the preview dev server writes into the project directory.
+const IGNORED_ENTRIES = new Set([
+  'node_modules',
+  '.next',
+  '.git',
+  'dist',
+  'build',
+]);
+
 export class FileReader {
   private static instance: FileReader;
   private basePath: string;
@@ -45,7 +55,7 @@ export class FileReader {
     try {
       const items = await fs.readdir(dir, { withFileTypes: true });
       for (const item of items) {
-        if (item.name.includes('node_modules')) continue;
+        if (IGNORED_ENTRIES.has(item.name)) continue;
         const fullPath = path.join(dir, item.name);
         const relativePath = path.relative(this.basePath, fullPath);
 

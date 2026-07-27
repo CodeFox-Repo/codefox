@@ -36,6 +36,9 @@ interface PromptFormProps {
   onSubmit: () => void;
   onAuthRequired: () => void;
   isLoading?: boolean;
+  /** Shorter box for repeat use in the workbench; the landing page wants the
+   *  tall one because it is the page's whole call to action. */
+  compact?: boolean;
 }
 
 const REGENERATE_DESCRIPTION = gql`
@@ -46,7 +49,7 @@ const REGENERATE_DESCRIPTION = gql`
 
 export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
   function PromptForm(
-    { isAuthorized, onSubmit, onAuthRequired, isLoading = false },
+    { isAuthorized, onSubmit, onAuthRequired, isLoading = false, compact },
     ref
   ) {
     const [message, setMessage] = useState('');
@@ -134,12 +137,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
     };
 
     return (
-      <div
-        className={cn(
-          'w-full border border-gray-300 dark:border-gray-700',
-          'bg-white dark:bg-gray-700 rounded-md'
-        )}
-      >
+      <div className={cn('w-full border border-border', 'bg-card rounded-lg')}>
         {/* Typewriter */}
         <div className="relative">
           <textarea
@@ -148,22 +146,23 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             placeholder=""
-            rows={5}
+            rows={compact ? 3 : 5}
             className={cn(
-              'w-full min-h-[150px] py-4 px-4 text-base leading-snug',
-              'bg-transparent rounded-t-md focus:outline-none resize-none',
-              'dark:text-white dark:placeholder-gray-400'
+              'w-full py-4 px-4 text-base leading-snug',
+              compact ? 'min-h-[88px]' : 'min-h-[150px]',
+              'bg-transparent rounded-t-lg focus:outline-none resize-none',
+              'text-foreground placeholder:text-muted-foreground'
             )}
             disabled={isLoading || isRegenerating}
           />
           {message === '' && !isLoading && !isRegenerating && !isFocused && (
-            <div className="pointer-events-none text-gray-500 dark:text-gray-400 text-base font-normal absolute top-4 left-4 right-4 overflow-hidden">
+            <div className="pointer-events-none text-muted-foreground text-base font-normal absolute top-4 left-4 right-4 overflow-hidden">
               <Typewriter onInit={handleTypewriterInit} />
             </div>
           )}
         </div>
 
-        <div className="border-t border-gray-300 dark:border-gray-600" />
+        <div className="border-t border-border" />
 
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
@@ -179,9 +178,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
             >
               <SelectTrigger
                 className={cn(
-                  'h-9 px-3 text-sm font-medium border border-gray-300 dark:border-gray-600',
-                  'bg-white dark:bg-gray-800 dark:text-gray-100',
-                  'rounded-md focus:outline-none hover:bg-gray-50 dark:hover:bg-gray-700',
+                  'h-9 px-3 text-sm font-medium border border-border',
+                  'bg-secondary text-foreground',
+                  'rounded-lg focus:outline-none hover:bg-accent',
                   (isLoading || isRegenerating) &&
                     'opacity-50 cursor-not-allowed'
                 )}
@@ -202,26 +201,26 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               <SelectContent>
                 <SelectItem
                   value="public"
-                  className="p-3 rounded-md transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="p-3 rounded-lg transition hover:bg-accent"
                 >
                   <div className="flex items-center gap-2 font-semibold">
                     <Globe size={16} />
                     <span>Public</span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Anyone can view this project
                   </p>
                 </SelectItem>
 
                 <SelectItem
                   value="private"
-                  className="p-3 rounded-md transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="p-3 rounded-lg transition hover:bg-accent"
                 >
                   <div className="flex items-center gap-2 font-semibold">
                     <Lock size={16} />
                     <span>Private</span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Only you can access this project
                   </p>
                 </SelectItem>
@@ -238,9 +237,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
             >
               <SelectTrigger
                 className={cn(
-                  'h-9 px-3 text-sm font-medium border border-gray-300 dark:border-gray-600',
-                  'bg-white dark:bg-gray-800 dark:text-gray-100',
-                  'rounded-md focus:outline-none hover:bg-gray-50 dark:hover:bg-gray-700',
+                  'h-9 px-3 text-sm font-medium border border-border',
+                  'bg-secondary text-foreground',
+                  'rounded-lg focus:outline-none hover:bg-accent',
                   (isLoading || isRegenerating) &&
                     'opacity-50 cursor-not-allowed'
                 )}
@@ -271,10 +270,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                   <Button
                     className={cn(
                       'h-9 px-3 text-sm font-medium',
-                      'bg-white hover:bg-gray-50 text-gray-900',
-                      'dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-100',
-                      'border border-gray-200 dark:border-gray-700',
-                      'rounded-md focus:outline-none',
+                      'bg-secondary hover:bg-accent text-foreground',
+                      'border border-border',
+                      'rounded-lg focus:outline-none',
                       'transform-gpu transition-[background-color,border-color] duration-200',
                       (isLoading || isRegenerating) &&
                         'opacity-50 cursor-not-allowed'
@@ -301,10 +299,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
 
             <Button
               className={cn(
-                'h-9 px-4 text-sm font-medium text-white rounded-md',
-                'bg-gradient-to-r from-primary-500 to-primary-600',
-                'hover:from-primary-600 hover:to-primary-700',
-                'focus:outline-none shadow-md hover:shadow-lg transition-all',
+                'h-9 px-4 text-sm font-medium text-primary-foreground rounded-lg',
+                'bg-primary hover:opacity-90',
+                'focus:outline-none transition-all',
                 (isLoading || isRegenerating) && 'opacity-50 cursor-not-allowed'
               )}
               onClick={handleSubmit}

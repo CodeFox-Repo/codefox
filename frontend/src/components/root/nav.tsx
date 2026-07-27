@@ -1,4 +1,5 @@
 'use client';
+import { Wordmark } from './wordmark';
 import {
   useState,
   useEffect,
@@ -6,7 +7,6 @@ import {
   useImperativeHandle,
   ReactNode,
 } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { Github, Star, SunMoon, Home, Info, DollarSign } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -138,31 +138,6 @@ const FloatingNavbar = forwardRef<NavbarRef, FloatingNavbarProps>(
     //   setIsVisible(true);
     // }, []);
 
-    // Using the same animation variants as in page.tsx
-    const containerVariants = {
-      hidden: { opacity: 0 },
-      visible: {
-        opacity: 1,
-        transition: {
-          duration: 0.8,
-          ease: 'easeInOut',
-          staggerChildren: 0.3,
-        },
-      },
-    };
-
-    const itemVariants = {
-      hidden: { opacity: 0, y: 20 },
-      visible: {
-        opacity: 1,
-        y: 0,
-        transition: {
-          duration: 0.5,
-          ease: 'easeOut',
-        },
-      },
-    };
-
     // const handleTabClick = (
     //   e: React.MouseEvent,
     //   index: number,
@@ -183,38 +158,25 @@ const FloatingNavbar = forwardRef<NavbarRef, FloatingNavbarProps>(
     return (
       <>
         <div className={` top-5 left-0 right-0 z-50 ${className}`}>
-          <motion.div
-            className={`w-full flex justify-around items-center px-8 py-7 ${containerClassName}`}
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
+          <div
+            className={`mx-auto flex w-full max-w-[1180px] items-center justify-between gap-4 px-5 py-6 sm:px-10 ${containerClassName}`}
           >
-            {/* Left side - Logo and Name */}
-            <motion.div
-              className={`flex items-center space-x-3 ${logoContainerClassName}`}
-              variants={itemVariants}
-            >
-              <span
-                className={` font-bold text-3xl text-primary-600 dark:text-primary-400 transition-transform hover:scale-105 duration-300 ${nameClassName}`}
-              >
-                {name}
-              </span>
-            </motion.div>
+            {/* Left side - terminal prompt wordmark */}
+            <div className={`flex items-center ${logoContainerClassName}`}>
+              {!isAuthorized && <Wordmark className={nameClassName} />}
+            </div>
 
-            <motion.div
-              className="flex-1 flex justify-end items-center space-x-4"
-              variants={itemVariants}
-            >
+            <div className="flex flex-1 items-center justify-end gap-3">
               <a
                 href="https://github.com/Sma1lboy/codefox"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
+                className="flex items-center rounded-lg border border-border px-3 py-1.5 font-mono text-sm text-foreground transition-colors duration-200 hover:border-primary/45"
               >
                 <Github size={18} className="mr-1.5" />
                 <Star
                   size={16}
-                  className="mr-1 text-yellow-500"
+                  className="mr-1 text-primary"
                   fill="currentColor"
                 />
                 {isLoading ? (
@@ -232,7 +194,7 @@ const FloatingNavbar = forwardRef<NavbarRef, FloatingNavbarProps>(
 
               <button
                 onClick={toggleTheme}
-                className="p-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
+                className="rounded-lg border border-transparent p-2 text-muted-foreground transition-colors duration-200 hover:text-foreground"
                 aria-label="Toggle theme"
               >
                 <SunMoon size={20} />
@@ -240,25 +202,24 @@ const FloatingNavbar = forwardRef<NavbarRef, FloatingNavbarProps>(
 
               {/* Authentication Buttons */}
               {!isAuthorized && (
-                <div className="flex items-center space-x-4 transition-transform duration-300">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowSignIn(true)}
-                    className="px-4 py-2 rounded-sm border border-primary-500 text-primary-500 dark:text-primary-400
-                 hover:bg-primary-500 hover:text-white transition-colors"
+                    className="rounded-lg border border-border px-4 py-2 font-mono text-sm text-foreground transition-colors hover:border-primary/45"
                   >
                     Sign In
                   </button>
 
                   <button
                     onClick={() => setShowSignUp(true)}
-                    className="px-4 py-2 rounded-sm bg-primary-500 text-white hover:bg-primary-600 transition-colors"
+                    className="rounded-lg bg-primary px-4 py-2 font-mono text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90"
                   >
                     Sign Up
                   </button>
                 </div>
               )}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </div>
 
         {/* Modals */}

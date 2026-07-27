@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import fs from 'fs/promises'; // Use promises API
 import path from 'path';
-import { getMediaDir } from '../../../../../backend/src/common/utils/common-path';
+import { getMediaDir } from '../../../../../../backend/src/common/utils/common-path';
 import { logger } from '@/app/log/logger';
 
 export async function GET(

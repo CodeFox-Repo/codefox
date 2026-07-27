@@ -50,7 +50,7 @@ export default function ChatContent({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="flex flex-col justify-between w-full h-full p-2 rounded-lg shadow-sm border"
+      className="flex h-full w-full flex-col justify-between"
     >
       <div className="sticky top-0 z-10">
         <ChatTopbar />

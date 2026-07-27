@@ -11,6 +11,8 @@ import { Chat } from 'src/chat/chat.model';
 import { AppConfigModule } from 'src/config/config.module';
 import { UploadModule } from 'src/upload/upload.module';
 import { DownloadController } from './downloadController';
+import { PreviewController } from './preview.controller';
+import { PreviewService } from './preview.service';
 // import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 
@@ -21,15 +23,16 @@ import { UserService } from 'src/user/user.service';
     AppConfigModule,
     UploadModule,
   ],
-  controllers: [DownloadController],
+  controllers: [DownloadController, PreviewController],
   providers: [
     ChatService,
     ProjectService,
     ProjectsResolver,
     ProjectGuard,
+    PreviewService,
     // GitHubService,
     UserService,
   ],
-  exports: [ProjectService, ProjectGuard],
+  exports: [ProjectService, ProjectGuard, PreviewService],
 })
 export class ProjectModule {}

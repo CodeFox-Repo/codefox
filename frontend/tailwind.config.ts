@@ -19,10 +19,17 @@ const config = {
       },
     },
     extend: {
+      // kobe's pairing: Space Grotesk for display/UI, JetBrains Mono for the
+      // terminal register (code, metadata, landing body copy).
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        serif: ['var(--font-playfair)', 'Georgia', 'serif'],
-        mono: ['ui-monospace', 'monospace'],
+        sans: ['var(--font-grotesk)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-grotesk)', 'system-ui', 'sans-serif'],
+        mono: [
+          'var(--font-jetbrains)',
+          'ui-monospace',
+          'SFMono-Regular',
+          'monospace',
+        ],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -30,17 +37,18 @@ const config = {
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        // Terracotta ramp around kobe's accent (#CC785C at 400).
         primary: {
-          '50': '#EEF2FF',
-          '100': '#E0E7FF',
-          '200': '#C7D2FE',
-          '300': '#A5B4FC',
-          '400': '#818CF8',
-          '500': '#6366F1',
-          '600': '#4F46E5',
-          '700': '#4338CA',
-          '800': '#3730A3',
-          '900': '#312E81',
+          '50': '#FBF1EC',
+          '100': '#F4DDD2',
+          '200': '#E9BCA9',
+          '300': '#DC9A80',
+          '400': '#CC785C',
+          '500': '#BE6244',
+          '600': '#B04E30',
+          '700': '#8F3D26',
+          '800': '#6E2F1E',
+          '900': '#4D2115',
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
         },

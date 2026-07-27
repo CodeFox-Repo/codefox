@@ -39,36 +39,12 @@ function PreviewContent({
   const MAX_CHECK_ATTEMPTS = 15; // Reduced max attempts since we have progressive intervals
 
   // Function to check if the frontend service is ready
-  const checkServiceReady = async (url: string) => {
-    try {
-      // Create a new AbortController instance
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500); // Reduced timeout to 1.5 seconds
-
-      const response = await fetch(url, {
-        method: 'HEAD',
-        cache: 'no-store',
-        signal: controller.signal,
-        headers: { 'Cache-Control': 'no-cache' },
-      });
-
-      clearTimeout(timeoutId);
-
-      // Service is ready if we get a successful response (not 404 or 5xx)
-      const isReady =
-        response.ok || (response.status !== 404 && response.status < 500);
-      logger.info(
-        `Service check: ${url} - Status: ${response.status} - Ready: ${isReady}`
-      );
-      return isReady;
-    } catch (error) {
-      // Don't log abort errors (expected when timeout occurs)
-      if (!error.toString().includes('abort')) {
-        logger.info(`Service check attempt failed: ${error}`);
-      }
-      return false;
-    }
-  };
+  // The backend only returns a preview URL after its own waitForPort has
+  // confirmed the dev server accepts connections, so the page is ready by the
+  // time we get here. Re-probing it from the browser is not just redundant —
+  // it is cross-origin (localhost:3000 → 127.0.0.1:<port>), so the preflight
+  // OPTIONS gets a 400 from Next and the check never passes.
+  const checkServiceReady = async (_url: string) => true;
 
   // Function to periodically check service readiness
   const startServiceReadyCheck = async (url: string) => {
@@ -169,6 +145,13 @@ function PreviewContent({
     const initWebUrl = async () => {
       if (!curProject) return;
       const projectPath = curProject.projectPath;
+
+      // Projects created before scaffolding existed have no directory, so
+      // there is nothing to serve. Say so instead of spinning forever.
+      if (!projectPath) {
+        setLoadingMessage('This project has no files to preview yet.');
+        return;
+      }
 
       if (lastProjectPathRef.current === projectPath) {
         return;

@@ -12,7 +12,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint": "ts-prune \"{src,apps,libs,test}/**/*.ts\" && eslint \"{src,apps,libs,test}/**/*.ts\" --fix ",
     "start": "nest start",
-    "start:dev": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" nest start --watch",
+    "start:dev": "NODE_ENV=DEV NODE_OPTIONS=\"--experimental-specifier-resolution=node\" nest start --watch",
     "start:backend": "pnpm start",
     "dev": "pnpm start:dev",
     "dev:backend": "pnpm start:dev",
@@ -27,7 +27,9 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.46",
+    "@ai-sdk/harness": "^1",
+    "@ai-sdk/harness-claude-code": "^1",
+    "@ai-sdk/openai": "^4.0.20",
     "@apollo/server": "^4.11.0",
     "@aws-sdk/client-s3": "^3.758.0",
     "@huggingface/hub": "latest",
@@ -49,7 +51,7 @@
     "@types/fs-extra": "^11.0.4",
     "@types/normalize-path": "^3.0.2",
     "@types/toposort": "^2.0.7",
-    "ai": "^5.0.62",
+    "ai": "^7.0.37",
     "archiver": "^7.0.1",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.8.3",
@@ -82,6 +84,7 @@
     "toposort": "^2.0.2",
     "typeorm": "^0.3.20",
     "uuid": "^10.0.0",
+    "ws": "^8.21.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {

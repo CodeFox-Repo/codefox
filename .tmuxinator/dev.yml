@@ -20,9 +20,3 @@ windows:
         - codegen:
             - echo "Codegen Watch (Ctrl+a 2 to focus, Ctrl+a r to restart)"
             - pnpm generate:watch
-  - docker:
-      root: <%= ENV["PWD"] %>/docker
-      panes:
-        - docker:
-            - echo "Docker Services (Ctrl+a 3 to focus)"
-            - docker compose up

@@ -1,181 +1,104 @@
 'use client';
 
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ModeToggle } from '../mode-toggle';
-import { toast } from 'sonner';
-import { ActivityCalendar } from 'react-activity-calendar';
-import { TeamSelector } from '../team-selector';
-import { useQuery } from '@apollo/client';
 import { AvatarUploader } from '../avatar-uploader';
 import { useAuthContext } from '@/providers/AuthProvider';
 
-const data = [
-  {
-    date: '2024-01-01',
-    count: 2,
-    level: 0,
-  },
-  {
-    date: '2024-06-23',
-    count: 2,
-    level: 1,
-  },
-  {
-    date: '2024-08-02',
-    count: 16,
-    level: 4,
-  },
-  {
-    date: '2024-11-29',
-    count: 11,
-    level: 3,
-  },
-  {
-    date: '2024-12-29',
-    count: 11,
-    level: 0,
-  },
-];
+/**
+ * Section shell shared by every block on this page, matching the rule-and-label
+ * rhythm the landing page and workbench use.
+ */
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-t-[3px] border-border pt-6">
+      <h2 className="mb-5 font-mono text-sm tracking-[0.12em] text-primary">
+        {label}
+      </h2>
+      {children}
+    </section>
+  );
+}
 
-const formSchema = z.object({
-  username: z.string().min(2, {
-    message: 'Name must be at least 2 characters.',
-  }),
-});
+function Row({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 py-3">
+      <div className="min-w-0">
+        <p className="font-medium text-foreground">{title}</p>
+        <p className="mt-0.5 max-w-[52ch] font-mono text-xs text-muted-foreground">
+          {hint}
+        </p>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export default function UserSetting() {
-  const [name, setName] = useState('');
-  const { user, isLoading } = useAuthContext();
+  const { user } = useAuthContext();
   const [avatarUrl, setAvatarUrl] = useState('');
 
-  const avatarFallback = useMemo(() => {
-    if (!name) return 'US';
-    return name.substring(0, 2).toUpperCase();
-  }, [name]);
-
   useEffect(() => {
-    if (user) {
-      setName(user.username || 'Anonymous');
-      setAvatarUrl(user.avatarUrl || '');
-    }
+    if (user) setAvatarUrl(user.avatarUrl || '');
   }, [user]);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      username: '',
-    },
-  });
-
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    localStorage.setItem('ollama_user', values.username);
-    window.dispatchEvent(new Event('storage'));
-    toast.success('Name updated successfully');
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    form.setValue('username', e.currentTarget.value);
-    setName(e.currentTarget.value);
-  };
-
-  const handleAvatarChange = (newUrl: string) => {
-    setAvatarUrl(newUrl);
-  };
+  const avatarFallback = useMemo(
+    () => (user?.username || 'US').substring(0, 2).toUpperCase(),
+    [user?.username]
+  );
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="space-y-8">
-        <h1 className="text-3xl font-semibold mb-8">User Settings</h1>
-        <div className="w-[100%] flex justify-center">
-          <ActivityCalendar data={data} blockSize={12} blockMargin={5} />
-        </div>
-        {/* Profile Picture Section */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-medium">Profile Picture</h2>
-          <div className="flex justify-center gap-4 px-2">
+    <div className="mx-auto w-full max-w-[1180px] px-5 pb-24 pt-4 sm:px-10">
+      <h1 className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
+        Settings
+      </h1>
+      <p className="mt-2 max-w-[52ch] font-mono text-sm text-muted-foreground">
+        Your account and how CodeFox looks.
+      </p>
+
+      <div className="mt-10 space-y-10">
+        <Section label="ACCOUNT">
+          <Row title="Avatar" hint="Shown next to your projects and in chat.">
             <AvatarUploader
               currentAvatarUrl={avatarUrl}
               avatarFallback={avatarFallback}
-              onAvatarChange={handleAvatarChange}
+              onAvatarChange={setAvatarUrl}
             />
-          </div>
-        </div>
-        <div className="bg-border h-px" />
+          </Row>
 
-        {/* Username and Description Section */}
-        <div className="space-y-2">
-          <h2 className="text-lg font-medium">Profile Information</h2>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <FormLabel>Username</FormLabel>
-                        <p className="text-muted-foreground">
-                          Select your interface color scheme.
-                        </p>
-                      </div>
-                      <div className="w-[200px]">
-                        {' '}
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="text"
-                            value={name}
-                            className="w-full rounded-[10px]"
-                            onChange={(e) => handleChange(e)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </div>
-                    </div>
-                  </FormItem>
-                )}
-              />
-            </form>
-          </Form>
-        </div>
-        <div className="h-px bg-border" />
+          {/* Read-only: the API exposes no mutation to change either yet. */}
+          <Row title="Username" hint="Not editable yet.">
+            <span className="font-mono text-sm text-muted-foreground">
+              {user?.username || '—'}
+            </span>
+          </Row>
 
-        {/* Interface Theme Section */}
-        <div className="space-y-2">
-          <h2 className="text-lg font-medium">Interface Theme</h2>
-          <div className="flex items-center justify-between">
-            <p className="text-muted-foreground">
-              Select your interface color scheme.
-            </p>
+          <Row title="Email" hint="The address you signed in with.">
+            <span className="font-mono text-sm text-muted-foreground">
+              {user?.email || '—'}
+            </span>
+          </Row>
+        </Section>
+
+        <Section label="APPEARANCE">
+          <Row title="Theme" hint="Warm dark, or the same palette on paper.">
             <ModeToggle />
-          </div>
-        </div>
-
-        <div className="h-px bg-border" />
-        <div className="space-y-2">
-          <h2 className="text-lg font-medium">Default Team</h2>
-          <div className="flex items-center justify-between">
-            <p className="w-[50%] text-muted-foreground">
-              New projects and deployments from your personal scope will be
-              created in the codesfox team.
-            </p>
-            <TeamSelector />
-          </div>
-        </div>
+          </Row>
+        </Section>
       </div>
     </div>
   );

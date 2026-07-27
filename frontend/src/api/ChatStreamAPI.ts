@@ -4,7 +4,8 @@ import authenticatedFetch from '@/lib/authenticatedFetch';
 export const startChatStream = async (
   input: ChatInputType,
   token: string,
-  stream: boolean = false // Default to non-streaming for better performance
+  stream: boolean = false, // Default to non-streaming for better performance
+  onChunk?: (delta: string) => void
 ): Promise<string> => {
   if (!token) {
     throw new Error('Not authenticated');
@@ -29,44 +30,26 @@ export const startChatStream = async (
       `Network response was not ok: ${response.status} ${response.statusText}`
     );
   }
-  // TODO: Handle streaming responses properly
-  // if (stream) {
-  //   // For streaming responses, aggregate the streamed content
-  //   let fullContent = '';
-  //   const reader = response.body?.getReader();
-  //   if (!reader) {
-  //     throw new Error('No reader available');
-  //   }
 
-  //   while (true) {
-  //     const { done, value } = await reader.read();
-  //     if (done) break;
+  // The backend answers with streamText().toTextStreamResponse() — a raw text
+  // stream, not JSON. Drain it and hand callers the assembled text.
+  // onChunk lets a caller render deltas as they land.
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body to read');
+  }
 
-  //     const text = new TextDecoder().decode(value);
-  //     const lines = text.split('\n\n');
+  const decoder = new TextDecoder();
+  let content = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const delta = decoder.decode(value, { stream: true });
+    if (!delta) continue;
+    content += delta;
+    onChunk?.(delta);
+  }
+  content += decoder.decode();
 
-  //     for (const line of lines) {
-  //       if (line.startsWith('data: ')) {
-  //         const data = line.slice(5);
-  //         if (data === '[DONE]') break;
-  //         try {
-  //           const { content } = JSON.parse(data);
-  //           if (content) {
-  //             fullContent += content;
-  //           }
-  //         } catch (e) {
-  //           console.error('Error parsing SSE data:', e);
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return fullContent;
-  // } else {
-  //   // For non-streaming responses, return the content directly
-  //   const data = await response.json();
-  //   return data.content;
-  // }
-
-  const data = await response.json();
-  return data.content;
+  return content;
 };

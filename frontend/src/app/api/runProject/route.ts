@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import * as path from 'path';
 import * as net from 'net';
 import * as fs from 'fs';
-import { getProjectPath } from '../../../../backend/src/common/utils/common-path';
+import { getProjectPath } from '../../../../../backend/src/common/utils/common-path';
 import { useMutation } from '@apollo/client/react/hooks/useMutation';
 import { toast } from 'sonner';
 import { UPDATE_PROJECT_PHOTO_URL } from '@/graphql/request';

@@ -1,0 +1,18 @@
+diff --git a/.npmignore b/.npmignore
+deleted file mode 100644
+index 34e4f5c298de294fa5c1c1769b6489eb047bde9a..0000000000000000000000000000000000000000
+diff --git a/index.js b/index.js
+index 5462c1f830bdbe79bf2b1fcfd811cd9799b4dd11..5f0186baae21ca78eb8c0049fc3759096f142bd7 100644
+--- a/index.js
++++ b/index.js
+@@ -1,7 +1,9 @@
+ /*jshint node:true */
+ 'use strict';
+ var Buffer = require('buffer').Buffer; // browserify
+-var SlowBuffer = require('buffer').SlowBuffer;
++// SlowBuffer was removed in Node 24. Nothing here needs it — only the unused
++// install()/restore() helpers touch it — so fall back to a throwaway object.
++var SlowBuffer = require('buffer').SlowBuffer || { prototype: {} };
+ 
+ module.exports = bufferEq;
+ 

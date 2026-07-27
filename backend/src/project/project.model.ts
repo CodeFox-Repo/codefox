@@ -101,8 +101,11 @@ export class Project extends SystemBaseModel {
    * Unique identifier for tracking project lineage
    * Used to track which projects are copies of others
    */
+  // No DB-level default: uuid_generate_v4() is a postgres extension function
+  // that sqlite lacks, and every creation path in ProjectService already
+  // assigns this explicitly.
   @Field()
-  @Column({ unique: true, default: () => 'uuid_generate_v4()' })
+  @Column({ unique: true })
   uniqueProjectId: string;
 
   /**

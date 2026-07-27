@@ -1,4 +1,5 @@
 'use client';
+import { FoxMark } from '@/components/root/fox-mark';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -51,12 +52,8 @@ export default function FileSidebar({ isCollapsed, isMobile, loading }) {
           variant="ghost"
           className={`flex justify-between w-[90%] h-14 text-sm xl:text-lg font-normal items-center ml-[5%]`}
         >
-          <Image
-            src="/codefox.svg"
-            alt="AI"
-            width={48}
-            height={48}
-            className={`flex-shrink-0 dark:invert ${isSimple ? 'm-auto' : ''}`}
+          <FoxMark
+            className={`h-12 w-12 flex-shrink-0 ${isSimple ? 'm-auto' : ''}`}
           />
           {!isSimple && (
             <div

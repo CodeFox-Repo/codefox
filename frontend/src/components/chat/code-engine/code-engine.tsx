@@ -63,14 +63,16 @@ export function CodeEngine({
     }
   }, [chatId]);
 
-  // Poll for project if needed using chatId
+  // Poll for project if needed using chatId.
+  // `projectCompleted` is a *presentation* flag persisted to localStorage to
+  // suppress the loading animation on a revisit. It must not gate data: doing
+  // so left the file tree spinning forever on any chat opened a second time,
+  // because the project was never resolved and activeProject fell back to
+  // whatever project the global context happened to hold.
   useEffect(() => {
-    // 如果项目已经完成，跳过轮询
-    if (projectCompleted || isProjectLoadedRef.current) {
-      return;
-    }
-
-    if (!curProject && chatId && !projectLoading) {
+    // Resolve the project from the chat being displayed, not from whatever
+    // project the global context happens to hold — they are often different.
+    if (chatId && !localProject && !projectLoading) {
       const loadProjectFromChat = async () => {
         try {
           setIsLoading(true);
@@ -94,10 +96,11 @@ export function CodeEngine({
     } else {
       setIsLoading(projectLoading);
     }
-  }, [chatId, curProject, projectLoading, pollChatProject, projectCompleted]);
+  }, [chatId, localProject, projectLoading, pollChatProject, projectCompleted]);
 
   // Use either curProject from context or locally polled project
-  const activeProject = curProject || localProject;
+  // This chat's own project wins over the globally selected one.
+  const activeProject = localProject || curProject;
 
   // Update projectPathRef when project changes
   useEffect(() => {
@@ -400,7 +403,7 @@ export function CodeEngine({
   };
 
   return (
-    <div className="rounded-lg border shadow-sm overflow-scroll h-full">
+    <div className="h-full overflow-scroll">
       <ResponsiveToolbar
         isLoading={showLoader}
         activeTab={activeTab}
@@ -423,7 +426,7 @@ export function CodeEngine({
                   initial={{ scale: 0 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 200, damping: 10 }}
-                  className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center"
+                  className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -451,7 +454,7 @@ export function CodeEngine({
                       : `Initializing project (${progress}%)`}
                 </p>
 
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-1">
+                <div className="w-full bg-secondary rounded-full h-2.5 mb-1">
                   <motion.div
                     className={`h-2.5 rounded-full ${
                       progress === 100 ? 'bg-green-500' : 'bg-primary'

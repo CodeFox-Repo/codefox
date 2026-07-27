@@ -140,7 +140,7 @@ export default function FileStructure({
                       'rct-tree-item-button transition-colors duration-200',
                       'dark:text-white dark:group-hover:text-black',
                       context.isSelected &&
-                        'dark:!bg-gray-700 dark:!text-white',
+                        'dark:!bg-secondary dark:!text-white',
                     ].join(' ')}
                   >
                     {title}

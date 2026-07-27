@@ -21,104 +21,41 @@ https://github.com/user-attachments/assets/8c588e83-b155-445c-bfa7-ed67fb57e77f
 ✨ **Live Preview**: Interact with your project while engaging in AI-powered conversations to make real-time modifications.
 🔧 **Precise Code Customization**: Leverage targeted and efficient visual tools for precise module adjustments.
 
-## Prerequisites
+## Quick start
 
-### System Requirements
-
-- Node.js >= 18.0.0
-- PostgreSQL >= 14.0
-- GPU (Optional, for local LLM model running)
-- Memory: Minimum 16GB RAM recommended
-- Storage: At least 10GB free space
-
-### Development Tools
-
-- PNPM 9.1.2 (`npm install -g pnpm@9.1.2`)
-- Tmux >= 3.2
-- Tmuxinator >= 3.0.0 (`gem install tmuxinator`)
-
-### Optional Requirements
-
-- NVIDIA CUDA Toolkit (for GPU acceleration)
-- Docker & Docker Compose (for containerized development)
-
-## Installation
-
-1. **Clone the repository**
+Node.js >= 18 and pnpm. Nothing else — no database to install, no tmux.
 
 ```bash
 git clone <repository-url>
 cd codefox
-```
-
-2. **Install dependencies**
-
-```bash
 pnpm install
+pnpm dev
 ```
 
-3. **Environment Configuration**
+`pnpm dev` generates `backend/.env` and `frontend/.env` on first run (with
+fresh JWT secrets), then starts both servers:
 
-Create and configure environment files for each service:
+- Frontend — http://localhost:3000
+- Backend GraphQL — http://localhost:8080/graphql
 
-**Backend (.env)**
+Data lands in a SQLite file at `.codefox/data/codefox.db`. To use PostgreSQL
+instead, set `DATABASE_URL` to a `postgresql://` URL in `backend/.env`; any
+other value (or none) keeps SQLite.
 
-```env
-PORT=8080
-JWT_SECRET=<your-jwt-secret>
-JWT_REFRESH=<your-refresh-token-secret>
-SALT_ROUNDS=10
-OPENROUTER_API_KEY=<your-openrouter-api-key>
-```
+To use chat, put an [OpenRouter key](https://openrouter.ai/keys) in
+`backend/.env` as `OPENROUTER_API_KEY`. Configured models:
 
-**Frontend (.env)**
+- **Claude Sonnet 4.5** (default) — `anthropic/claude-sonnet-4.5`
+- **GPT-4o-mini** — `openai/gpt-4o-mini`
 
-```env
-NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8080/graphql
-```
-
-**Model Configuration**
-
-The backend uses hardcoded model configurations. Currently configured models:
-- **Claude Sonnet 4.5** (default) - `anthropic/claude-sonnet-4.5`
-- **GPT-4o-mini** - `openai/gpt-4o-mini`
-
-All models use the OpenRouter API. Configure your API key in the backend `.env` file.
-
-## Development
-
-### Using Tmuxinator (Recommended)
-
-Start all services with the pre-configured Tmuxinator setup:
+### Other dev commands
 
 ```bash
-pnpm dev
+pnpm dev:tmux      # same stack in a tmuxinator session (needs tmux + tmuxinator)
+pnpm demo:record   # re-record the landing-page demo against the running app
 ```
 
-This creates a development environment with:
-
-- Backend server (http://localhost:8080)
-- Frontend development server (http://localhost:3000)
-- GraphQL codegen watcher
-
-### Manual Development
-
-Start services individually:
-
-```bash
-# Start backend
-cd backend
-pnpm dev
-
-# Start frontend
-cd frontend
-pnpm dev
-```
-
-### Development URLs
-
-- Frontend: http://localhost:3000
-- Backend GraphQL Playground: http://localhost:8080/graphql
+Start services individually with `pnpm dev` inside `backend/` or `frontend/`.
 
 ## Architecture Overview
 

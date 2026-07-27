@@ -27,7 +27,13 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
   const { models } = useModels();
-  const [selectedModel, setSelectedModel] = useState(models[0] || 'gpt-4o');
+  // useModels resolves asynchronously, so seeding state from models[0] at mount
+  // pins whatever the fallback was. Adopt the first real model once it lands;
+  // until then send '' and let the backend apply its configured default.
+  const [selectedModel, setSelectedModel] = useState('');
+  useEffect(() => {
+    if (!selectedModel && models.length > 0) setSelectedModel(models[0]);
+  }, [models, selectedModel]);
   const { refetchChats } = useChatList();
 
   const [isTPUpdating, setIsTPUpdating] = useState(false);
@@ -128,7 +134,7 @@ export default function Chat() {
   return chatId ? (
     <ResizablePanelGroup
       direction="horizontal"
-      className="h-full w-full p-2"
+      className="h-full w-full"
       key="with-chat"
     >
       <ResizablePanel
@@ -157,7 +163,7 @@ export default function Chat() {
         </div>
       </ResizablePanel>
 
-      <ResizableHandle withHandle className="bg-border/20  w-[3px]" />
+      <ResizableHandle withHandle className="w-px bg-border" />
 
       <ResizablePanel
         defaultSize={60}

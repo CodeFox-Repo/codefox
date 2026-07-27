@@ -1,6 +1,5 @@
 packages:
   - 'backend'
   - 'frontend'
-  - 'codefox-docs'
   - '!backend/src/build-system/__tests__'
   - '!.codefox'

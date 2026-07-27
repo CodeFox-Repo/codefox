@@ -82,7 +82,7 @@ export function ExpandableCard({ projects }) {
             <motion.div
               layoutId={`card-${active.id}`}
               ref={ref}
-              className="w-full h-full flex flex-col bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden"
+              className="w-full h-full flex flex-col bg-background rounded-2xl overflow-hidden"
               style={{ willChange: 'transform, opacity' }}
             >
               <motion.div className="flex-1 p-6 h-[50%]">
@@ -92,7 +92,7 @@ export function ExpandableCard({ projects }) {
                 >
                   <motion.h3
                     layoutId={`title-${active.id}`}
-                    className="text-xl font-semibold text-gray-900 dark:text-gray-100"
+                    className="text-xl font-semibold text-foreground"
                   >
                     {active.name}
                   </motion.h3>
@@ -158,13 +158,13 @@ export function ExpandableCard({ projects }) {
             <motion.div layoutId={`content-${project.id}`} className="mt-3">
               <motion.h3
                 layoutId={`title-${project.id}`}
-                className="font-medium text-gray-900 dark:text-gray-100"
+                className="font-medium text-foreground"
               >
                 {project.name}
               </motion.h3>
               <motion.div
                 layoutId={`meta-${project.id}`}
-                className="mt-1 text-sm text-gray-500"
+                className="mt-1 text-sm text-muted-foreground"
               >
                 {project.author}
               </motion.div>

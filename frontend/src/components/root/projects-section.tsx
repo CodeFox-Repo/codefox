@@ -48,7 +48,7 @@ export function ProjectsSection() {
               <ExpandableCard projects={transformedProjects} />
             ) : (
               // Show message when no projects are available
-              <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-10 text-muted-foreground">
                 No projects available.
               </div>
             )}

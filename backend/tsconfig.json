@@ -21,7 +21,14 @@
     "noFallthroughCasesInSwitch": false,
     "resolveJsonModule": true,
     "paths": {
-      "src/*": ["src/*"]
+      "src/*": ["src/*"],
+      // @ai-sdk/harness ships raw .ts alongside dist, and `moduleResolution:
+      // node` ignores the package's exports map — so the subpath resolves to
+      // the package's own source and drags it into our build. Point types at
+      // the built declarations; runtime resolution still uses exports.
+      "@ai-sdk/harness/agent": [
+        "../node_modules/@ai-sdk/harness/dist/agent/index.d.ts"
+      ]
     }
   }
 }

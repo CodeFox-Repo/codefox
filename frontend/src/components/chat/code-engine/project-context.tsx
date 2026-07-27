@@ -32,11 +32,12 @@ export interface ProjectContextType {
   filePath: string | null;
   setFilePath: React.Dispatch<React.SetStateAction<string | null>>;
   createNewProject: (projectName: string, description: string) => Promise<void>;
+  /** Resolves to the new chat id, or null when creation failed. */
   createProjectFromPrompt: (
     prompt: string,
     isPublic: boolean,
     model?: string
-  ) => Promise<boolean>;
+  ) => Promise<string | null>;
   forkProject: (projectId: string) => Promise<void>;
   setProjectPublicStatus: (
     projectId: string,
@@ -582,8 +583,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       pendingOperations.current.set(operationKey, true);
 
       try {
+        // Backend-owned: it holds the project directories and the process
+        // that serves them. /api/preview proxies through to the backend.
         const response = await fetch(
-          `/api/runProject?projectPath=${encodeURIComponent(projectPath)}`,
+          `/api/preview?projectPath=${encodeURIComponent(projectPath)}`,
           {
             method: 'GET',
             headers: {
@@ -684,12 +687,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       prompt: string,
       isPublic: boolean,
       model = 'gpt-4o-mini'
-    ): Promise<boolean> => {
+    ): Promise<string | null> => {
       if (!prompt.trim()) {
         if (isMounted.current) {
           toast.error('Please enter a project description');
         }
-        return false;
+        return null;
       }
 
       try {
@@ -697,18 +700,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           setIsLoading(true);
         }
 
-        // Default packages based on typical web project needs
-        const defaultPackages = [
-          { name: 'react', version: '^18.2.0' },
-          { name: 'next', version: '^13.4.0' },
-          { name: 'tailwindcss', version: '^3.3.0' },
-        ];
-
         const result = await createProject({
           variables: {
             createProjectInput: {
               description: prompt,
-              packages: defaultPackages,
               public: isPublic,
               model: model,
             },
@@ -721,7 +716,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         if (isMounted.current) {
           toast.error('Failed to create project from prompt');
         }
-        return false;
+        return null;
       } finally {
         if (isMounted.current) {
           setIsLoading(false);

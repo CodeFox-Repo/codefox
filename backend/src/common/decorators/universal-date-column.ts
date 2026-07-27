@@ -1,7 +1,7 @@
 import { CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /**
- * Date column options for PostgreSQL
+ * Date column options
  */
 interface UniversalDateOptions {
   nullable?: boolean;
@@ -9,11 +9,12 @@ interface UniversalDateOptions {
 }
 
 /**
- * Create date column decorator for PostgreSQL
+ * Create date column decorator. No explicit `type` — TypeORM maps it per
+ * driver (`timestamp` on postgres, `datetime` on sqlite); sqlite has no
+ * `timestamp` type and throws if one is forced.
  */
 export function UniversalCreateDateColumn(options: UniversalDateOptions = {}) {
   return CreateDateColumn({
-    type: 'timestamp',
     nullable: options.nullable,
     transformer: {
       to: (value: Date) => value,
@@ -23,11 +24,10 @@ export function UniversalCreateDateColumn(options: UniversalDateOptions = {}) {
 }
 
 /**
- * Update date column decorator for PostgreSQL
+ * Update date column decorator. See UniversalCreateDateColumn on `type`.
  */
 export function UniversalUpdateDateColumn(options: UniversalDateOptions = {}) {
   return UpdateDateColumn({
-    type: 'timestamp',
     nullable: options.nullable,
     transformer: {
       to: (value: Date) => value,

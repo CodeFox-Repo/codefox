@@ -85,7 +85,7 @@ export function StableModal({
 
           {/* 模态框内容 */}
           <motion.div
-            className={`relative bg-white dark:bg-gray-900 rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-auto z-10 ${className}`}
+            className={`relative bg-background rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-auto z-10 ${className}`}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -93,11 +93,11 @@ export function StableModal({
           >
             {/* 标题栏（如果提供） */}
             {title && (
-              <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700">
+              <div className="flex items-center justify-between px-4 py-3 border-b dark:border-border">
                 <h2 className="text-lg font-semibold">{title}</h2>
                 <button
                   onClick={onClose}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
                 >
                   <svg
                     className="w-5 h-5"

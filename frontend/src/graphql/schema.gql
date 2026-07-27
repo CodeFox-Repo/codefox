@@ -55,7 +55,6 @@ input CreateProjectInput {
   databaseType: String
   description: String!
   model: String = "gpt-4o-mini"
-  packages: [ProjectPackage!]!
   projectName: String
   public: Boolean
 }
@@ -125,7 +124,6 @@ type Mutation {
   resendConfirmationEmail(input: ResendEmailInput!): EmailConfirmationResponse!
   saveMessage(input: ChatInputType!): Boolean!
   subscribeToProject(projectId: ID!): Project!
-  syncProjectToGitHub(projectId: String!): Project!
   triggerChatStream(input: ChatInputType!): Boolean!
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
@@ -153,7 +151,6 @@ type Project {
   isSyncedWithGitHub: Boolean!
   photoUrl: String
   projectName: String!
-  projectPackages: [ProjectPackages!]
   projectPath: String!
   subNumber: Float!
 
@@ -165,22 +162,6 @@ type Project {
   userId: ID!
 }
 
-input ProjectPackage {
-  name: String!
-  version: String!
-}
-
-type ProjectPackages {
-  content: String!
-  createdAt: Date!
-  id: ID!
-  isActive: Boolean!
-  isDeleted: Boolean!
-  name: String!
-  updatedAt: Date!
-  version: String!
-}
-
 type Query {
   checkToken(input: CheckTokenInput!): Boolean!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
@@ -190,7 +171,6 @@ type Query {
   getCurProject(chatId: String!): Project
   getHello: String!
   getProject(projectId: String!): Project!
-  getRemainingProjectLimit: Int!
   getSubscribedProjects: [Project!]!
   getUserAvatar(userId: String!): String
   getUserChats: [Chat!]
