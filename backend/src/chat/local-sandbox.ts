@@ -67,13 +67,23 @@ const createSession = async (root: string, base: string, ports: number[]) => {
     env,
     abortSignal,
   }: ProcessOptions) => {
-    // Our own loader flags have no business reaching an unrelated CLI. The
-    // harness bootstraps its runtime with corepack's pnpm shim, which dies on
-    // ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING when it inherits them.
+    // Our own loader flags have no business reaching an unrelated CLI.
     const { NODE_OPTIONS: _drop, ...inherited } = process.env;
+
+    // The harness bootstraps its CLI by shelling out to `pnpm`. On an image
+    // where that name resolves to corepack's shim, the shim dies on
+    // ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING and no agent turn can start.
+    // AGENT_PNPM_BIN points at a directory holding a real one, which goes
+    // first so the shim is never reached. Unset on a developer machine, where
+    // pnpm is already a real install.
+    const pnpmBin = process.env.AGENT_PNPM_BIN;
+    const PATH = pnpmBin
+      ? `${pnpmBin}:${inherited.PATH ?? ''}`
+      : inherited.PATH;
+
     return nodeSpawn('bash', ['-lc', command], {
       cwd: workingDirectory ? resolvePath(workingDirectory) : base,
-      env: { ...inherited, ...env },
+      env: { ...inherited, ...(PATH ? { PATH } : {}), ...env },
       signal: abortSignal,
     });
   };
