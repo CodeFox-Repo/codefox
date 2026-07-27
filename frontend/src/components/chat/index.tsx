@@ -82,7 +82,7 @@ export default function Chat() {
   });
 
   // Custom hook for handling chat streaming
-  const { loadingSubmit, handleSubmit, handleInputChange, stop } =
+  const { loadingSubmit, handleSubmit, handleInputChange, stop, activity } =
     useChatStream({
       chatId,
       input,
@@ -153,6 +153,7 @@ export default function Chat() {
             handleInputChange={handleInputChange}
             handleSubmit={handleSubmit}
             loadingSubmit={loadingSubmit}
+            activity={activity}
             stop={stop}
             formRef={formRef}
             setInput={setInput}

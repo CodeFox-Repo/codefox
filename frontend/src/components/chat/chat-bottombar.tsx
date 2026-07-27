@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TextareaAutosize from 'react-textarea-autosize';
-import { PaperclipIcon, Send, X } from 'lucide-react';
+import { PaperclipIcon, Send, Square, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Message } from '../../const/MessageType';
 import Image from 'next/image';
@@ -23,6 +23,8 @@ interface ChatBottombarProps {
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   setMessages: (messages: Message[]) => void;
   setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
+  isStreaming?: boolean;
+  activity?: { tool?: string; file?: string } | null;
 }
 
 export default function ChatBottombar({
@@ -34,6 +36,9 @@ export default function ChatBottombar({
   setInput,
   setMessages,
   setSelectedModel,
+  stop,
+  isStreaming = false,
+  activity,
 }: ChatBottombarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -58,6 +63,7 @@ export default function ChatBottombar({
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (isStreaming) return;
       submitWithAttachments(e as unknown as React.FormEvent<HTMLFormElement>);
     }
   };
@@ -91,7 +97,22 @@ export default function ChatBottombar({
   }, []);
 
   return (
-    <div className="px-4 pb-4 pt-2 bg-background">
+    <div className="bg-background px-4 pb-4 pt-2">
+      {isStreaming && (
+        <p className="mb-2 flex items-center gap-2 px-1 font-mono text-xs text-muted-foreground">
+          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+          {activity?.tool ? (
+            <>
+              <span className="text-primary">{activity.tool}</span>
+              {activity.file && (
+                <span className="truncate">{activity.file}</span>
+              )}
+            </>
+          ) : (
+            <span>thinking…</span>
+          )}
+        </p>
+      )}
       <motion.div
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -222,11 +243,14 @@ export default function ChatBottombar({
               value={input}
               ref={inputRef}
               onKeyDown={handleKeyPress}
+              disabled={isStreaming}
               onChange={handleInputChange}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               name="message"
-              placeholder="Message Agent..."
+              placeholder={
+                isStreaming ? 'Agent is working…' : 'Message Agent...'
+              }
               className="resize-none px-2 py-2.5 w-full focus:outline-none bg-transparent text-foreground text-sm placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
               maxRows={5}
             />
@@ -238,19 +262,30 @@ export default function ChatBottombar({
               <span>Have feedback?</span>
             </div>
 
-            <button
-              type="submit"
-              className={cn(
-                'h-7 w-7 rounded-md flex items-center justify-center',
-                input.trim() || attachments.length > 0
-                  ? 'bg-secondary hover:bg-secondary text-foreground dark:bg-secondary dark:hover:bg-accent dark:text-foreground'
-                  : 'bg-secondary text-foreground cursor-not-allowed dark:bg-secondary dark:text-muted-foreground'
-              )}
-              disabled={!input.trim() && attachments.length === 0}
-              aria-label="Send message"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={stop}
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                aria-label="Stop the agent"
+              >
+                <Square className="h-3 w-3" fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  input.trim() || attachments.length > 0
+                    ? 'bg-primary text-primary-foreground hover:opacity-90'
+                    : 'cursor-not-allowed bg-secondary text-muted-foreground'
+                )}
+                disabled={!input.trim() && attachments.length === 0}
+                aria-label="Send message"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </form>
       </motion.div>

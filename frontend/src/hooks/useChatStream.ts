@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useContext } from 'react';
+import { useState, useCallback, useEffect, useContext, useRef } from 'react';
 import { useMutation } from '@apollo/client';
 import { CREATE_CHAT, SAVE_MESSAGE } from '@/graphql/request';
 import { Message } from '@/const/MessageType';
@@ -29,6 +29,12 @@ export const useChatStream = ({
   setIsTPUpdating,
 }: UseChatStreamProps) => {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  /** What the agent is doing right now, surfaced while the turn streams. */
+  const [activity, setActivity] = useState<{
+    tool?: string;
+    file?: string;
+  } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string>(chatId);
   const { token } = useAuthContext();
   const { curProject, refreshProjects, setFilePath, editorRef } =
@@ -96,9 +102,9 @@ export const useChatStream = ({
       });
 
       // The agent loop runs on the backend, against the project's real files.
-      // The bubble appears with the first delta rather than up front, so a
+      // The bubble appears with the first text delta rather than up front, so a
       // failed turn does not leave an empty message behind.
-      const reply = await startChatStream(userInput, token, true, (delta) =>
+      const appendText = (delta: string) =>
         setMessages((prev) =>
           prev.some((m) => m.id === replyId)
             ? prev.map((m) =>
@@ -113,8 +119,30 @@ export const useChatStream = ({
                   createdAt: new Date().toISOString(),
                 },
               ]
-        )
-      );
+        );
+
+      let touchedFiles = false;
+
+      // Wire the controller the stop button aborts. Hanging up the response is
+      // what actually halts the agent server-side.
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const reply = await startChatStream(userInput, token, {
+        signal: controller.signal,
+        onText: appendText,
+        // `activity` drives the "what is it doing right now" line while the
+        // turn streams, so a long tool run is not a blank wait.
+        onTool: (tool, target) => {
+          // The agent stream carries no file-change parts, so a write is
+          // inferred from the tool that ran.
+          if (/edit|write|create|delete/i.test(tool)) touchedFiles = true;
+          setActivity({ tool, file: target });
+        },
+        onError: (m) => toast.error(m),
+      });
+
+      setActivity(null);
 
       if (!reply.trim()) return;
 
@@ -129,11 +157,13 @@ export const useChatStream = ({
         },
       });
 
-      // Files on disk changed underneath the editor — pull the new tree in.
-      await refreshProjects();
+      // Only re-read the project when the agent actually wrote something.
+      if (touchedFiles) await refreshProjects();
     } catch (err) {
       toast.error('Failed to get chat response' + err);
     } finally {
+      abortRef.current = null;
+      setActivity(null);
       setLoadingSubmit(false);
     }
   };
@@ -181,15 +211,20 @@ export const useChatStream = ({
     [setInput]
   );
 
+  // Aborting the request closes the response; the backend sees the hang-up and
+  // stops the agent, so this is a real stop rather than just hiding the spinner.
   const stop = useCallback(() => {
-    if (loadingSubmit) {
-      setLoadingSubmit(false);
-      toast.info('Message generation stopped');
-    }
+    if (!loadingSubmit) return;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setActivity(null);
+    setLoadingSubmit(false);
+    toast.info('Stopped');
   }, [loadingSubmit]);
 
   return {
     loadingSubmit,
+    activity,
     handleSubmit,
     handleInputChange,
     stop,

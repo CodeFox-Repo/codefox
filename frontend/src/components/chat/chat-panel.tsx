@@ -19,6 +19,7 @@ export interface ChatProps {
     chatRequestOptions?: ChatRequestOptions
   ) => void;
   loadingSubmit?: boolean;
+  activity?: { tool?: string; file?: string } | null;
   stop: () => void;
   formRef: React.RefObject<HTMLFormElement>;
   isMobile?: boolean;
@@ -37,6 +38,7 @@ export default function ChatContent({
   setSelectedModel,
   chatId,
   loadingSubmit,
+  activity,
   formRef,
   isMobile,
   setInput,
@@ -78,6 +80,8 @@ export default function ChatContent({
           handleInputChange={handleInputChange}
           handleSubmit={handleSubmit}
           stop={stop}
+          isStreaming={loadingSubmit}
+          activity={activity}
           formRef={formRef}
           setInput={setInput}
           setMessages={setMessages}

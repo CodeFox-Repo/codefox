@@ -9,6 +9,35 @@ import { streamText } from 'ai';
 import { openrouter, DEFAULT_MODEL } from '../common/constants/ai.constants';
 import { runProjectAgent } from './project-agent';
 
+/**
+ * Best-effort label for what a tool call is acting on. Tool arguments arrive as
+ * a JSON string whose shape is the tool's own, so this reads the keys the
+ * built-in file tools happen to use and gives up quietly otherwise.
+ */
+const PATH_KEYS = ['file_path', 'filePath', 'path', 'notebook_path'];
+
+const targetOf = (input: unknown): string | undefined => {
+  // Typed as a string, but tolerate an already-parsed object: the label is a
+  // nicety and must never be the reason a turn fails.
+  let args: any = input;
+  if (typeof args === 'string') {
+    try {
+      args = JSON.parse(args);
+    } catch {
+      return args.length <= 40 ? args : undefined;
+    }
+  }
+  if (!args || typeof args !== 'object') return undefined;
+
+  for (const key of PATH_KEYS) {
+    const value = args[key];
+    if (typeof value === 'string' && value) return value.split('/').pop();
+  }
+  if (typeof args.command === 'string') return args.command.slice(0, 40);
+  if (typeof args.pattern === 'string') return args.pattern.slice(0, 40);
+  return undefined;
+};
+
 @Controller('api/chat')
 @UseGuards(JWTAuthGuard, ChatGuard)
 export class ChatController {
@@ -45,7 +74,15 @@ export class ChatController {
     }
   }
 
-  /** Stream the agent's assistant text; tool activity is logged, not sent. */
+  /**
+   * Stream the agent turn as newline-delimited JSON events.
+   *
+   * Not the AI SDK UIMessage protocol: that assumes a `streamText` result, and
+   * a HarnessAgent emits its own part stream. Forwarding those parts directly
+   * is less code than synthesising UIMessage chunks, and it carries the two
+   * things a plain text stream drops — which tool is running and which files
+   * changed — so the UI can show progress instead of a blank wait.
+   */
   private async pipeAgent(chatDto: ChatRestDto, res: Response) {
     const project = await this.chatService.getProjectByChatId(chatDto.chatId);
     const { result, session } = await runProjectAgent({
@@ -53,19 +90,46 @@ export class ChatController {
       message: chatDto.message,
     });
 
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const send = (event: Record<string, unknown>) =>
+      res.write(`${JSON.stringify(event)}\n`);
+
+    // A client that hangs up mid-turn should stop the agent, not leak a session.
+    let clientGone = false;
+    res.on('close', () => {
+      clientGone = true;
+    });
 
     try {
       for await (const part of result.stream) {
-        if (part.type === 'text-delta') {
-          res.write(part.text);
-        } else if (part.type === 'tool-call') {
-          this.logger.debug(`[${chatDto.chatId}] tool ${part.toolName}`);
-        } else if (part.type === 'error') {
-          this.logger.error(`[${chatDto.chatId}] ${JSON.stringify(part)}`);
+        if (clientGone) break;
+
+        switch (part.type) {
+          case 'text-delta':
+            send({ t: 'text', v: part.text });
+            break;
+          case 'tool-call':
+            this.logger.debug(`[${chatDto.chatId}] tool ${part.toolName}`);
+            // `file-change` parts are adapter-level and never reach the agent
+            // stream, so the target comes from the call's own arguments.
+            send({
+              t: 'tool',
+              v: part.toolName,
+              arg: targetOf(part.input),
+            });
+            break;
+          case 'error':
+            this.logger.error(`[${chatDto.chatId}] ${JSON.stringify(part)}`);
+            send({ t: 'error', v: 'The agent hit an error and stopped.' });
+            break;
         }
       }
+    } catch (error) {
+      this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
+      if (!res.writableEnded) send({ t: 'error', v: 'The agent turn failed.' });
     } finally {
       res.end();
       // Frees the bridge and its port. The project directory is the user's,
