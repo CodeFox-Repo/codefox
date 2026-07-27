@@ -27,6 +27,7 @@ import archiver from 'archiver';
 import {
   getMediaDir,
   getProjectPath,
+  getProjectsDir,
   getTempDir,
 } from '../common/utils/common-path';
 // import { GitHubService } from 'src/github/github.service';
@@ -235,6 +236,20 @@ export class ProjectService {
       project.isActive = false;
       project.isDeleted = true;
       await this.projectsRepository.save(project);
+
+      // The row is only marked, but the files are gigabytes and nothing else
+      // will ever come back for them — a scaffolded project is ~1GB with its
+      // dependency tree, so leaving them turns every delete into a permanent
+      // leak on the volume. Best effort: a failure here must not fail the
+      // delete the user asked for.
+      if (project.projectPath) {
+        const dir = path.join(getProjectsDir(), project.projectPath);
+        await fs.promises
+          .rm(dir, { recursive: true, force: true })
+          .catch((error) =>
+            this.logger.warn(`Could not remove ${dir}: ${error}`),
+          );
+      }
 
       // Note: Related chats will be automatically handled by the CASCADE setting
 
