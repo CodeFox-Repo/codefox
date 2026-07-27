@@ -49,7 +49,7 @@
     "graphql-ws": "^5.16.0",
     "lucide-react": "^0.445.0",
     "motion": "^12.4.7",
-    "next": "^14.2.13",
+    "next": "^14.2.35",
     "next-themes": "^0.3.0",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
