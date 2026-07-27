@@ -1,0 +1,7 @@
+# The agent harness bootstraps its CLI at runtime by shelling out to `pnpm`.
+# Nixpacks otherwise provides it through corepack, whose shim dies on
+# ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING when spawned from the server — so no
+# agent turn could start in production. Declaring it here puts a real binary
+# on PATH instead.
+[phases.setup]
+nixPkgs = ["nodejs_24", "pnpm"]
