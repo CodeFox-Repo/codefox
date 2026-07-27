@@ -36,7 +36,7 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
   });
 
   const projects: PublicProject[] = data?.fetchPublicProjects ?? [];
-  if (!loading && projects.length === 0) return null;
+  const empty = !loading && projects.length === 0;
 
   const handleFork = async (id: string) => {
     if (!isAuthorized) {
@@ -50,7 +50,7 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
   };
 
   return (
-    <section className="pb-4">
+    <section className="mt-14 pb-4">
       <div className="mb-5 flex items-baseline justify-between border-t-[3px] border-border pt-6">
         <h2 className="font-mono text-sm tracking-[0.12em] text-primary">
           BUILT WITH CODEFOX
@@ -61,9 +61,34 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
       </div>
 
       {loading ? (
-        <p className="font-mono text-sm text-muted-foreground">Loading…</p>
+        <ul
+          aria-hidden
+          className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]"
+        >
+          {[0, 1, 2].map((i) => (
+            <li
+              key={i}
+              className="animate-pulse overflow-hidden rounded-xl border border-border bg-card"
+            >
+              <div className="aspect-[16/10] bg-secondary" />
+              <div className="h-[68px]" />
+            </li>
+          ))}
+        </ul>
+      ) : empty ? (
+        // The section used to disappear when nothing was public, which left a
+        // hole where the showcase belongs and told a new user nothing. Hold
+        // the space and say what would fill it.
+        <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-14 text-center">
+          <p className="font-medium text-foreground">Nothing published yet</p>
+          <p className="mx-auto mt-2 max-w-[52ch] text-pretty text-sm leading-relaxed text-muted-foreground">
+            Projects show up here once they are public and their preview has run
+            at least once — the cover is a shot of the app itself. Make one of
+            yours public from its toolbar.
+          </p>
+        </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
           {projects.map((p) => (
             <li
               key={p.id}

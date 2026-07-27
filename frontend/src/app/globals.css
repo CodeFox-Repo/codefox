@@ -3,37 +3,48 @@
 @tailwind utilities;
 
 /*
- * Palette ported from kobe (packages/branding/src/colors.ts): terracotta accent
- * on warm neutrals. Values are the same colors, expressed as HSL triples
- * because tailwind.config.ts wraps every token in hsl().
+ * Near-achromatic by design.
  *
- * Light mode uses a darker terracotta (#B04E30) than dark mode (#CC785C):
- * the dark-mode hue only reaches 4.0:1 on warm paper, below the 4.5:1 needed
- * for body text.
+ * The right-hand panel shows the user's own running app. Chrome with its own
+ * accent competes with the thing the product exists to display, so the shell
+ * steps back to greys and lets the content carry the colour. It also earns the
+ * semantic colours their meaning: on a neutral surface, destructive and
+ * warning are the only hues on screen, so they read as "something needs you"
+ * rather than as more decoration.
+ *
+ * `primary` is therefore a value, not a hue — near-white on dark, near-black
+ * on light. A solid primary button ends up the highest-contrast block on the
+ * page, which is what a primary action should be.
+ *
+ * Contrast, measured against their own surface:
+ *   dark  — foreground 15.0:1, primary 14.2:1, muted-foreground 6.6:1
+ *   light — foreground 16.7:1, primary 14.9:1, muted-foreground 5.5:1
+ *   buttons — 13.2:1 dark, 14.9:1 light
+ * Borders sit at 1.6:1 on purpose: they separate surfaces, they are not text.
  */
 @layer base {
   :root {
-    --background: 48 33.3% 97.1%; /* #FAF9F5 warm paper */
-    --foreground: 60 2.6% 7.6%; /* #141413 */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 60 2.6% 7.6%;
+    --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 60 2.6% 7.6%;
-    --primary: 14.1 57.1% 43.9%; /* #B04E30 terracotta, 5.0:1 on paper */
-    --primary-foreground: 48 33.3% 97.1%;
-    --secondary: 48 23.8% 91.8%; /* #EFEDE5 */
-    --secondary-foreground: 60 2.6% 7.6%;
-    --muted: 48 23.8% 91.8%;
-    --muted-foreground: 40 7.5% 39%; /* #6B665C, 5.4:1 on paper */
-    --accent: 48 23.8% 91.8%; /* hover surface, not the brand hue */
-    --accent-foreground: 60 2.6% 7.6%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 0% 14%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 94%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 0% 94%; /* hover surface, not the brand hue */
+    --accent-foreground: 0 0% 10%;
     --destructive: 8.8 60.7% 43.9%; /* #B4402C */
     --destructive-foreground: 48 33.3% 97.1%;
     --warning: 38 72% 34%; /* amber, 5.1:1 on paper */
     --warning-foreground: 48 33.3% 97.1%;
-    --border: 47.1 18.4% 85.1%; /* #E0DDD2 */
-    --input: 47.1 18.4% 85.1%;
-    --ring: 14.1 57.1% 43.9%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 0% 30%;
     --radius: 0.75rem;
     --sidebar-background: 48 23.8% 91.8%;
     --sidebar-foreground: 40 7.5% 39%;
@@ -45,27 +56,27 @@
     --sidebar-ring: 14.1 57.1% 43.9%;
   }
   .dark {
-    --background: 60 2.6% 7.6%; /* #141413 */
-    --foreground: 43.6 20.8% 89.6%; /* #EAE7DF, 14.9:1 */
-    --card: 40 6.1% 9.6%; /* #1A1917 */
-    --card-foreground: 43.6 20.8% 89.6%;
-    --popover: 40 6.1% 9.6%;
-    --popover-foreground: 43.6 20.8% 89.6%;
-    --primary: 15 52.3% 58%; /* #CC785C, 5.6:1 on #141413 */
-    --primary-foreground: 40 6.1% 9.6%;
-    --secondary: 45 4.9% 16.1%; /* #2B2A27 */
-    --secondary-foreground: 43.6 20.8% 89.6%;
-    --muted: 45 4.9% 16.1%;
-    --muted-foreground: 36 8% 63.3%; /* #A9A39A, 7.4:1 */
-    --accent: 45 4.9% 16.1%; /* hover surface, not the brand hue */
-    --accent-foreground: 43.6 20.8% 89.6%;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 90%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 90%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 90%;
+    --primary: 0 0% 88%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 90%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 16%; /* hover surface, not the brand hue */
+    --accent-foreground: 0 0% 90%;
     --destructive: 9.6 56.8% 61%; /* #D47563 */
     --destructive-foreground: 40 6.1% 9.6%;
     --warning: 45.1 73.1% 66.5%; /* #E8C96B, 9.9:1 on #141413 */
     --warning-foreground: 40 6.1% 9.6%;
-    --border: 36 4.5% 21.8%; /* #3A3835 */
-    --input: 36 4.5% 21.8%;
-    --ring: 15 52.3% 58%;
+    --border: 0 0% 21%;
+    --input: 0 0% 21%;
+    --ring: 0 0% 70%;
     --sidebar-background: 40 6.1% 9.6%;
     --sidebar-foreground: 36 8% 63.3%;
     --sidebar-primary: 15 52.3% 58%;
