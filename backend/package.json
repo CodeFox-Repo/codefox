@@ -30,6 +30,7 @@
     "@ai-sdk/harness": "^1",
     "@ai-sdk/harness-claude-code": "^1",
     "@ai-sdk/openai": "^4.0.20",
+    "@ai-sdk/sandbox-vercel": "^1.0.43",
     "@apollo/server": "^4.11.0",
     "@aws-sdk/client-s3": "^3.758.0",
     "@huggingface/hub": "latest",

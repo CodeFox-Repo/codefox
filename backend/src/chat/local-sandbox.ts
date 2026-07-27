@@ -47,15 +47,28 @@ interface ProcessOptions {
   abortSignal?: AbortSignal;
 }
 
-const createSession = async (root: string, ports: number[]) => {
+/**
+ * `root` exists only so the framework's composed session path
+ * (`<root>/<harnessId>-<sessionId>`) can be a symlink into the project. Every
+ * *other* path — relative reads, a shell command's default cwd — must resolve
+ * against `base`, the project itself. Resolving those against `root` put the
+ * agent's shell in `.codefox/projects`, where every other user's project is a
+ * sibling directory away.
+ */
+const createSession = async (root: string, base: string, ports: number[]) => {
   await mkdir(root, { recursive: true });
 
   const resolvePath = (p: string) =>
-    path.isAbsolute(p) ? p : path.join(root, p);
+    path.isAbsolute(p) ? p : path.join(base, p);
 
-  const start = ({ command, workingDirectory, env, abortSignal }: ProcessOptions) =>
+  const start = ({
+    command,
+    workingDirectory,
+    env,
+    abortSignal,
+  }: ProcessOptions) =>
     nodeSpawn('bash', ['-lc', command], {
-      cwd: workingDirectory ? resolvePath(workingDirectory) : root,
+      cwd: workingDirectory ? resolvePath(workingDirectory) : base,
       env: { ...process.env, ...env },
       signal: abortSignal,
     });
@@ -66,7 +79,7 @@ const createSession = async (root: string, ports: number[]) => {
     ports,
 
     description:
-      `Local sandbox. Working directory: ${root}. ` +
+      `Local sandbox. Working directory: ${base}. ` +
       `Exposed ports: ${ports.join(', ') || 'none'} on 127.0.0.1.`,
 
     readFile: async ({ path: p }: { path: string }) => {
@@ -220,13 +233,12 @@ export const createLocalSandbox = ({
 
   createSession: async (options: { sessionId?: string } = {}) => {
     const root = path.dirname(workingDirectory);
-    const session = await createSession(root, [await freePort()]);
+    const session = await createSession(root, workingDirectory, [
+      await freePort(),
+    ]);
 
     if (options.sessionId) {
-      const composed = path.join(
-        root,
-        `${harnessId}-${options.sessionId}`,
-      );
+      const composed = path.join(root, `${harnessId}-${options.sessionId}`);
       await symlink(workingDirectory, composed, 'dir').catch(() => {
         // Already present (resumed session) — nothing to do.
       });

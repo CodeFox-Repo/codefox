@@ -47,6 +47,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^4.0.20
         version: 4.0.20(zod@3.25.76)
+      '@ai-sdk/sandbox-vercel':
+        specifier: ^1.0.43
+        version: 1.0.43(ws@8.21.1)(zod@3.25.76)
       '@apollo/server':
         specifier: ^4.11.0
         version: 4.11.3(encoding@0.1.13)(graphql@16.10.0)
@@ -55,7 +58,7 @@ importers:
         version: 3.758.0
       '@huggingface/hub':
         specifier: latest
-        version: 2.13.3
+        version: 2.14.2
       '@huggingface/transformers':
         specifier: latest
         version: 4.2.0
@@ -598,6 +601,10 @@ packages:
 
   '@ai-sdk/provider@4.0.3':
     resolution: {integrity: sha512-e0CpNWJUY7OxAFAnCZkw+ri9QOHWwTs1tXP42782KFGCU07qt8NiXCrCVowyCB5dP2r5/Uls+g2oPd8kOJn9dw==}
+    engines: {node: '>=22'}
+
+  '@ai-sdk/sandbox-vercel@1.0.43':
+    resolution: {integrity: sha512-jl5uk6W8IW0q+6/A2z9r1gv8ezFFJx+igLYv6DDoRPeQr64QIEeW+S5Z1s6aknzntAqeOte9PbYRekm2WFysxA==}
     engines: {node: '>=22'}
 
   '@alloc/quick-lru@5.2.0':
@@ -1750,8 +1757,8 @@ packages:
   '@huggingface/blake3-jit@0.0.2':
     resolution: {integrity: sha512-Bq7B5qabyjrJfhBsl85Jd2QBtf+HzRD7h7A9GfN2lzrrsABhOa5evVPgzoCTxR7Ub0QFj7YDK1YkYRWBU25+2w==}
 
-  '@huggingface/hub@2.13.3':
-    resolution: {integrity: sha512-qAEbZ0x1vUQIUSComJ5EPgII+eI3nJB3gTPNTzjir6Kk/aCHHvPfCNMreS4iUg6gT17YDkvt7XBTndzh7617KQ==}
+  '@huggingface/hub@2.14.2':
+    resolution: {integrity: sha512-Fuzi18TYmc0JEUDVw6uSKSXGOYipQyzu2ArvLYfOmk0Ts++ItKPaAeKli7s1MMXgedEmbl4x73pXy6aZBQTtSw==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4095,6 +4102,9 @@ packages:
     resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
     engines: {node: '>= 20'}
 
+  '@vercel/sandbox@2.9.0':
+    resolution: {integrity: sha512-AMnzmOUG765PJnNyrj12Ed4XD+M2ns8C+o9UTBERuZeUQxbRo2izJTKPezaeDCl+KEpyw+JXepRCKIxSsylsMQ==}
+
   '@webassemblyjs/ast@1.14.1':
     resolution: {integrity: sha512-nuBEDgQfm1ccRp/8bCQrx1frohyufl4JlbMMZ4P1wpeOfDhF6FQkxZJ1b/e+PLwr6X1Nhw6OLme5usuBWYBvuQ==}
 
@@ -4158,6 +4168,9 @@ packages:
 
   '@workflow/serde@4.1.0':
     resolution: {integrity: sha512-pav4F2BoirECWR7Nf1TKt+2eETcBj7jj4cBefQ8VXQCA6NPkaKeLfj/zMgi+3zYV5ZIBT4GuUiphsj0/b9hPQQ==}
+
+  '@workflow/serde@4.1.0-beta.2':
+    resolution: {integrity: sha512-8kkeoQKLDaKXefjV5dbhBj2aErfKp1Mc4pb6tj8144cF+Em5SPbyMbyLCHp+BVrFfFVCBluCtMx+jjvaFVZGww==}
 
   '@wry/caches@1.0.1':
     resolution: {integrity: sha512-bXuaUNLVVkD20wcGBWRyo7j9N3TxePEWFZj2Y+r9OoUzfqmavM84+mFykRicNsBqatba5JLay1t48wxaXaWnlA==}
@@ -6863,6 +6876,9 @@ packages:
   jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
+  jose@6.2.3:
+    resolution: {integrity: sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw==}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -6952,6 +6968,9 @@ packages:
 
   jsonfile@6.1.0:
     resolution: {integrity: sha512-5dgndWOriYSm5cnYaJNhalLNDKOqFwyDB/rr1E9ZsGciGvKPs8R2xYGCacuf3z6K1YKDz182fd+fY3cn3pMqXQ==}
+
+  jsonlines@0.1.1:
+    resolution: {integrity: sha512-ekDrAGso79Cvf+dtm+mL8OBI2bmAOt3gssYs833De/C9NmIpWDWyUO4zPgB5x2/OhY366dkhgfPMYfwZF7yOZA==}
 
   jsonpointer@5.0.1:
     resolution: {integrity: sha512-p/nXbhSEcu3pZRdkW1OfJhpsVtW1gd4Wa1fnQc9YLiTfAjn0312eMKimbdIQzuZl9aa9xUGaRlP9T/CJE/ditQ==}
@@ -7989,6 +8008,10 @@ packages:
   ora@5.4.1:
     resolution: {integrity: sha512-5b6Y85tPxZZ7QytO+BQzysW31HJku27cRIlkbAXaNx+BdcVi+LlRFmVXzeF6a7JCwJpyw5c4b+YSVImQIrBpuQ==}
     engines: {node: '>=10'}
+
+  os-paths@4.4.0:
+    resolution: {integrity: sha512-wrAwOeXp1RRMFfQY8Sy7VaGVmPocaLwSFOYCGKSyo8qmJ+/yaafCl5BCA1IQZWqFSRBrKDYFeR9d/VyQzfH/jg==}
+    engines: {node: '>= 6.0'}
 
   os-tmpdir@1.0.2:
     resolution: {integrity: sha512-D2FR03Vir7FIu45XBY20mTb+/ZSWB00sjU9jdQXt83gDrI4Ztz5Fs7/yy74g2N5SVQY4xY1qDr4rNddwYRVX0g==}
@@ -9776,6 +9799,10 @@ packages:
   undici-types@6.20.0:
     resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
 
+  undici@7.29.0:
+    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
+    engines: {node: '>=20.18.1'}
+
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
 
@@ -10130,6 +10157,14 @@ packages:
       utf-8-validate:
         optional: true
 
+  xdg-app-paths@5.1.0:
+    resolution: {integrity: sha512-RAQ3WkPf4KTU1A8RtFx3gWywzVKe00tfOPFfl2NDGqbIFENQO4kqAJp7mhQjNj/33W5x5hiWWUdyfPq/5SU3QA==}
+    engines: {node: '>=6'}
+
+  xdg-portable@7.3.0:
+    resolution: {integrity: sha512-sqMMuL1rc0FmMBOzCpd0yuy9trqF2yTTVe+E9ogwCSWQCdDEtQUwrZPT6AxqtsFGRNxycgncbP/xmOOSPw5ZUw==}
+    engines: {node: '>= 6.0'}
+
   xml-name-validator@4.0.0:
     resolution: {integrity: sha512-ICP2e+jsHvAj2E2lIHxa5tjXRlKDJo4IdvPvCXbXQGdzSfmSpNVyIKMvoZHjDY9DP0zV17iI85o90vRFXNccRw==}
     engines: {node: '>=12'}
@@ -10231,6 +10266,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
   zustand@5.0.3:
     resolution: {integrity: sha512-14fwWQtU3pH4dE0dOpdMiWjddcH+QzKIgk1cl8epwSE7yag43k/AD/m4L6+K7DytAOr9gGBe3/EXj9g7cdostg==}
     engines: {node: '>=12.20.0'}
@@ -10309,6 +10347,15 @@ snapshots:
   '@ai-sdk/provider@4.0.3':
     dependencies:
       json-schema: 0.4.0
+
+  '@ai-sdk/sandbox-vercel@1.0.43(ws@8.21.1)(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/harness': 1.0.43(ws@8.21.1)(zod@3.25.76)
+      '@ai-sdk/provider-utils': 5.0.12(zod@3.25.76)
+      '@vercel/sandbox': 2.9.0
+    transitivePeerDependencies:
+      - ws
+      - zod
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -12177,7 +12224,7 @@ snapshots:
 
   '@huggingface/blake3-jit@0.0.2': {}
 
-  '@huggingface/hub@2.13.3':
+  '@huggingface/hub@2.14.2':
     dependencies:
       '@huggingface/tasks': 0.21.28
       '@huggingface/xetchunk-wasm': 0.1.0
@@ -14601,6 +14648,20 @@ snapshots:
 
   '@vercel/oidc@3.2.0': {}
 
+  '@vercel/sandbox@2.9.0':
+    dependencies:
+      '@vercel/oidc': 3.2.0
+      '@workflow/serde': 4.1.0-beta.2
+      async-retry: 1.3.3
+      jose: 6.2.3
+      jsonlines: 0.1.1
+      ms: 2.1.3
+      picocolors: 1.1.1
+      tar-stream: 3.1.7
+      undici: 7.29.0
+      xdg-app-paths: 5.1.0
+      zod: 4.4.3
+
   '@webassemblyjs/ast@1.14.1':
     dependencies:
       '@webassemblyjs/helper-numbers': 1.13.2
@@ -14699,6 +14760,8 @@ snapshots:
       tslib: 2.8.1
 
   '@workflow/serde@4.1.0': {}
+
+  '@workflow/serde@4.1.0-beta.2': {}
 
   '@wry/caches@1.0.1':
     dependencies:
@@ -18153,6 +18216,8 @@ snapshots:
 
   jose@5.10.0: {}
 
+  jose@6.2.3: {}
+
   joycon@3.1.1: {}
 
   js-beautify@1.15.4:
@@ -18256,6 +18321,8 @@ snapshots:
       universalify: 2.0.1
     optionalDependencies:
       graceful-fs: 4.2.11
+
+  jsonlines@0.1.1: {}
 
   jsonpointer@5.0.1: {}
 
@@ -19767,6 +19834,8 @@ snapshots:
       log-symbols: 4.1.0
       strip-ansi: 6.0.1
       wcwidth: 1.0.1
+
+  os-paths@4.4.0: {}
 
   os-tmpdir@1.0.2: {}
 
@@ -21922,6 +21991,8 @@ snapshots:
 
   undici-types@6.20.0: {}
 
+  undici@7.29.0: {}
+
   unified@11.0.5:
     dependencies:
       '@types/unist': 3.0.3
@@ -22287,6 +22358,14 @@ snapshots:
 
   ws@8.21.1: {}
 
+  xdg-app-paths@5.1.0:
+    dependencies:
+      xdg-portable: 7.3.0
+
+  xdg-portable@7.3.0:
+    dependencies:
+      os-paths: 4.4.0
+
   xml-name-validator@4.0.0: {}
 
   xml2js@0.6.2:
@@ -22381,6 +22460,8 @@ snapshots:
   zod@3.24.2: {}
 
   zod@3.25.76: {}
+
+  zod@4.4.3: {}
 
   zustand@5.0.3(@types/react@18.3.18)(immer@9.0.21)(react@18.3.1):
     optionalDependencies:

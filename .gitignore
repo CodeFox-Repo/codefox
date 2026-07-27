@@ -20,3 +20,13 @@ models/
 
 .env
 .gstack/
+
+# Vercel CLI link + the OIDC token `vercel env pull` writes. Both are
+# credentials or account-specific and must never be committed.
+.vercel
+.env.local
+.env*.local
+.env*
+
+# Local agent tooling config
+.claude/

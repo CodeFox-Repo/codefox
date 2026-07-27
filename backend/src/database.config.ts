@@ -1,4 +1,5 @@
 import { join } from 'path';
+import { Logger } from '@nestjs/common';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { AppConfigService } from './config/config.service';
 import { getDatabasePath } from './common/utils/common-path';
@@ -10,6 +11,13 @@ import { getDatabasePath } from './common/utils/common-path';
  *
  * SQLite is the zero-setup default so `pnpm dev` works with no external
  * services. Production is expected to set a postgres URL.
+ *
+ * Schema: TypeORM only auto-creates tables when `synchronize` is on, and this
+ * repo carries no migrations. With `synchronize` hard-wired off in production
+ * a fresh deploy came up against an empty database and every query failed, so
+ * the first boot needs DB_SYNCHRONIZE=true to create the schema. Turn it off
+ * again once there is data worth protecting — synchronize will happily drop a
+ * column to match an entity.
  */
 export async function getDatabaseConfig(
   config: AppConfigService,
@@ -17,11 +25,22 @@ export async function getDatabaseConfig(
   const entities = [join(__dirname, '**', '*.model.{ts,js}')];
   const url = config.databaseUrl;
 
+  const synchronize = config.isProduction
+    ? process.env.DB_SYNCHRONIZE === 'true'
+    : true;
+
+  if (config.isProduction && synchronize) {
+    new Logger('Database').warn(
+      'DB_SYNCHRONIZE=true in production: TypeORM will alter the schema to ' +
+        'match the entities on boot. Intended for the first deploy only.',
+    );
+  }
+
   if (!url || !/^postgres(ql)?:\/\//.test(url)) {
     return {
       type: 'sqlite',
       database: url?.replace(/^sqlite:(\/\/)?/, '') || getDatabasePath(),
-      synchronize: !config.isProduction,
+      synchronize,
       entities,
       logging: !config.isProduction,
     } as TypeOrmModuleOptions;
@@ -30,7 +49,7 @@ export async function getDatabaseConfig(
   return {
     type: 'postgres',
     url,
-    synchronize: !config.isProduction, // auto sync for dev only
+    synchronize,
     entities,
     logging: !config.isProduction,
     poolSize: config.isProduction ? 50 : 20,
