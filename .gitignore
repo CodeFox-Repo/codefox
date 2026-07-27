@@ -11,8 +11,12 @@ dist/
 */**/dist/
 
 # Models
-models/
-*/**/models/
+# Model weights live under .codefox/models, which the `.codefox` rule above
+# already covers. A bare `models/` also matched backend/src/common/models —
+# git kept serving those files because they were tracked before the rule
+# existed, but anything that filters the filesystem by .gitignore (a
+# `railway up` upload, a Docker context) silently dropped the directory and
+# the build failed on 41 cascading "cannot find module" errors.
 
 */**/database.sqlite
 ./backend/src/database.sqlite
