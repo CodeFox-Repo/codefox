@@ -400,10 +400,17 @@ function PreviewContent({
   );
 }
 
-export default function WebPreview() {
+/**
+ * `project` comes from CodeEngine, which resolves it from the chat being
+ * displayed. Reading `curProject` from context here meant the preview followed
+ * whatever project the global context happened to hold — usually the wrong one
+ * when a chat is opened by URL rather than by clicking the sidebar.
+ */
+export default function WebPreview({ project }: { project?: any }) {
   const { curProject, getWebUrl } = useContext(ProjectContext);
+  const target = project ?? curProject;
 
-  if (!curProject || !getWebUrl) {
+  if (!target || !getWebUrl) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-sm text-muted-foreground">Loading project...</p>
@@ -411,5 +418,5 @@ export default function WebPreview() {
     );
   }
 
-  return <PreviewContent curProject={curProject} getWebUrl={getWebUrl} />;
+  return <PreviewContent curProject={target} getWebUrl={getWebUrl} />;
 }

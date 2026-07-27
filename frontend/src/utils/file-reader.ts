@@ -7,10 +7,16 @@ import { logger } from '@/app/log/logger';
 // the build output the preview dev server writes into the project directory.
 const IGNORED_ENTRIES = new Set([
   'node_modules',
-  '.next',
   '.git',
+  '.next',
+  '.turbo',
+  '.vercel',
+  '.cache',
   'dist',
   'build',
+  'out',
+  'coverage',
+  '.DS_Store',
 ]);
 
 export class FileReader {

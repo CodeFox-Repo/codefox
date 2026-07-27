@@ -2,7 +2,7 @@
 import { useContext, useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader } from 'lucide-react';
-import { TreeItem, TreeItemIndex } from 'react-complex-tree';
+import type { TreeNode } from './file-structure';
 import { ProjectContext } from './project-context';
 import CodeTab from './tabs/code-tab';
 import PreviewTab from './tabs/preview-tab';
@@ -33,7 +33,7 @@ export function CodeEngine({
   );
   const [isFileStructureLoading, setIsFileStructureLoading] = useState(false);
   const [fileStructureData, setFileStructureData] = useState<
-    Record<TreeItemIndex, TreeItem<any>>
+    Record<string, TreeNode>
   >({});
   const projectPathRef = useRef(null);
 
@@ -275,7 +275,7 @@ export function CodeEngine({
           />
         );
       case 'preview':
-        return <PreviewTab />;
+        return <PreviewTab project={activeProject} />;
       case 'console':
         return <ConsoleTab />;
       default:
