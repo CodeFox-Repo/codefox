@@ -81,7 +81,7 @@ const FloatingNavbar = ({
               href="https://github.com/Sma1lboy/codefox"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center rounded-lg border border-border px-3 py-1.5 font-mono text-sm text-foreground transition-colors duration-200 hover:border-primary/45"
+              className="flex items-center rounded-lg border border-border px-3 py-1.5 font-mono text-sm text-foreground transition-all duration-200 hover:border-primary/45 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <Github size={18} className="mr-1.5" />
               <Star
@@ -104,7 +104,7 @@ const FloatingNavbar = ({
 
             <button
               onClick={toggleTheme}
-              className="rounded-lg border border-transparent p-2 text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              className="rounded-lg border border-transparent p-2 text-muted-foreground transition-all duration-200 hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               aria-label="Toggle theme"
             >
               <SunMoon size={20} />
@@ -115,7 +115,7 @@ const FloatingNavbar = ({
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowSignIn(true)}
-                  className="rounded-lg border border-border px-4 py-2 font-mono text-sm text-foreground transition-colors hover:border-primary/45"
+                  className="rounded-lg border border-border px-4 py-2 font-mono text-sm text-foreground transition-all duration-200 hover:border-primary/45 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   Sign In
                 </button>
@@ -123,7 +123,7 @@ const FloatingNavbar = ({
                 {canSignUp && (
                   <button
                     onClick={() => setShowSignUp(true)}
-                    className="rounded-lg bg-primary px-4 py-2 font-mono text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90"
+                    className="rounded-lg bg-primary px-4 py-2 font-mono text-sm font-semibold text-primary-foreground transition-all duration-200 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     Sign Up
                   </button>

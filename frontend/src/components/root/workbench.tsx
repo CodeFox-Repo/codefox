@@ -37,7 +37,7 @@ export function Workbench({
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-5 pb-24 pt-4 sm:px-10">
-      <h1 className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
+      <h1 className="text-balance font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
         What are we building?
       </h1>
 
@@ -65,7 +65,20 @@ export function Workbench({
         </div>
 
         {loading ? (
-          <p className="font-mono text-sm text-muted-foreground">Loading…</p>
+          // A skeleton in the shape of the thing that is coming, rather than
+          // the word "Loading" — the row keeps its height so the page below
+          // does not jump when the data lands.
+          <ul
+            aria-hidden
+            className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]"
+          >
+            {[0, 1, 2].map((i) => (
+              <li
+                key={i}
+                className="h-[104px] animate-pulse rounded-xl border border-border bg-card"
+              />
+            ))}
+          </ul>
         ) : recent.length === 0 ? (
           <p className="font-mono text-sm text-muted-foreground">
             Nothing yet. Describe a project above to start one.
@@ -81,7 +94,7 @@ export function Workbench({
                   href={`/chat?id=${chat.id}`}
                   className="group/card flex h-full flex-col justify-between gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/45"
                 >
-                  <p className="line-clamp-2 font-medium leading-snug text-foreground">
+                  <p className="line-clamp-2 text-pretty font-medium leading-snug text-foreground">
                     {chat.title || 'Untitled'}
                   </p>
                   <div className="flex items-center justify-between">

@@ -151,7 +151,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               'w-full py-4 px-4 text-base leading-snug',
               compact ? 'min-h-[88px]' : 'min-h-[150px]',
               'bg-transparent rounded-t-lg focus:outline-none resize-none',
-              'text-foreground placeholder:text-muted-foreground'
+              'text-foreground placeholder:text-muted-foreground',
+              'transition-shadow duration-200',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
             )}
             disabled={isLoading || isRegenerating}
           />
@@ -181,6 +183,8 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                   'h-9 px-3 text-sm font-medium border border-border',
                   'bg-secondary text-foreground',
                   'rounded-lg focus:outline-none hover:bg-accent',
+                  'transition-all duration-200 active:scale-[0.98]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                   (isLoading || isRegenerating) &&
                     'opacity-50 cursor-not-allowed'
                 )}
@@ -240,6 +244,8 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                   'h-9 px-3 text-sm font-medium border border-border',
                   'bg-secondary text-foreground',
                   'rounded-lg focus:outline-none hover:bg-accent',
+                  'transition-all duration-200 active:scale-[0.98]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                   (isLoading || isRegenerating) &&
                     'opacity-50 cursor-not-allowed'
                 )}
@@ -273,7 +279,8 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                       'bg-secondary hover:bg-accent text-foreground',
                       'border border-border',
                       'rounded-lg focus:outline-none',
-                      'transform-gpu transition-[background-color,border-color] duration-200',
+                      'transform-gpu transition-all duration-200 active:scale-[0.98]',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                       (isLoading || isRegenerating) &&
                         'opacity-50 cursor-not-allowed'
                     )}
@@ -301,7 +308,8 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               className={cn(
                 'h-9 px-4 text-sm font-medium text-primary-foreground rounded-lg',
                 'bg-primary hover:opacity-90',
-                'focus:outline-none transition-all',
+                'focus:outline-none transition-all duration-200 active:scale-[0.98]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 (isLoading || isRegenerating) && 'opacity-50 cursor-not-allowed'
               )}
               onClick={handleSubmit}
