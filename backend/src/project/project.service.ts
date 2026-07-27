@@ -251,7 +251,19 @@ export class ProjectService {
           );
       }
 
-      // Note: Related chats will be automatically handled by the CASCADE setting
+      // Nothing cascades here: the relation declares no cascade, and a soft
+      // delete never fires a database one anyway. Left alone the chats keep
+      // showing in the sidebar, each opening onto a project whose files this
+      // method just removed.
+      // Going through the relation returns nothing here — it is lazy, and the
+      // save above has already left it unpopulated — so ask for the rows by
+      // their foreign key instead.
+      await this.chatRepository
+        .createQueryBuilder()
+        .update(Chat)
+        .set({ isActive: false, isDeleted: true })
+        .where('projectId = :projectId', { projectId })
+        .execute();
 
       return true;
     } catch {
