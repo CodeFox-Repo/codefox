@@ -9,6 +9,48 @@ import {
 import { Observable } from 'rxjs';
 import { GqlExecutionContext } from '@nestjs/graphql';
 
+/** Keys whose value must never reach a log line, at any depth. */
+const SECRET = /password|token|secret|authorization|apikey|api_key/i;
+
+/** Anything longer than this is a payload, not a log line. */
+const MAX_VALUE = 200;
+
+/**
+ * A request body as it is safe to print.
+ *
+ * Variables and bodies used to be stringified whole, which put every login's
+ * plaintext password into the deploy's logs and every pasted image into them
+ * as megabytes of base64.
+ */
+const safe = (value: unknown, depth = 0): unknown => {
+  if (typeof value === 'string') {
+    return value.length > MAX_VALUE
+      ? `${value.slice(0, MAX_VALUE)}…(${value.length})`
+      : value;
+  }
+  if (Array.isArray(value)) {
+    return depth > 4 ? '[…]' : value.map((item) => safe(item, depth + 1));
+  }
+  if (value && typeof value === 'object') {
+    if (depth > 4) return '{…}';
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        SECRET.test(key) ? '[redacted]' : safe(item, depth + 1),
+      ]),
+    );
+  }
+  return value;
+};
+
+const describe = (value: unknown): string => {
+  try {
+    return JSON.stringify(safe(value) ?? {});
+  } catch {
+    return '{}';
+  }
+};
+
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger('RequestLogger');
@@ -41,13 +83,7 @@ export class LoggingInterceptor implements NestInterceptor {
     }
 
     const { operation, fieldName } = info;
-    let variables = '';
-
-    try {
-      variables = JSON.stringify(ctx.getContext()?.req?.body?.variables ?? {});
-    } catch (error) {
-      variables = '{}';
-    }
+    const variables = describe(ctx.getContext()?.req?.body?.variables);
 
     this.logger.log(
       `[GraphQL] ${operation.operation.toUpperCase()} \x1B[33m${fieldName}\x1B[39m${
@@ -68,7 +104,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const { method, url, body } = request;
 
     this.logger.log(
-      `[REST] ${method.toUpperCase()} ${url} Body: ${JSON.stringify(body)}`,
+      `[REST] ${method.toUpperCase()} ${url} Body: ${describe(body)}`,
     );
 
     return next.handle();
