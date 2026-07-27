@@ -1,6 +1,12 @@
 import { ApolloClient, gql, TypedDocumentNode } from '@apollo/client';
 import type { DocumentNode } from 'graphql';
 
+export const REGISTRATION_OPEN = gql`
+  query RegistrationOpen {
+    registrationOpen
+  }
+`;
+
 export const CHECK_TOKEN_QUERY = gql`
   query CheckToken($input: CheckTokenInput!) {
     checkToken(input: $input)

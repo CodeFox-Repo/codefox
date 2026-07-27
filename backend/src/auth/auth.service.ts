@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AppConfigService } from 'src/config/config.service';
 import { JwtService } from '@nestjs/jwt';
@@ -138,7 +139,27 @@ export class AuthService {
     return this.sendVerificationEmail(user);
   }
 
+  /**
+   * Open in development, closed in production unless explicitly opened.
+   *
+   * A prompt is untrusted input and the default sandbox is a scoped working
+   * directory rather than isolation, so an open sign-up on a shared host
+   * hands the server to whoever registers. Keep this closed until the agent
+   * runs somewhere isolated (SANDBOX_PROVIDER=vercel).
+   */
+  get isRegistrationOpen(): boolean {
+    const flag = process.env.ALLOW_REGISTRATION;
+    if (flag != null) return flag === 'true';
+    return process.env.NODE_ENV !== 'production';
+  }
+
   async register(registerUserInput: RegisterUserInput): Promise<User> {
+    if (!this.isRegistrationOpen) {
+      throw new ForbiddenException(
+        'Sign-up is closed on this deployment. Ask the operator for an account.',
+      );
+    }
+
     const { username, email, password, confirmPassword } = registerUserInput;
 
     // Check for existing email

@@ -163,6 +163,7 @@ type Query {
   isValidateProject(isValidProject: IsValidProjectInput!): Boolean!
   logout: Boolean!
   me: User!
+  registrationOpen: Boolean!
 }
 
 type RefreshTokenResponse {

@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { Github, Star, SunMoon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { AnimatedNumber } from '../ui/animate-number';
+import { useQuery } from '@apollo/client';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { REGISTRATION_OPEN } from '@/graphql/request';
 import { SignUpModal } from '../sign-up-modal';
 import { SignInModal } from '../sign-in-modal';
 import { logger } from '@/app/log/logger';
@@ -31,6 +33,10 @@ const FloatingNavbar = ({
   const [starCount, setStarCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [showSignUp, setShowSignUp] = useState(false);
+  // A closed deployment still serves the page; offering sign-up there would
+  // only ever produce an error, so ask before drawing the button.
+  const { data: registration } = useQuery(REGISTRATION_OPEN);
+  const canSignUp = registration?.registrationOpen !== false;
   const [showSignIn, setShowSignIn] = useState(false);
 
   // Fetch GitHub stars
@@ -114,12 +120,14 @@ const FloatingNavbar = ({
                   Sign In
                 </button>
 
-                <button
-                  onClick={() => setShowSignUp(true)}
-                  className="rounded-lg bg-primary px-4 py-2 font-mono text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90"
-                >
-                  Sign Up
-                </button>
+                {canSignUp && (
+                  <button
+                    onClick={() => setShowSignUp(true)}
+                    className="rounded-lg bg-primary px-4 py-2 font-mono text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90"
+                  >
+                    Sign Up
+                  </button>
+                )}
               </div>
             )}
           </div>

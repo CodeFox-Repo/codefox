@@ -31,6 +31,12 @@ export class EmailConfirmationResponse {
 export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
+  /** Lets the UI hide sign-up rather than offer a button that must fail. */
+  @Query(() => Boolean)
+  registrationOpen(): boolean {
+    return this.authService.isRegistrationOpen;
+  }
+
   @Query(() => Boolean)
   async checkToken(@Args('input') params: CheckTokenInput): Promise<boolean> {
     return this.authService.validateToken(params);
