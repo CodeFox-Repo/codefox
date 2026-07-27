@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { Logger } from '@nestjs/common';
 import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
+import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
 import { sandboxFor, sandboxMode } from './sandbox-provider';
 
@@ -13,16 +14,30 @@ const logger = new Logger('ProjectAgent');
 const UPLOAD_DIR = '.codefox-uploads';
 
 /**
- * The agent is Claude Code itself, embedded through the AI SDK harness. It
- * brings its own file editing, search, and shell tools, so nothing is
- * re-implemented here — the only thing CodeFox supplies is the sandbox the
- * agent runs in, which is the project's own directory.
+ * The agent is a real coding CLI embedded through the AI SDK harness — it
+ * brings its own file editing, search and shell tools, so nothing is
+ * re-implemented here. CodeFox only supplies the sandbox it runs in.
  *
- * Auth points at whatever Anthropic-compatible endpoint is configured, so a
- * local proxy in front of an already-signed-in Claude CLI works without any
- * cloud API key.
+ * Which CLI is a deployment decision:
+ *
+ * `claude-code` speaks the Anthropic Messages API. An OpenAI-compatible
+ * endpoint cannot drive it — pointing it at OpenRouter gets the CLI as far as
+ * a response it classifies as `unknown`, then ten retries with backoff and a
+ * turn that never produces a token.
+ *
+ * `codex` speaks the OpenAI API and takes an explicit openai-compatible base
+ * url, which is what makes an aggregator like OpenRouter usable — and with it
+ * any model that aggregator serves, including Anthropic's.
  */
-const harnessCache = new Map<string, ReturnType<typeof createClaudeCode>>();
+export type AgentHarness = 'claude-code' | 'codex';
+
+const agentHarness = (): AgentHarness =>
+  process.env.AGENT_HARNESS === 'claude-code' ? 'claude-code' : 'codex';
+
+export const harnessId = () =>
+  agentHarness() === 'claude-code' ? claudeCode.harnessId : codex.harnessId;
+
+const harnessCache = new Map<string, ReturnType<typeof createCodex>>();
 
 /**
  * One harness per model id. The model is fixed at harness-construction time,
@@ -30,37 +45,62 @@ const harnessCache = new Map<string, ReturnType<typeof createClaudeCode>>();
  * rather than a single module-level default.
  */
 const harnessFor = (model?: string) => {
-  // With none of these set the CLI still starts and then retries a 4xx ten
-  // times with backoff, so the turn hangs for minutes and the user sees
-  // nothing. On a fresh deploy that is the very first thing they would hit.
-  if (
-    !process.env.ANTHROPIC_API_KEY &&
-    !process.env.ANTHROPIC_AUTH_TOKEN &&
-    !process.env.ANTHROPIC_BASE_URL
-  ) {
-    throw new Error(
-      'The agent has no Anthropic credentials. Set ANTHROPIC_API_KEY, or ' +
-        'ANTHROPIC_BASE_URL to an Anthropic-compatible endpoint. Note that ' +
-        'an OpenAI-compatible endpoint (LLM_BASE_URL / OpenRouter) drives ' +
-        'the prompt helpers but cannot drive the agent.',
-    );
-  }
-
-  const key = model ?? '';
+  const kind = agentHarness();
+  const key = `${kind}:${model ?? ''}`;
   const cached = harnessCache.get(key);
   if (cached) return cached;
 
-  const created = createClaudeCode({
-    model,
-    auth: {
-      anthropic: {
-        baseUrl: process.env.ANTHROPIC_BASE_URL,
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        authToken: process.env.ANTHROPIC_AUTH_TOKEN,
-      },
-    },
-  });
-  harnessCache.set(key, created);
+  // Without credentials the CLI still starts and then retries a 4xx ten times
+  // with backoff, so the turn hangs for minutes and the user sees nothing. On
+  // a fresh deploy that is the very first thing they would hit.
+  const created =
+    kind === 'claude-code'
+      ? (() => {
+          if (
+            !process.env.ANTHROPIC_API_KEY &&
+            !process.env.ANTHROPIC_AUTH_TOKEN &&
+            !process.env.ANTHROPIC_BASE_URL
+          ) {
+            throw new Error(
+              'AGENT_HARNESS=claude-code needs ANTHROPIC_API_KEY, or ' +
+                'ANTHROPIC_BASE_URL pointing at an Anthropic-compatible ' +
+                'endpoint. An OpenAI-compatible one cannot drive it — use ' +
+                'the codex harness for those.',
+            );
+          }
+          return createClaudeCode({
+            model,
+            auth: {
+              anthropic: {
+                baseUrl: process.env.ANTHROPIC_BASE_URL,
+                apiKey: process.env.ANTHROPIC_API_KEY,
+                authToken: process.env.ANTHROPIC_AUTH_TOKEN,
+              },
+            },
+          });
+        })()
+      : (() => {
+          const apiKey =
+            process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY;
+          if (!apiKey) {
+            throw new Error(
+              'The agent has no credentials. Set LLM_API_KEY to a key for ' +
+                'the OpenAI-compatible endpoint in LLM_BASE_URL.',
+            );
+          }
+          return createCodex({
+            model,
+            auth: {
+              openaiCompatible: {
+                apiKey,
+                baseUrl:
+                  process.env.LLM_BASE_URL ?? 'https://openrouter.ai/api/v1',
+              },
+            },
+          });
+        })();
+
+  harnessCache.set(key, created as ReturnType<typeof createCodex>);
   return created;
 };
 
@@ -158,7 +198,7 @@ export const runProjectAgent = async ({
     instructions: INSTRUCTIONS,
     sandbox: (await sandboxFor({
       projectPath,
-      harnessId: claudeCode.harnessId,
+      harnessId: harnessId(),
     })) as any,
   });
 

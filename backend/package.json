@@ -29,6 +29,7 @@
   "dependencies": {
     "@ai-sdk/harness": "^1",
     "@ai-sdk/harness-claude-code": "^1",
+    "@ai-sdk/harness-codex": "^1.0.45",
     "@ai-sdk/openai": "^4.0.20",
     "@ai-sdk/sandbox-vercel": "^1.0.43",
     "@apollo/server": "^4.11.0",
