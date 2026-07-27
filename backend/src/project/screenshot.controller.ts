@@ -56,7 +56,10 @@ export class ScreenshotController {
       const shot = await page.screenshot({ type: 'png', fullPage: true });
       res.setHeader('Content-Type', 'image/png');
       res.setHeader('Cache-Control', 's-maxage=3600');
-      res.send(shot);
+      // Puppeteer hands back a Uint8Array, which Express does not recognise as
+      // a body it should send verbatim — it JSON-encodes it into an object of
+      // numbered bytes, so the cover arrived as text that no decoder accepts.
+      res.send(Buffer.from(shot));
     } catch (error) {
       this.logger.error(`Screenshot of ${url} failed: ${error}`);
       // A browser that lost its target stays broken for every later request,
