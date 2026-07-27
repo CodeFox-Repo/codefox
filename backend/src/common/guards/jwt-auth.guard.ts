@@ -20,34 +20,25 @@ export class JWTAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    this.logger.debug('Starting JWT authentication process');
-
     let request;
     const contextType = context.getType();
-    this.logger.debug(`Context Type: ${contextType}`);
 
     if (contextType === 'http') {
       request = context.switchToHttp().getRequest();
-      this.logger.debug(
-        `HTTP Request Headers: ${JSON.stringify(request.headers)}`,
-      );
     } else if (contextType === ('graphql' as ContextType)) {
       // GraphQL API
       const gqlContext = GqlExecutionContext.create(context);
       const { req } = gqlContext.getContext();
       request = req;
-      this.logger.debug('GraphQL request detected');
     }
 
     try {
+      // Nothing here prints the token or the headers that carry it. It used to
+      // log both, so every REST call — including each agent turn — wrote a
+      // working bearer token into the deploy's logs.
       const token = this.extractTokenFromHeader(request);
-      this.logger.debug(`Extracted Token: ${token}`);
-
       const payload = await this.verifyToken(token);
-      this.logger.debug(`Token Verified. Payload: ${JSON.stringify(payload)}`);
-
       const isTokenValid = await this.jwtCacheService.isTokenStored(token);
-      this.logger.debug(`Token stored in cache: ${isTokenValid}`);
 
       if (!isTokenValid) {
         this.logger.warn('Token has been invalidated');
@@ -55,8 +46,6 @@ export class JWTAuthGuard implements CanActivate {
       }
 
       request.user = payload;
-      this.logger.debug('User successfully authenticated');
-
       return true;
     } catch (error) {
       this.logger.error(`Authentication failed: ${error.message}`);
@@ -71,8 +60,6 @@ export class JWTAuthGuard implements CanActivate {
 
   private extractTokenFromHeader(req: any): string {
     const authHeader = req.headers.authorization;
-    this.logger.debug(`Authorization Header: ${authHeader}`);
-
     if (!authHeader) {
       this.logger.warn('Authorization header is missing');
       throw new UnauthorizedException('Authorization header is missing');
@@ -95,7 +82,6 @@ export class JWTAuthGuard implements CanActivate {
 
   private async verifyToken(token: string): Promise<any> {
     try {
-      this.logger.debug(`Verifying Token: ${token}`);
       return await this.jwtService.verifyAsync(token);
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
