@@ -15,7 +15,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.enableCors({
-    origin: '*',
+    // Reflected rather than `*`, and credentialed: the preview handshake sets
+    // a cookie that the preview iframe — served from this origin — has to send
+    // back. A wildcard origin makes the browser drop credentialed responses,
+    // so the cookie was never stored and every deployed preview answered 404.
+    origin: true,
+    credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',

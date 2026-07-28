@@ -551,10 +551,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       try {
         // Backend-owned: it holds the project directories and the process
         // that serves them. /api/preview proxies through to the backend.
+        // Straight to the backend, not through the Next rewrite. The reply
+        // sets the cookie that tells the proxy which project to serve, and a
+        // server-side rewrite would land that cookie on this origin — while
+        // the iframe it is meant for is served from the backend's. Hence also
+        // `credentials: include`.
+        const backend =
+          process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
         const response = await authenticatedFetch(
-          `/api/preview?projectPath=${encodeURIComponent(projectPath)}`,
+          `${backend}/api/preview?projectPath=${encodeURIComponent(projectPath)}`,
           {
             method: 'GET',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
             },
