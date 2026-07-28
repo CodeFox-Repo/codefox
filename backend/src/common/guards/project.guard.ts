@@ -65,11 +65,8 @@ export class ProjectGuard implements CanActivate {
     // Handle different input formats
     if (args.projectId) return args.projectId;
     if (args.input?.projectId) return args.input.projectId;
-    if (args.isValidProject?.projectId) return args.isValidProject.projectId;
     if (args.projectPath) return args.projectPath;
     if (args.input?.projectPath) return args.input.projectPath;
-    if (args.isValidProject?.projectPath)
-      return args.isValidProject.projectPath;
 
     return undefined;
   }

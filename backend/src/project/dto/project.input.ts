@@ -57,15 +57,6 @@ export class CreateProjectInput {
 }
 
 @InputType()
-export class IsValidProjectInput {
-  @Field(() => ID)
-  projectId: string;
-
-  @Field(() => String, { nullable: true })
-  projectPath: string;
-}
-
-@InputType()
 export class UpdateProjectPublicStatusInput {
   @Field(() => ID)
   projectId: string;

@@ -13,7 +13,6 @@ import { TokenModule } from './token/token.module';
 import { UserModule } from './user/user.module';
 import { InitModule } from './init/init.module';
 import { User } from './user/user.model';
-import { AppResolver } from './app.resolver';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { PromptToolModule } from './prompt-tool/prompt-tool.module';
@@ -63,7 +62,6 @@ import { AdminModule } from './admin/admin.module';
   ],
   controllers: [HealthController],
   providers: [
-    AppResolver,
     AppConfigService,
     {
       provide: APP_INTERCEPTOR,
