@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GitFork, ImageOff, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { FETCH_PUBLIC_PROJECTS } from '@/graphql/request';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -42,7 +43,9 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
 
   const handleFork = async (id: string) => {
     if (!isAuthorized) {
-      router.push('/');
+      // On the landing page this button is already at '/' — navigating there
+      // was a silent no-op. Say what signing in unlocks instead.
+      toast.info('Sign in to fork a project into your workspace.');
       return;
     }
     setForking(id);

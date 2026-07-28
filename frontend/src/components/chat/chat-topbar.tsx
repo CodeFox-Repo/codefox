@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@apollo/client';
 import {
@@ -56,6 +56,15 @@ export default function ChatTopbar({
   const title = chatId
     ? chats.find((c) => c.id === chatId)?.title || 'Untitled'
     : 'New Chat';
+
+  // The browser tab should say which project this is, not just "Codefox" —
+  // with several projects open, identical tabs are unfindable.
+  useEffect(() => {
+    document.title = `${title} — CodeFox`;
+    return () => {
+      document.title = 'CodeFox';
+    };
+  }, [title]);
 
   const [updateTitle] = useMutation(UPDATE_CHAT_TITLE, {
     onCompleted: () => refetchChats(),
