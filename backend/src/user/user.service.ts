@@ -8,7 +8,10 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FileUpload } from 'graphql-upload-minimal';
 import { UploadService } from '../upload/upload.service';
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 import { validateAndBufferFile } from 'src/common/security/file_check';
+import { getMediaDir } from 'src/common/utils/common-path';
 // import { GitHubService } from 'src/github/github.service';
 
 @Injectable()
@@ -82,7 +85,15 @@ export class UserService {
     // Upload the validated buffer to storage
     const result = await this.uploadService.upload(buffer, mimetype, 'avatars');
 
-    // Update the user's avatar URL
+    // Drop the avatar this one replaces. The project cover already did this;
+    // avatars did not, so every change left another PNG on the volume with
+    // nothing left pointing at it.
+    const previous = user.avatarUrl;
+    if (previous && previous !== result.url) {
+      const stale = path.join(getMediaDir(), previous.replace(/^\/media\//, ''));
+      await fs.unlink(stale).catch(() => undefined);
+    }
+
     user.avatarUrl = result.url;
     return this.userRepository.save(user);
   }
