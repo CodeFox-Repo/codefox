@@ -10,6 +10,8 @@ import { REGISTRATION_OPEN } from '@/graphql/request';
 import { SignUpModal } from '../sign-up-modal';
 import { SignInModal } from '../sign-in-modal';
 import { logger } from '@/app/log/logger';
+import Link from 'next/link';
+import UserSettingsBar from '../user-settings-bar';
 
 // Define props interface
 interface FloatingNavbarProps {
@@ -71,9 +73,11 @@ const FloatingNavbar = ({
         <div
           className={`mx-auto flex w-full max-w-[1180px] items-center justify-between gap-4 px-5 py-6 sm:px-10 ${containerClassName}`}
         >
-          {/* Left side - terminal prompt wordmark */}
+          {/* Left side - terminal prompt wordmark, always a way home */}
           <div className={`flex items-center ${logoContainerClassName}`}>
-            {!isAuthorized && <Wordmark className={nameClassName} />}
+            <Link href="/" aria-label="Home">
+              <Wordmark className={nameClassName} />
+            </Link>
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-3">
@@ -130,6 +134,9 @@ const FloatingNavbar = ({
                 )}
               </div>
             )}
+
+            {/* With the sidebar gone, the account menu lives here. */}
+            {isAuthorized && <UserSettingsBar isSimple={false} />}
           </div>
         </div>
       </div>

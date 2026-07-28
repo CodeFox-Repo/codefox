@@ -31,8 +31,10 @@ export function CodeEngine({
   const [saving, setSaving] = useState(false);
   const [preCode, setPrecode] = useState('// Loading...');
   const [newCode, setCode] = useState('// Loading...');
+  // Preview first: the product's promise is a running app beside the chat,
+  // not a file tree. Code stays one tab away.
   const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'console'>(
-    'code'
+    'preview'
   );
   const [isFileStructureLoading, setIsFileStructureLoading] = useState(false);
   const [fileStructureData, setFileStructureData] = useState<

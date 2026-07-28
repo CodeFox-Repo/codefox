@@ -118,7 +118,7 @@ export default function ChatList({
           <FoxMark className="h-20 w-20 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Welcome to CodeFox</h3>
           <p className="text-muted-foreground">
-            Tell the agent what to build or change — it edits this project's
+            Tell the agent what to build or change — it edits the project&apos;s
             real files and the preview updates beside you.
           </p>
         </motion.div>
