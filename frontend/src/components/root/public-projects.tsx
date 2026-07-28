@@ -4,7 +4,7 @@ import { useContext, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
-import { GitFork, Loader2 } from 'lucide-react';
+import { GitFork, ImageOff, Loader2 } from 'lucide-react';
 import { FETCH_PUBLIC_PROJECTS } from '@/graphql/request';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -22,8 +22,10 @@ interface PublicProject {
 /**
  * Projects other people published.
  *
- * The backend only surfaces projects that have a cover image, so a card
- * always has something to show — no placeholder tiles.
+ * A cover is a screenshot of a running preview, so a published project may
+ * legitimately not have one yet. The backend stopped filtering those out —
+ * hiding them published people's work into a gallery that never showed it —
+ * which means the card has to stand on its own without an image.
  */
 export function PublicProjects({ limit = 6 }: { limit?: number }) {
   const router = useRouter();
@@ -82,9 +84,9 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
         <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-14 text-center">
           <p className="font-medium text-foreground">Nothing published yet</p>
           <p className="mx-auto mt-2 max-w-[52ch] text-pretty text-sm leading-relaxed text-muted-foreground">
-            Projects show up here once they are public and their preview has run
-            at least once — the cover is a shot of the app itself. Make one of
-            yours public from its toolbar.
+            Projects show up here as soon as they are public. Make one of yours
+            public from its toolbar — its cover fills in on its own once the
+            preview has run, since the cover is a shot of the app itself.
           </p>
         </div>
       ) : (
@@ -95,7 +97,7 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
               className="group/card overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/45"
             >
               <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
-                {p.photoUrl && (
+                {p.photoUrl ? (
                   <Image
                     src={mediaUrl(p.photoUrl)}
                     alt={`${p.projectName} preview`}
@@ -103,6 +105,19 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
                     sizes="(max-width: 640px) 100vw, 33vw"
                     className="object-cover object-top transition-transform duration-500 group-hover/card:scale-[1.03]"
                   />
+                ) : (
+                  // Without this the tile was an empty rectangle that read as a
+                  // broken image. Say which state it is instead: the project is
+                  // real and forkable, its preview simply has not run.
+                  <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+                    <ImageOff
+                      className="h-5 w-5 text-muted-foreground/60"
+                      aria-hidden
+                    />
+                    <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+                      No preview yet
+                    </p>
+                  </div>
                 )}
               </div>
 
