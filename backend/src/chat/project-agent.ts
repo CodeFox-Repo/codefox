@@ -6,7 +6,7 @@ import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
-import { AVAILABLE_MODELS } from '../common/constants/ai.constants';
+import { AVAILABLE_MODELS, DEFAULT_MODEL } from '../common/constants/ai.constants';
 import {
   SANDBOX_ROOT,
   sandboxFor,
@@ -51,13 +51,14 @@ const harnessCache = new Map<string, ReturnType<typeof createCodex>>();
  * rather than a single module-level default.
  */
 const harnessFor = (rawModel?: string) => {
-  // A chat can carry a model the endpoint no longer serves — the list is env
-  // config and changes between deploys. Falling back beats 404ing the chat's
-  // every turn forever.
+  // Two traps live here: a chat can carry a model the endpoint no longer
+  // serves (env config changes between deploys), and a turn with no model at
+  // all used to reach the CLI's own baked-in default — which the configured
+  // endpoint does not serve either. Both land on OUR default instead.
   const model =
-    rawModel && AVAILABLE_MODELS.includes(rawModel) ? rawModel : undefined;
-  if (rawModel && !model) {
-    logger.warn(`Model ${rawModel} is not configured; using the default`);
+    rawModel && AVAILABLE_MODELS.includes(rawModel) ? rawModel : DEFAULT_MODEL;
+  if (rawModel && model !== rawModel) {
+    logger.warn(`Model ${rawModel} is not configured; using ${model}`);
   }
   const kind = agentHarness();
   const key = `${kind}:${model ?? ''}`;
