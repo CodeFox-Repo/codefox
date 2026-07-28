@@ -88,22 +88,33 @@ export const useChatStream = ({
   const handleChatResponse = async (
     targetChatId: string,
     message: string,
-    images?: string[]
+    images?: string[],
+    // The first turn of a project chat arrives with its user message already
+    // stored server-side (createProject saves it); re-saving would double it.
+    saveUser = true,
+    // The chat's own stored model. State-held selectedModel lags one render
+    // behind, so the auto-started first turn passes this directly.
+    model?: string
   ) => {
     const replyId = `${targetChatId}-${Date.now()}`;
+    // Outside the try so the catch can tell "failed before anything streamed"
+    // (safe to retry) from "died mid-turn" (retrying would rerun real work).
+    const steps: TurnStep[] = [];
     try {
       setInput('');
       const userInput: ChatInputType = {
         chatId: targetChatId,
         message,
-        model: selectedModel,
+        model: model ?? selectedModel,
         role: 'user',
       };
-      saveMessage({
-        variables: {
-          input: userInput as ChatInputType,
-        },
-      });
+      if (saveUser) {
+        saveMessage({
+          variables: {
+            input: userInput as ChatInputType,
+          },
+        });
+      }
 
       // The agent loop runs on the backend, against the project's real files.
       // The bubble appears with the first text delta rather than up front, so a
@@ -112,7 +123,6 @@ export const useChatStream = ({
       // narrates, runs a tool, narrates again, and only its last words are the
       // answer. `content` still holds the joined text so everything that reads
       // a message as plain text keeps working.
-      const steps: TurnStep[] = [];
       const flush = () =>
         setMessages((prev) => {
           const next: Message = {
@@ -183,7 +193,7 @@ export const useChatStream = ({
           input: {
             chatId: targetChatId,
             message: answer,
-            model: selectedModel,
+            model: model ?? selectedModel,
             role: 'assistant',
             // Kept with the message so reloading a chat can fold the work
             // back open instead of showing the answer with no history.
@@ -195,6 +205,10 @@ export const useChatStream = ({
       // Only re-read the project when the agent actually wrote something.
       if (touchedFiles) await refreshProjects();
     } catch (err) {
+      // An auto-started first turn that died before producing anything is the
+      // caller's to retry — right after creation the backend may still be
+      // provisioning the project's sandbox and rejects the turn outright.
+      if (!saveUser && steps.length === 0) throw err;
       toast.error('Failed to get chat response' + err);
     } finally {
       abortRef.current = null;
@@ -243,6 +257,23 @@ export const useChatStream = ({
     }
   };
 
+  /**
+   * Run a turn for a message that is already saved — the project-creation
+   * flow stores the prompt server-side and navigates here, so nothing ever
+   * submitted it. The chat page calls this once the project is bound.
+   * Rejects if the turn failed before anything streamed, so the caller can
+   * retry while the backend finishes provisioning the project.
+   */
+  const startTurn = async (
+    targetChatId: string,
+    message: string,
+    model?: string
+  ) => {
+    if (loadingSubmit) return;
+    setLoadingSubmit(true);
+    await handleChatResponse(targetChatId, message, undefined, false, model);
+  };
+
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setInput(e.target.value);
@@ -266,6 +297,7 @@ export const useChatStream = ({
     activity,
     handleSubmit,
     handleInputChange,
+    startTurn,
     stop,
     isStreaming: loadingSubmit,
     currentChatId,

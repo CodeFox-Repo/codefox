@@ -148,11 +148,27 @@ export const getUserProjects = async (client: ApolloClient<unknown>) => {
 };
 
 // Query to get chat details
+export const DROP_LAST_ASSISTANT_REPLY = gql`
+  mutation DropLastAssistantReply($chatId: String!) {
+    dropLastAssistantReply(chatId: $chatId)
+  }
+`;
+
+export const UPDATE_CHAT_MODEL = gql`
+  mutation UpdateChatModel($chatId: String!, $model: String!) {
+    updateChatModel(chatId: $chatId, model: $model) {
+      id
+      model
+    }
+  }
+`;
+
 export const GET_CHAT_DETAILS = gql`
   query GetChatDetails($chatId: String!) {
     getChatDetails(chatId: $chatId) {
       id
       title
+      model
       userId
       messages {
         id

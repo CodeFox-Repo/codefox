@@ -11,23 +11,15 @@ import { cjk } from '@streamdown/cjk';
 import { Message } from '../../const/MessageType';
 import { TurnTrail } from './turn-trail';
 import { Button } from '../ui/button';
-import {
-  Check,
-  Pencil,
-  X,
-  Code,
-  Copy,
-  Trash2,
-  RotateCcw,
-  ThumbsUp,
-  ThumbsDown,
-} from 'lucide-react';
+import { Copy, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuthContext } from '@/providers/AuthProvider';
 
 interface ChatListProps {
   messages: Message[];
   loadingSubmit?: boolean;
-  onMessageEdit?: (messageId: string, newContent: string) => void;
+  /** Re-run the last user turn; shown only on the trailing answer. */
+  onRegenerate?: () => void;
 }
 
 const isUserMessage = (role: string) => role.toLowerCase() === 'user';
@@ -35,15 +27,10 @@ const isUserMessage = (role: string) => role.toLowerCase() === 'user';
 export default function ChatList({
   messages,
   loadingSubmit,
-  onMessageEdit,
+  onRegenerate,
 }: ChatListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthContext();
-
-  const [editingMessageId, setEditingMessageId] = React.useState<string | null>(
-    null
-  );
-  const [editContent, setEditContent] = React.useState('');
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -56,23 +43,11 @@ export default function ChatList({
     return null;
   }
 
-  const handleEditStart = (message: Message) => {
-    setEditingMessageId(message.id);
-    setEditContent(message.content);
-  };
-
-  const handleEditSubmit = (messageId: string) => {
-    if (onMessageEdit && editContent.trim()) {
-      onMessageEdit(messageId, editContent);
-    }
-    setEditingMessageId(null);
-    setEditContent('');
-  };
-
-  const handleEditCancel = () => {
-    setEditingMessageId(null);
-    setEditContent('');
-  };
+  const copyMessage = (content: string) =>
+    navigator.clipboard
+      .writeText(content)
+      .then(() => toast.success('Copied'))
+      .catch(() => toast.error('Could not copy'));
 
   /**
    * Markdown that is still being written.
@@ -153,8 +128,6 @@ export default function ChatList({
         <AnimatePresence initial={false}>
           {visible.map((message, index) => {
             const isUser = isUserMessage(message.role);
-            const isEditing = message.id === editingMessageId;
-
             return (
               <motion.div
                 key={`${message.id}-${index}`}
@@ -192,163 +165,68 @@ export default function ChatList({
                   </Avatar>
                 </div>
 
+                {/* The edit-message UI that lived here was a stage prop: it
+                    rewrote the local array, persisted nothing, and the agent
+                    never saw the change. Gone until editing can mean
+                    something (re-run from the edited turn). */}
                 <div className="flex-grow flex flex-col gap-2">
-                  {isEditing ? (
-                    <div className="flex flex-col gap-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-2">
-                          <div className="text-xs text-muted-foreground">
-                            Edit
-                          </div>
-                          <textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            className="min-h-[200px] w-full p-2 rounded bg-background border resize-none text-foreground font-mono"
-                            autoFocus
-                            placeholder="Support Markdown formatting..."
-                            onKeyDown={(e) => {
-                              if (e.key === 'Tab') {
-                                e.preventDefault();
-                                const start = e.currentTarget.selectionStart;
-                                const end = e.currentTarget.selectionEnd;
-                                setEditContent(
-                                  editContent.substring(0, start) +
-                                    '  ' +
-                                    editContent.substring(end)
-                                );
-                                // Set cursor position after timeout to ensure state is updated
-                                setTimeout(() => {
-                                  e.currentTarget.selectionStart =
-                                    e.currentTarget.selectionEnd = start + 2;
-                                }, 0);
-                              }
-                            }}
+                  <div className="flex flex-col gap-2">
+                    <div
+                      className={cn(
+                        'px-4 py-1 rounded-lg break-words',
+                        !isUser
+                          ? 'bg-card text-card-foreground'
+                          : 'text-foreground'
+                      )}
+                    >
+                      {isUser || !message.steps ? (
+                        <div className="prose dark:prose-invert prose-sm mt-4 max-w-none">
+                          {renderMessageContent(
+                            message.content,
+                            !isUser && isStreaming(index)
+                          )}
+                        </div>
+                      ) : (
+                        // A live turn carries its own trail: the working
+                        // notes above, foldable, and the answer below.
+                        <div className="mt-4">
+                          <TurnTrail
+                            steps={message.steps}
+                            streaming={isStreaming(index)}
                           />
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <div className="text-xs text-muted-foreground">
-                            Preview
-                          </div>
-                          <div className="min-h-[200px] w-full p-2 rounded bg-muted prose dark:prose-invert prose-sm max-w-none overflow-auto">
-                            {renderMessageContent(editContent)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleEditCancel}
-                          className="h-7 px-2 text-xs"
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleEditSubmit(message.id)}
-                          className="h-7 px-2 text-xs"
-                        >
-                          <Check className="h-3 w-3 mr-1" />
-                          Save
-                        </Button>
-                      </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      <div
-                        className={cn(
-                          'px-4 py-1 rounded-lg break-words',
-                          !isUser
-                            ? 'bg-card text-card-foreground'
-                            : 'text-foreground'
-                        )}
+                    {/* Revealed on hover / keyboard focus. Delete, regenerate
+                        and thumbs were here too, as icons with no onClick and
+                        no backend behind them — buttons that do nothing are
+                        worse than none. */}
+                    <div className="flex gap-1 px-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/msg:opacity-100">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        aria-label="Copy message"
+                        onClick={() => copyMessage(message.content)}
                       >
-                        {isUser || !message.steps ? (
-                          <div className="prose dark:prose-invert prose-sm mt-4 max-w-none">
-                            {renderMessageContent(
-                              message.content,
-                              !isUser && isStreaming(index)
-                            )}
-                          </div>
-                        ) : (
-                          // A live turn carries its own trail: the working
-                          // notes above, foldable, and the answer below.
-                          <div className="mt-4">
-                            <TurnTrail
-                              steps={message.steps}
-                              streaming={isStreaming(index)}
-                            />
-                          </div>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                      {!isUser &&
+                        index === visible.length - 1 &&
+                        onRegenerate &&
+                        !loadingSubmit && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            aria-label="Regenerate answer"
+                            onClick={onRegenerate}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
                         )}
-                      </div>
-                      {/* Action buttons */}
-                      {/* Revealed on hover / keyboard focus. Six always-on
-                            icon buttons under every message was most of the
-                            visual noise in this pane. */}
-                      <div className="flex gap-1 px-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/msg:opacity-100">
-                        {isUser ? (
-                          <>
-                            {onMessageEdit && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2"
-                                onClick={() => handleEditStart(message)}
-                              >
-                                <Pencil className="h-3 w-3 mr-1" />
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2"
-                            >
-                              <Copy className="h-3 w-3 mr-1" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2 text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-3 w-3 mr-1" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2"
-                            >
-                              <RotateCcw className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2"
-                            >
-                              <ThumbsUp className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2"
-                            >
-                              <ThumbsDown className="h-3 w-3" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </motion.div>
             );

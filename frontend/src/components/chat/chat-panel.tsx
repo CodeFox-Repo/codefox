@@ -9,7 +9,12 @@ import ChatList from './chat-list';
 
 export interface ChatProps {
   chatId?: string;
-  setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
+  /** Configured model ids, for the in-chat picker. */
+  models?: string[];
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
+  /** Re-run the last user turn, replacing the trailing answer. */
+  onRegenerate?: () => void;
   messages: Message[];
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -32,8 +37,11 @@ export default function ChatContent({
   handleInputChange,
   handleSubmit,
   stop,
-  setSelectedModel,
   chatId,
+  models,
+  selectedModel,
+  onModelChange,
+  onRegenerate,
   loadingSubmit,
   activity,
   formRef,
@@ -56,18 +64,16 @@ export default function ChatContent({
         <ChatList
           messages={messages}
           loadingSubmit={loadingSubmit}
-          onMessageEdit={(messageId, newContent) => {
-            const updatedMessages = messages.map((msg) =>
-              msg.id === messageId ? { ...msg, content: newContent } : msg
-            );
-            setMessages(updatedMessages);
-          }}
+          onRegenerate={onRegenerate}
         />
       </div>
 
       <div className="sticky bottom-0 z-10 bg-gradient-to-t from-background to-transparent pt-2">
         <ChatBottombar
           messages={messages}
+          models={models}
+          selectedModel={selectedModel}
+          onModelChange={onModelChange}
           input={input}
           handleInputChange={handleInputChange}
           handleSubmit={handleSubmit}
@@ -77,7 +83,6 @@ export default function ChatContent({
           formRef={formRef}
           setInput={setInput}
           setMessages={setMessages}
-          setSelectedModel={setSelectedModel}
         />
       </div>
     </motion.div>

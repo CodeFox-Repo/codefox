@@ -32,6 +32,15 @@ export class Chat extends SystemBaseModel {
   @Column({ nullable: true })
   title: string;
 
+  /**
+   * The model chosen when the chat was created. The chat page reads it back so
+   * the first agent turn — and every later one — runs on what the user picked,
+   * not on whatever happens to head the configured model list.
+   */
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  model: string | null;
+
   @Field(() => [Message], { nullable: true })
   @Column('simple-json', {
     nullable: true,

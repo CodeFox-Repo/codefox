@@ -7,6 +7,8 @@ interface ProjectStatus {
   isReady: boolean;
   projectId?: string;
   projectName?: string;
+  /** The model picked when the chat was created, once known. */
+  chatModel?: string;
   error?: string;
 }
 
@@ -19,11 +21,15 @@ export function useProjectStatusMonitor(chatId: string): ProjectStatus {
   const [isReady, setIsReady] = useState(false);
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [projectName, setProjectName] = useState<string | undefined>(undefined);
+  const [chatModel, setChatModel] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const [getChatDetails, { loading }] = useLazyQuery(GET_CHAT_DETAILS, {
     fetchPolicy: 'network-only',
     onCompleted: (data) => {
+      if (data?.getChatDetails?.model) {
+        setChatModel(data.getChatDetails.model);
+      }
       if (data?.getChatDetails?.project) {
         setIsReady(true);
         setProjectId(data.getChatDetails.project.id);
@@ -78,5 +84,5 @@ export function useProjectStatusMonitor(chatId: string): ProjectStatus {
     };
   }, [chatId, getChatDetails, isReady]);
 
-  return { isReady, projectId, projectName, error };
+  return { isReady, projectId, projectName, chatModel, error };
 }

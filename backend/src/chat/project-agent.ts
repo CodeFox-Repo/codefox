@@ -6,6 +6,7 @@ import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
+import { AVAILABLE_MODELS } from '../common/constants/ai.constants';
 import {
   SANDBOX_ROOT,
   sandboxFor,
@@ -49,7 +50,15 @@ const harnessCache = new Map<string, ReturnType<typeof createCodex>>();
  * so honouring the chat's model picker means keeping an instance per choice
  * rather than a single module-level default.
  */
-const harnessFor = (model?: string) => {
+const harnessFor = (rawModel?: string) => {
+  // A chat can carry a model the endpoint no longer serves — the list is env
+  // config and changes between deploys. Falling back beats 404ing the chat's
+  // every turn forever.
+  const model =
+    rawModel && AVAILABLE_MODELS.includes(rawModel) ? rawModel : undefined;
+  if (rawModel && !model) {
+    logger.warn(`Model ${rawModel} is not configured; using the default`);
+  }
   const kind = agentHarness();
   const key = `${kind}:${model ?? ''}`;
   const cached = harnessCache.get(key);

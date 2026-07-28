@@ -89,7 +89,7 @@ export class ChatService {
 
   async createChatWithMessage(
     userId: string,
-    newChatInput: { title: string; message: string },
+    newChatInput: { title: string; message: string; model?: string },
   ): Promise<Chat> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -99,6 +99,7 @@ export class ChatService {
     // Create a new chat with the initial message
     const newChat = this.chatRepository.create({
       title: newChatInput.title,
+      model: newChatInput.model ?? null,
       messages: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -149,6 +150,37 @@ export class ChatService {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Soft-delete the trailing assistant reply so a regenerate can replace it.
+   * Only the tail: pruning an answer mid-history would silently rewrite the
+   * conversation every later turn was built on.
+   */
+  async dropLastAssistantReply(chatId: string): Promise<boolean> {
+    const chat = await this.chatRepository.findOne({
+      where: { id: chatId, isDeleted: false },
+    });
+    if (!chat?.messages?.length) return false;
+
+    const live = chat.messages.filter((m) => !m.isDeleted);
+    const last = live[live.length - 1];
+    if (!last || String(last.role).toLowerCase() !== 'assistant') return false;
+
+    last.isDeleted = true;
+    last.updatedAt = new Date();
+    await this.chatRepository.save(chat);
+    return true;
+  }
+
+  async updateChatModel(chatId: string, model: string): Promise<Chat | null> {
+    const chat = await this.chatRepository.findOne({
+      where: { id: chatId, isDeleted: false },
+    });
+    if (!chat) return null;
+    chat.model = model;
+    chat.updatedAt = new Date();
+    return this.chatRepository.save(chat);
   }
 
   async updateChatTitle(

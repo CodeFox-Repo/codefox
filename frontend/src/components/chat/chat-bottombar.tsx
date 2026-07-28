@@ -13,9 +13,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface ChatBottombarProps {
   messages: Message[];
+  /** Configured model ids; the picker only shows when there is a choice. */
+  models?: string[];
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmit: (
@@ -26,20 +37,21 @@ interface ChatBottombarProps {
   formRef: React.RefObject<HTMLFormElement>;
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   setMessages: (messages: Message[]) => void;
-  setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
   isStreaming?: boolean;
   activity?: { tool?: string; file?: string } | null;
 }
 
 export default function ChatBottombar({
   messages,
+  models,
+  selectedModel,
+  onModelChange,
   input,
   handleInputChange,
   handleSubmit,
   formRef,
   setInput,
   setMessages,
-  setSelectedModel,
   stop,
   isStreaming = false,
   activity,
@@ -174,9 +186,10 @@ export default function ChatBottombar({
               exit={{ height: 0, opacity: 0 }}
               className="border-b border-border p-2"
             >
-              <p className="mb-2 px-1 font-mono text-[11px] text-warning">
-                Images are staged but the agent cannot read them yet.
-              </p>
+              {/* No warning here: attachments are staged into the project's
+                  workspace and the agent reads them with its own tools —
+                  verified end-to-end, so the old "cannot read them yet"
+                  banner had become a lie. */}
               <div className="flex flex-wrap gap-2">
                 {attachments.map((file, index) => (
                   <motion.div
@@ -251,6 +264,29 @@ export default function ChatBottombar({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+            {/* Mid-chat model switch; the choice persists on the chat. */}
+            {onModelChange && (models?.length ?? 0) > 1 && (
+              <Select
+                value={selectedModel}
+                onValueChange={onModelChange}
+                disabled={isStreaming}
+              >
+                <SelectTrigger
+                  aria-label="Model"
+                  className="ml-1 h-7 max-w-[180px] border-none bg-transparent px-2 font-mono text-[11px] text-muted-foreground shadow-none hover:text-foreground focus:ring-0"
+                >
+                  <SelectValue placeholder="model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {models!.map((m) => (
+                    <SelectItem key={m} value={m} className="font-mono text-xs">
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Text input */}
@@ -276,9 +312,15 @@ export default function ChatBottombar({
 
           {/* Right side - feedback & send */}
           <div className="flex items-center mr-2 gap-2">
-            <div className="text-sm text-muted-foreground">
-              <span>Have feedback?</span>
-            </div>
+            {/* A bare span said "Have feedback?" and led nowhere. */}
+            <a
+              href="https://github.com/Sma1lboy/codefox/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Have feedback?
+            </a>
 
             {isStreaming ? (
               <button

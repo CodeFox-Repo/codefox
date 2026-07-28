@@ -12,7 +12,6 @@ import { Project } from './project.model';
 import {
   CreateProjectInput,
   FetchPublicProjectsInputs,
-  IsValidProjectInput,
 } from './dto/project.input';
 import { generateText } from 'ai';
 import { copyProject, scaffoldProject } from './scaffold';
@@ -99,8 +98,9 @@ export class ProjectService {
 
   // binding project and chats
   async bindProjectAndChat(project: Project, chat: Chat): Promise<boolean> {
-    await this.projectsRepository.manager.connection.synchronize();
-    await this.chatRepository.manager.connection.synchronize();
+    // No connection.synchronize() here: schema sync belongs to boot
+    // (database.config.ts). Re-running it per project creation re-built
+    // tables on SQLite and would alter a production schema mid-request.
     if (!chat) {
       this.logger.error('chat is undefined');
       return false;
@@ -156,6 +156,7 @@ export class ProjectService {
       const defaultChat = await this.chatService.createChatWithMessage(userId, {
         title: projectName || 'New Project Chat',
         message: input.description,
+        model: input.model,
       });
 
       // Perform the rest of project creation asynchronously
@@ -277,40 +278,6 @@ export class ProjectService {
       return true;
     } catch {
       throw new InternalServerErrorException('Error deleting the project.');
-    }
-  }
-
-  async isValidProject(
-    userId: string,
-    input: IsValidProjectInput,
-  ): Promise<boolean> {
-    try {
-      const project = await this.projectsRepository.findOne({
-        where: {
-          id: input.projectId,
-          projectPath: input.projectPath,
-          isDeleted: false,
-        },
-      });
-
-      if (!project) {
-        this.logger.debug(
-          `Project not found with id: ${input.projectId}, path: ${input.projectPath}`,
-        );
-        return false;
-      }
-
-      if (project.userId !== userId) {
-        this.logger.debug(
-          `User ${userId} is not owner of project ${input.projectId}`,
-        );
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      this.logger.error(`Error validating project: ${error.message}`);
-      return false;
     }
   }
 
