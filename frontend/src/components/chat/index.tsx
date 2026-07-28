@@ -226,6 +226,29 @@ export default function Chat() {
     };
   }, [updateChatId]);
 
+  // A chat that errors before anything loads is a dead id — deleted, someone
+  // else's, or mistyped. An empty composer would just invite messages into
+  // the void; say what happened and offer the way back.
+  if (chatId && error && !isReady && messages.length === 0) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="font-medium text-foreground">
+          This project could not be opened
+        </p>
+        <p className="max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
+          It may have been deleted, or the link belongs to someone else&apos;s
+          private project.
+        </p>
+        <a
+          href="/"
+          className="rounded-lg border border-border px-4 py-2 font-mono text-xs text-foreground transition-colors hover:border-primary"
+        >
+          Back to your projects
+        </a>
+      </div>
+    );
+  }
+
   // Render the main layout
   if (chatId && isMobile) {
     return (
