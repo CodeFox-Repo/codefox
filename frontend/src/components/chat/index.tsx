@@ -19,6 +19,7 @@ import { useChatList } from '@/hooks/useChatList';
 import { useChatStream } from '@/hooks/useChatStream';
 import { CodeEngine } from './code-engine/code-engine';
 import { useProjectStatusMonitor } from '@/hooks/useProjectStatusMonitor';
+import { extractQuestions } from '@/components/chat/question-card';
 import { useAuthContext } from '@/providers/AuthProvider';
 
 export default function Chat() {
@@ -102,6 +103,7 @@ export default function Chat() {
     handleSubmit,
     handleInputChange,
     startTurn,
+    sendMessage,
     stop,
     activity,
   } = useChatStream({
@@ -180,6 +182,15 @@ export default function Chat() {
     );
   }, [loadingSubmit, chatId, messages, dropLastAssistantReply, startTurn]);
 
+  // The planner asked and is waiting: the trailing message is an assistant
+  // question card. The composer hides so the choices are the one way forward.
+  const lastMessage = messages[messages.length - 1];
+  const questionsPending =
+    !loadingSubmit &&
+    Boolean(lastMessage) &&
+    !/user/i.test(lastMessage.role) &&
+    Boolean(extractQuestions(lastMessage.content ?? '').block);
+
   // Callback to clear the chat ID
   const cleanChatId = () => setChatId('');
 
@@ -235,6 +246,8 @@ export default function Chat() {
             handleSubmit={handleSubmit}
             loadingSubmit={loadingSubmit || waitingForFirstTurn}
             activity={activity}
+            onAnswerQuestions={sendMessage}
+            inputHidden={questionsPending}
             stop={stop}
             formRef={formRef}
             setInput={setInput}

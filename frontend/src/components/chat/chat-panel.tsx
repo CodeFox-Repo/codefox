@@ -15,6 +15,10 @@ export interface ChatProps {
   onModelChange?: (model: string) => void;
   /** Re-run the last user turn, replacing the trailing answer. */
   onRegenerate?: () => void;
+  /** Send the composed answer of the planner's question card. */
+  onAnswerQuestions?: (answer: string) => void;
+  /** True while an unanswered question card is the way forward. */
+  inputHidden?: boolean;
   messages: Message[];
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -42,6 +46,8 @@ export default function ChatContent({
   selectedModel,
   onModelChange,
   onRegenerate,
+  onAnswerQuestions,
+  inputHidden,
   loadingSubmit,
   activity,
   formRef,
@@ -65,11 +71,13 @@ export default function ChatContent({
           messages={messages}
           loadingSubmit={loadingSubmit}
           onRegenerate={onRegenerate}
+          onAnswerQuestions={onAnswerQuestions}
         />
       </div>
 
       <div className="sticky bottom-0 z-10 bg-gradient-to-t from-background to-transparent pt-2">
         <ChatBottombar
+          inputHidden={inputHidden}
           messages={messages}
           models={models}
           selectedModel={selectedModel}

@@ -1,0 +1,188 @@
+'use client';
+
+import { useState } from 'react';
+import { Check, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '../ui/button';
+
+/** One clarifying question the agent asked before building. */
+export interface AgentQuestion {
+  id: string;
+  label: string;
+  multi?: boolean;
+  options: string[];
+}
+
+export interface AgentQuestionBlock {
+  intro?: string;
+  questions: AgentQuestion[];
+}
+
+const FENCE = /```codefox-questions\s*\n([\s\S]*?)```/;
+
+/**
+ * Pull the question block out of an assistant message, if a complete and
+ * valid one is present. Returns the message with the block removed so the
+ * prose renders as markdown and the questions render as controls.
+ */
+export function extractQuestions(content: string): {
+  block: AgentQuestionBlock | null;
+  rest: string;
+} {
+  const match = content?.match(FENCE);
+  if (!match) return { block: null, rest: content };
+  try {
+    const parsed = JSON.parse(match[1]);
+    const questions = Array.isArray(parsed?.questions)
+      ? parsed.questions.filter(
+          (q: AgentQuestion) =>
+            q &&
+            typeof q.label === 'string' &&
+            Array.isArray(q.options) &&
+            q.options.length > 0
+        )
+      : [];
+    if (questions.length === 0) return { block: null, rest: content };
+    return {
+      block: { intro: parsed.intro, questions },
+      rest: content.replace(FENCE, '').trim(),
+    };
+  } catch {
+    // A half-streamed or malformed block renders as ordinary markdown.
+    return { block: null, rest: content };
+  }
+}
+
+/**
+ * The planner's checklist. Interactive only for the trailing message —
+ * answered questions stay visible in history but read-only, since the answer
+ * itself is the next user message.
+ */
+export function QuestionCard({
+  block,
+  interactive,
+  onSubmit,
+}: {
+  block: AgentQuestionBlock;
+  interactive: boolean;
+  onSubmit?: (answer: string) => void;
+}) {
+  const [choices, setChoices] = useState<Record<string, string[]>>({});
+  const [note, setNote] = useState('');
+
+  const toggle = (q: AgentQuestion, option: string) => {
+    if (!interactive) return;
+    setChoices((prev) => {
+      const current = prev[q.id] ?? [];
+      if (q.multi) {
+        return {
+          ...prev,
+          [q.id]: current.includes(option)
+            ? current.filter((o) => o !== option)
+            : [...current, option],
+        };
+      }
+      return { ...prev, [q.id]: [option] };
+    });
+  };
+
+  const singlesAnswered = block.questions
+    .filter((q) => !q.multi)
+    .every((q) => (choices[q.id] ?? []).length > 0);
+
+  const submit = () => {
+    const lines = block.questions
+      .map((q) => {
+        const picked = choices[q.id] ?? [];
+        return picked.length ? `- ${q.label}: ${picked.join(', ')}` : null;
+      })
+      .filter(Boolean);
+    const answer = [
+      'My choices:',
+      ...lines,
+      note.trim() ? `Note: ${note.trim()}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    onSubmit?.(answer);
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-border bg-background/60 p-4">
+      <p className="mb-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-primary">
+        <Sparkles className="h-3.5 w-3.5" />
+        Before building
+      </p>
+      {block.intro && (
+        <p className="mb-4 text-sm text-muted-foreground">{block.intro}</p>
+      )}
+
+      <div className="space-y-4">
+        {block.questions.map((q) => (
+          <div key={q.id}>
+            <p className="mb-2 text-sm font-medium text-foreground">
+              {q.label}
+              {q.multi && (
+                <span className="ml-2 font-mono text-[10px] uppercase text-muted-foreground">
+                  multi
+                </span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {q.options.map((option) => {
+                const selected = (choices[q.id] ?? []).includes(option);
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={!interactive}
+                    onClick={() => toggle(q, option)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors',
+                      selected
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border text-muted-foreground',
+                      interactive
+                        ? 'hover:border-primary hover:text-foreground'
+                        : 'cursor-default opacity-70'
+                    )}
+                  >
+                    {selected && <Check className="h-3.5 w-3.5 text-primary" />}
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {interactive && (
+        <div className="mt-5 space-y-3">
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Anything else the agent should know? (optional)"
+            className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                onSubmit?.(
+                  'Use your best judgment on the open questions and start building.'
+                )
+              }
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Skip — let the agent decide
+            </button>
+            <Button size="sm" disabled={!singlesAnswered} onClick={submit}>
+              Start building
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

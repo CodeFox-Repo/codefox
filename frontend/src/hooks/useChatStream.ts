@@ -274,6 +274,25 @@ export const useChatStream = ({
     await handleChatResponse(targetChatId, message, undefined, false, model);
   };
 
+  /**
+   * Send a message that was composed by the UI rather than typed — the
+   * planner's answered question card. Saved and run like a typed turn.
+   */
+  const sendMessage = async (text: string) => {
+    if (loadingSubmit || !currentChatId || !text.trim()) return;
+    setLoadingSubmit(true);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `${currentChatId}-${Date.now()}-q`,
+        role: 'user',
+        content: text,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    await handleChatResponse(currentChatId, text);
+  };
+
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setInput(e.target.value);
@@ -298,6 +317,7 @@ export const useChatStream = ({
     handleSubmit,
     handleInputChange,
     startTurn,
+    sendMessage,
     stop,
     isStreaming: loadingSubmit,
     currentChatId,

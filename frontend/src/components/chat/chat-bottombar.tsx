@@ -23,6 +23,8 @@ import {
 
 interface ChatBottombarProps {
   messages: Message[];
+  /** The planner's question card is open; the composer steps aside. */
+  inputHidden?: boolean;
   /** Configured model ids; the picker only shows when there is a choice. */
   models?: string[];
   selectedModel?: string;
@@ -43,6 +45,7 @@ interface ChatBottombarProps {
 
 export default function ChatBottombar({
   messages,
+  inputHidden,
   models,
   selectedModel,
   onModelChange,
@@ -147,6 +150,18 @@ export default function ChatBottombar({
       inputRef.current.focus();
     }
   }, []);
+
+  // While the planner's question card waits, the composer is not the way
+  // forward — answering (or skipping) up in the card is.
+  if (inputHidden) {
+    return (
+      <div className="bg-background px-4 pb-4 pt-2">
+        <p className="rounded-lg border border-dashed border-border px-4 py-3 text-center font-mono text-xs text-muted-foreground">
+          Answer the questions above to start building
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background px-4 pb-4 pt-2">

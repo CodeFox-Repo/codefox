@@ -10,6 +10,7 @@ import { code } from '@streamdown/code';
 import { cjk } from '@streamdown/cjk';
 import { Message } from '../../const/MessageType';
 import { TurnTrail } from './turn-trail';
+import { extractQuestions, QuestionCard } from './question-card';
 import { Button } from '../ui/button';
 import { Copy, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,6 +21,8 @@ interface ChatListProps {
   loadingSubmit?: boolean;
   /** Re-run the last user turn; shown only on the trailing answer. */
   onRegenerate?: () => void;
+  /** Sends the composed answer of a question card as the next user message. */
+  onAnswerQuestions?: (answer: string) => void;
 }
 
 const isUserMessage = (role: string) => role.toLowerCase() === 'user';
@@ -28,6 +31,7 @@ export default function ChatList({
   messages,
   loadingSubmit,
   onRegenerate,
+  onAnswerQuestions,
 }: ChatListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthContext();
@@ -128,6 +132,24 @@ export default function ChatList({
         <AnimatePresence initial={false}>
           {visible.map((message, index) => {
             const isUser = isUserMessage(message.role);
+            // The planner's clarifying questions ride in the message as a
+            // fenced block; render them as controls instead of code.
+            const { block: questionBlock, rest: proseContent } = isUser
+              ? { block: null, rest: message.content }
+              : extractQuestions(message.content ?? '');
+            const questionsInteractive =
+              Boolean(questionBlock) &&
+              index === visible.length - 1 &&
+              !loadingSubmit &&
+              Boolean(onAnswerQuestions);
+            const trailSteps =
+              questionBlock && message.steps
+                ? message.steps.map((step) =>
+                    step.kind === 'text'
+                      ? { ...step, text: extractQuestions(step.text).rest }
+                      : step
+                  )
+                : message.steps;
             return (
               <motion.div
                 key={`${message.id}-${index}`}
@@ -182,7 +204,7 @@ export default function ChatList({
                       {isUser || !message.steps ? (
                         <div className="prose dark:prose-invert prose-sm mt-4 max-w-none">
                           {renderMessageContent(
-                            message.content,
+                            isUser ? message.content : proseContent,
                             !isUser && isStreaming(index)
                           )}
                         </div>
@@ -191,10 +213,17 @@ export default function ChatList({
                         // notes above, foldable, and the answer below.
                         <div className="mt-4">
                           <TurnTrail
-                            steps={message.steps}
+                            steps={trailSteps}
                             streaming={isStreaming(index)}
                           />
                         </div>
+                      )}
+                      {questionBlock && (
+                        <QuestionCard
+                          block={questionBlock}
+                          interactive={questionsInteractive}
+                          onSubmit={onAnswerQuestions}
+                        />
                       )}
                     </div>
                     {/* Revealed on hover / keyboard focus. Delete, regenerate
