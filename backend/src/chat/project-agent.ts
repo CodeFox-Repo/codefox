@@ -6,7 +6,12 @@ import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
-import { sandboxFor, sandboxMode } from './sandbox-provider';
+import {
+  SANDBOX_ROOT,
+  sandboxFor,
+  sandboxHandle,
+  sandboxMode,
+} from './sandbox-provider';
 
 const logger = new Logger('ProjectAgent');
 
@@ -178,7 +183,28 @@ const EXTENSIONS: Record<string, string> = {
  * on disk with its path named in the prompt is a working channel where an
  * inline image part is not.
  */
-async function stageImages(
+/** A data URL turned into the bytes and file name it should be saved under. */
+function decodeImage(
+  image: string,
+): { name: string; bytes: Buffer } | undefined {
+  const match = /^data:([^;]+);base64,(.+)$/s.exec(image);
+  if (!match) {
+    logger.warn('Skipping attachment that is not a base64 data URL');
+    return undefined;
+  }
+  const [, mime, data] = match;
+  const extension = EXTENSIONS[mime];
+  if (!extension) {
+    logger.warn(`Skipping attachment of unsupported type ${mime}`);
+    return undefined;
+  }
+  return {
+    name: `${randomUUID()}.${extension}`,
+    bytes: Buffer.from(data, 'base64'),
+  };
+}
+
+async function stageImagesOnHost(
   workingDirectory: string,
   images: string[],
 ): Promise<string[]> {
@@ -187,24 +213,42 @@ async function stageImages(
 
   const written: string[] = [];
   for (const image of images) {
-    const match = /^data:([^;]+);base64,(.+)$/s.exec(image);
-    if (!match) {
-      logger.warn('Skipping attachment that is not a base64 data URL');
-      continue;
-    }
-    const [, mime, data] = match;
-    const extension = EXTENSIONS[mime];
-    if (!extension) {
-      logger.warn(`Skipping attachment of unsupported type ${mime}`);
-      continue;
-    }
-    const name = `${randomUUID()}.${extension}`;
-    await writeFile(path.join(dir, name), Buffer.from(data, 'base64'));
+    const decoded = decodeImage(image);
+    if (!decoded) continue;
+    await writeFile(path.join(dir, decoded.name), decoded.bytes);
     // Absolute: Claude Code's Read tool rejects relative paths, and a
     // rejected read costs the agent a find(1) round trip to recover.
-    written.push(path.join(dir, name));
+    written.push(path.join(dir, decoded.name));
   }
   return written;
+}
+
+/**
+ * Same job, into the sandbox instead of onto this disk.
+ *
+ * Attachments used to be dropped outright whenever the agent was not running
+ * on the host, so pasting a screenshot silently did nothing the moment the
+ * project moved into a real sandbox.
+ */
+async function stageImagesInSandbox(
+  projectPath: string,
+  images: string[],
+): Promise<string[]> {
+  const decoded = images
+    .map(decodeImage)
+    .filter((item): item is { name: string; bytes: Buffer } => Boolean(item));
+  if (decoded.length === 0) return [];
+
+  const sandbox = await sandboxHandle(projectPath);
+  const dir = `${SANDBOX_ROOT}/${UPLOAD_DIR}`;
+  await sandbox.runCommand({ cmd: 'mkdir', args: ['-p', dir] });
+  await sandbox.writeFiles(
+    decoded.map(({ name, bytes }) => ({
+      path: `${dir}/${name}`,
+      content: new Uint8Array(bytes),
+    })),
+  );
+  return decoded.map(({ name }) => `${dir}/${name}`);
 }
 
 export const runProjectAgent = async ({
@@ -220,16 +264,11 @@ export const runProjectAgent = async ({
   // sandbox can see. In a remote sandbox that path resolves to nothing, so
   // say the attachment was dropped rather than point the agent at a file it
   // cannot open.
-  if (images?.length && sandboxMode() !== 'host') {
-    logger.warn(
-      `Dropping ${images.length} attachment(s): image staging is not wired ` +
-        'up for remote sandboxes yet.',
-    );
-  }
-  const staged =
-    images?.length && sandboxMode() === 'host'
-      ? await stageImages(workingDirectory, images)
-      : [];
+  const staged = !images?.length
+    ? []
+    : sandboxMode() === 'host'
+      ? await stageImagesOnHost(workingDirectory, images)
+      : await stageImagesInSandbox(projectPath, images);
   const asked = staged.length
     ? `${message}\n\nThe user attached ${staged.length === 1 ? 'this image' : 'these images'} — read ${staged.length === 1 ? 'it' : 'them'} before answering:\n${staged.map((f) => `- ${f}`).join('\n')}`
     : message;

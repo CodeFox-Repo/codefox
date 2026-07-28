@@ -7,6 +7,9 @@ import { createLocalSandbox } from './local-sandbox';
 
 const logger = new Logger('SandboxProvider');
 
+/** Where a sandbox checks the project out. Fixed by the platform. */
+export const SANDBOX_ROOT = '/vercel/sandbox';
+
 /** Port the preview dev server listens on inside a remote sandbox. */
 export const REMOTE_PREVIEW_PORT = 3000;
 

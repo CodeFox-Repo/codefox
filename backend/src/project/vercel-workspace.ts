@@ -3,12 +3,10 @@ import { writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { BadRequestException, Logger } from '@nestjs/common';
 import type { Sandbox } from '@vercel/sandbox';
+import { SANDBOX_ROOT as ROOT } from '../chat/sandbox-provider';
 import { getTempDir } from '../common/utils/common-path';
 import type { LogLine } from './preview.service';
 import { IGNORED_ENTRIES, ProjectWorkspace } from './workspace';
-
-/** Where the template is checked out inside a sandbox. */
-const ROOT = '/vercel/sandbox';
 
 /** Bounded so one enormous project cannot exhaust the backend's memory. */
 const MAX_FILES = 5000;
