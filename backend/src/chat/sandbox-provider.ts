@@ -118,13 +118,20 @@ export const sandboxHandle = async (projectPath: string): Promise<Sandbox> => {
     source: { type: 'git', url: TEMPLATE_REPO, depth: 1 },
   });
 
-  // Activity is the only thing that keeps a sandbox alive. Extending on every
-  // use is what turns Vercel's wall-clock deadline into an idle timeout.
-  await sandbox
-    .extendTimeout(IDLE_MS)
-    .catch((error: unknown) =>
-      logger.warn(`Could not extend sandbox lifetime: ${String(error)}`),
-    );
+  // Activity is what keeps a sandbox alive — but extendTimeout is CUMULATIVE
+  // ("extends BY", not "extends TO"). Calling it on every touch let a busy
+  // hour bank four more hours of paid runtime after the user left. Top the
+  // deadline back up to IDLE_MS only when it has burned below half.
+  const remainingMs = sandbox.expiresAt
+    ? sandbox.expiresAt.getTime() - Date.now()
+    : 0;
+  if (remainingMs < IDLE_MS / 2) {
+    await sandbox
+      .extendTimeout(IDLE_MS - Math.max(remainingMs, 0))
+      .catch((error: unknown) =>
+        logger.warn(`Could not extend sandbox lifetime: ${String(error)}`),
+      );
+  }
 
   return sandbox;
 };
