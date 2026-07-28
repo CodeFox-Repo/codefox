@@ -99,6 +99,17 @@ export default function ChatList({
    * cleared in the request's `finally` — so it covers the streaming window and
    * not just the wait before the first token.
    */
+  /**
+   * The gap between pressing send and the first thing the agent says.
+   *
+   * Once its bubble exists it carries its own progress — the notes open with
+   * a pulse, the text types — so leaving this up as well put the same fact on
+   * screen three times, the last of them an empty message.
+   */
+  const waiting =
+    Boolean(loadingSubmit) &&
+    (visible.length === 0 || isUserMessage(visible[visible.length - 1].role));
+
   const isStreaming = (index: number) =>
     Boolean(loadingSubmit) &&
     index === visible.length - 1 &&
@@ -344,7 +355,7 @@ export default function ChatList({
           })}
         </AnimatePresence>
 
-        {loadingSubmit && (
+        {waiting && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
