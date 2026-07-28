@@ -30,6 +30,7 @@ export class ChatResolver {
         input.chatId,
         input.message,
         input.role,
+        input.steps,
       );
       return true;
     } catch (error) {

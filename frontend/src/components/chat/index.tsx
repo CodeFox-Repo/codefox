@@ -46,6 +46,9 @@ export default function Chat() {
     onCompleted: (data) => {
       if (data?.getChatHistory) {
         const processedMessages = data.getChatHistory.map((msg) => {
+          // `steps` is what lets a reloaded turn fold its work back open;
+          // messages saved before it existed simply have none.
+          const steps = msg.steps?.length ? msg.steps : undefined;
           try {
             const content = JSON.parse(msg.content);
             return {
@@ -53,9 +56,10 @@ export default function Chat() {
               role: msg.role,
               content: content.final_response,
               createdAt: msg.createdAt,
+              steps,
             };
           } catch (e) {
-            return msg;
+            return { ...msg, steps };
           }
         });
 

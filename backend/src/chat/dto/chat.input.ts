@@ -1,6 +1,6 @@
 // DTOs for Project APIs
 import { InputType, Field } from '@nestjs/graphql';
-import { MessageRole } from '../message.model';
+import { MessageRole, TurnStep } from '../message.model';
 
 @InputType()
 export class NewChatInput {
@@ -29,4 +29,8 @@ export class ChatInput {
   model: string;
   @Field()
   role: MessageRole;
+
+  /** The agent's working notes, so a reloaded chat can replay them. */
+  @Field(() => [TurnStep], { nullable: true })
+  steps?: TurnStep[];
 }

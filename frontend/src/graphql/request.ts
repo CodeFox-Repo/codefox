@@ -58,6 +58,12 @@ export const GET_CHAT_HISTORY = gql`
       content
       role
       createdAt
+      steps {
+        kind
+        text
+        tool
+        file
+      }
     }
   }
 `;

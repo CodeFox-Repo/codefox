@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
@@ -100,13 +101,27 @@ export function TurnTrail({
             )}
           </button>
 
-          {open && (
-            <div className="mt-2 flex flex-col gap-2 border-l border-border pl-3">
-              {work.map((step, i) => (
-                <StepLine key={i} step={step} />
-              ))}
-            </div>
-          )}
+          <AnimatePresence initial={false}>
+            {open && (
+              // Height rather than opacity alone: the notes push the answer
+              // down, and having that happen instantly is what makes an
+              // auto-collapse feel like the page jumped.
+              <motion.div
+                key="work"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2 flex flex-col gap-2 border-l border-border pl-3">
+                  {work.map((step, i) => (
+                    <StepLine key={i} step={step} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

@@ -9,7 +9,7 @@ import { streamText } from 'ai';
 import { openrouter, DEFAULT_MODEL } from '../common/constants/ai.constants';
 import { runProjectAgent } from './project-agent';
 import { explain } from './explain-error';
-import { MessageRole } from './message.model';
+import { MessageRole, TurnStep } from './message.model';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -97,7 +97,11 @@ export class ChatController {
       content: message.content,
     }));
     const last = history[history.length - 1];
-    if (last && !/assistant/i.test(last.role) && last.content === chatDto.message) {
+    if (
+      last &&
+      !/assistant/i.test(last.role) &&
+      last.content === chatDto.message
+    ) {
       history.pop();
     }
 
@@ -124,12 +128,26 @@ export class ChatController {
     // model connection open, outlived the request indefinitely.
     let clientGone = false;
     let stopped = false;
+    // `close` fires on a normal end too — `res.end()` closes the connection —
+    // so without knowing the turn already finished, the rescue save below ran
+    // on every turn and every reply was stored twice: once here, once by the
+    // client that received it.
+    let finished = false;
 
     // What the model has said so far. The browser is what normally persists a
     // reply, at the end of the stream — so a turn the user walked away from
     // left the chat showing a question with no answer, next to files the agent
     // had already changed. Whatever the client never received, this saves.
     let reply = '';
+
+    // The same shape the client saves, so a turn the user walked away from
+    // reloads with its working notes intact rather than as one flat blob.
+    const steps: TurnStep[] = [];
+    const addText = (text: string) => {
+      const last = steps[steps.length - 1];
+      if (last?.kind === 'text') last.text += text;
+      else steps.push({ kind: 'text', text });
+    };
     // `stop` persists resume state and leaves the runtime to be picked up
     // again; on a host sandbox that means the bridge process survives, which
     // is a leak when nobody is coming back. An abandoned turn is not resumed
@@ -147,9 +165,9 @@ export class ChatController {
     res.on('close', () => {
       clientGone = true;
       void endSession('destroy', true);
-      if (reply.trim()) {
+      if (!finished && reply.trim()) {
         void this.chatService
-          .saveMessage(chatDto.chatId, reply, MessageRole.Assistant)
+          .saveMessage(chatDto.chatId, reply, MessageRole.Assistant, steps)
           .catch((error) =>
             this.logger.warn(
               `[${chatDto.chatId}] could not save the abandoned reply: ${error}`,
@@ -165,12 +183,18 @@ export class ChatController {
         switch (part.type) {
           case 'text-delta':
             reply += part.text;
+            addText(part.text);
             send({ t: 'text', v: part.text });
             break;
           case 'tool-call':
             this.logger.debug(`[${chatDto.chatId}] tool ${part.toolName}`);
             // `file-change` parts are adapter-level and never reach the agent
             // stream, so the target comes from the call's own arguments.
+            steps.push({
+              kind: 'tool',
+              tool: part.toolName,
+              file: targetOf(part.input),
+            });
             send({
               t: 'tool',
               v: part.toolName,
@@ -187,6 +211,9 @@ export class ChatController {
       this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
       if (!res.writableEnded) send({ t: 'error', v: explain(error) });
     } finally {
+      // Set before `end()`: the close handler must be able to tell a finished
+      // turn from an abandoned one, and it runs after this.
+      finished = true;
       res.end();
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
@@ -231,9 +258,7 @@ export class ChatController {
     } catch (error) {
       this.logger.error(`[${chatDto.chatId}] ${error?.message ?? error}`);
       if (!res.writableEnded) {
-        res.write(
-          `${JSON.stringify({ t: 'error', v: explain(error) })}\n`,
-        );
+        res.write(`${JSON.stringify({ t: 'error', v: explain(error) })}\n`);
       }
     } finally {
       res.end();

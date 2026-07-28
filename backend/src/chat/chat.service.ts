@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Chat } from './chat.model';
-import { MessageRole } from 'src/chat/message.model';
+import { MessageRole, TurnStep } from 'src/chat/message.model';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from 'src/user/user.model';
@@ -166,7 +166,12 @@ export class ChatService {
     return null;
   }
 
-  async saveMessage(chatId: string, messageContent: string, role: MessageRole) {
+  async saveMessage(
+    chatId: string,
+    messageContent: string,
+    role: MessageRole,
+    steps?: TurnStep[],
+  ) {
     const chat = await this.chatRepository.findOne({ where: { id: chatId } });
     if (!chat) {
       return null;
@@ -181,6 +186,7 @@ export class ChatService {
       id: `${chat.id}/${chat.messages.length}`,
       content: messageContent,
       role: role,
+      ...(steps?.length ? { steps } : {}),
       createdAt: new Date(),
       updatedAt: new Date(),
       isActive: true,

@@ -185,6 +185,9 @@ export const useChatStream = ({
             message: answer,
             model: selectedModel,
             role: 'assistant',
+            // Kept with the message so reloading a chat can fold the work
+            // back open instead of showing the answer with no history.
+            steps,
           } as ChatInputType,
         },
       });

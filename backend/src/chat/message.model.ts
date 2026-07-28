@@ -1,4 +1,10 @@
-import { Field, ObjectType, ID, registerEnumType } from '@nestjs/graphql';
+import {
+  Field,
+  ID,
+  InputType,
+  ObjectType,
+  registerEnumType,
+} from '@nestjs/graphql';
 
 /**
  * Represents the different roles in a chat conversation
@@ -28,6 +34,31 @@ registerEnumType(MessageRole, {
   name: 'Role',
 });
 
+/**
+ * One thing the agent did on the way to an answer.
+ *
+ * Stored alongside the message so a reloaded chat can still fold open the
+ * work — a turn is narration, a tool call, more narration, and only the last
+ * words are the answer. Flat and all-optional rather than a union: GraphQL
+ * inputs cannot express one, and the shape is small enough not to need it.
+ */
+@ObjectType('TurnStepType')
+@InputType('TurnStepInput')
+export class TurnStep {
+  /** `text` or `tool`. */
+  @Field()
+  kind: string;
+
+  @Field({ nullable: true })
+  text?: string;
+
+  @Field({ nullable: true })
+  tool?: string;
+
+  @Field({ nullable: true })
+  file?: string;
+}
+
 @ObjectType()
 export class Message {
   @Field(() => ID)
@@ -53,4 +84,8 @@ export class Message {
 
   @Field({ nullable: true })
   modelId?: string;
+
+  /** Absent on user messages and on anything saved before this existed. */
+  @Field(() => [TurnStep], { nullable: true })
+  steps?: TurnStep[];
 }
