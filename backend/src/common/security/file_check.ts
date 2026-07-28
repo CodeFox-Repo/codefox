@@ -12,6 +12,34 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
 /**
+ * What the bytes themselves say the file is.
+ *
+ * Both the MIME type and the filename come from the client, so checking only
+ * those accepted anything at all as long as it was *called* a PNG — a shell
+ * script renamed `evil.png` was stored and then served from this origin.
+ * Returns undefined when the header matches no image this service accepts.
+ */
+function sniff(buffer: Buffer): string | undefined {
+  if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return 'image/png';
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+  return undefined;
+}
+
+/**
  * Validates a file upload (size, type) and returns a Buffer.
  * @param file - FileUpload object from GraphQL
  * @returns Promise<Buffer> - The file data in buffer format
@@ -53,5 +81,17 @@ export async function validateAndBufferFile(
     chunks.push(chunk);
   }
 
-  return { buffer: Buffer.concat(chunks), mimetype };
+  const buffer = Buffer.concat(chunks);
+
+  // The decisive check, and the only one the client cannot lie about. The
+  // sniffed type is also what gets returned, so the stored file's extension
+  // describes what is actually in it.
+  const actual = sniff(buffer);
+  if (!actual) {
+    throw new BadRequestException(
+      'That file is not a JPEG, PNG, or WebP image.',
+    );
+  }
+
+  return { buffer, mimetype: actual };
 }

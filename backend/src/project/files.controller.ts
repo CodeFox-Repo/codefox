@@ -180,6 +180,9 @@ export class FilesController {
       }[path.extname(full).toLowerCase()] ?? 'application/octet-stream';
 
     res.setHeader('Content-Type', type);
+    // Uploads are user-supplied bytes served from this origin. Without this a
+    // browser may sniff past the declared type and run whatever is inside.
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.send(file);
   }
