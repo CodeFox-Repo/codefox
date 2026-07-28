@@ -130,7 +130,15 @@ const tokenRefreshLink = onError(
           operationName === 'RefreshToken' ||
           (path && path.includes('refreshToken'));
 
-        if (isAuthError && !isRefreshTokenOperation) {
+        // No session, nothing to refresh: an anonymous request that gets an
+        // auth error is a query that simply requires sign-in. Refreshing (and
+        // the redirect below) turned that into an infinite reload of the
+        // landing page.
+        const hadSession =
+          typeof window !== 'undefined' &&
+          Boolean(localStorage.getItem(LocalStore.refreshToken));
+
+        if (isAuthError && !isRefreshTokenOperation && hadSession) {
           logger.info('Auth error detected, attempting token refresh');
 
           // Return a new observable to handle the token refresh
@@ -145,8 +153,12 @@ const tokenRefreshLink = onError(
                   localStorage.removeItem(LocalStore.accessToken);
                   localStorage.removeItem(LocalStore.refreshToken);
 
-                  // Redirect to home/login page when running in browser
-                  if (typeof window !== 'undefined') {
+                  // Redirect to home/login page when running in browser —
+                  // unless we are already there, where reloading would loop.
+                  if (
+                    typeof window !== 'undefined' &&
+                    window.location.pathname !== '/'
+                  ) {
                     logger.warn(
                       'Token refresh failed, redirecting to home page'
                     );

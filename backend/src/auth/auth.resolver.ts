@@ -34,6 +34,7 @@ export class AuthResolver {
 
   /** Lets the UI hide sign-up rather than offer a button that must fail. */
   @Query(() => Boolean)
+  @Public()
   registrationOpen(): boolean {
     return this.authService.isRegistrationOpen;
   }
