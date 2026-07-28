@@ -17,8 +17,9 @@ import {
   TextureCardContent,
   TextureSeparator,
 } from '@/components/ui/texture-card';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import {
+  EMAIL_VERIFICATION_REQUIRED,
   REGISTER_USER,
   RESEND_CONFIRMATION_EMAIL_MUTATION,
 } from '@/graphql/mutations/auth';
@@ -37,6 +38,12 @@ export function SignUpModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  // When the deployment sends no verification mail, saying one was sent is a
+  // lie that strands the user at their inbox. Default to the strict copy
+  // until the backend answers.
+  const { data: verificationData } = useQuery(EMAIL_VERIFICATION_REQUIRED);
+  const needsVerification =
+    verificationData?.emailVerificationRequired ?? true;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -200,27 +207,42 @@ export function SignUpModal({
               <>
                 <TextureCardHeader className="flex flex-col gap-1 items-center justify-center p-4">
                   <CheckCircle className="h-12 w-12 text-green-500 mb-2" />
-                  <TextureCardTitle>Verification Email Sent</TextureCardTitle>
+                  <TextureCardTitle>
+                    {needsVerification
+                      ? 'Verification Email Sent'
+                      : 'Account created'}
+                  </TextureCardTitle>
                   <p className="text-center text-muted-foreground">
-                    Please check your email to complete registration. We have
-                    sent a verification link to{' '}
-                    <span className="font-medium">{email}</span>.
+                    {needsVerification ? (
+                      <>
+                        Please check your email to complete registration. We
+                        have sent a verification link to{' '}
+                        <span className="font-medium">{email}</span>.
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-medium">{email}</span> is ready —
+                        you can sign in now.
+                      </>
+                    )}
                   </p>
                 </TextureCardHeader>
                 <TextureSeparator />
                 <TextureCardContent className="space-y-4">
-                  <div className="flex flex-col gap-2 p-4 rounded-lg bg-secondary border border-border">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-5 w-5 text-primary" />
-                      <span className="font-medium text-foreground">
-                        Email Verification Required
-                      </span>
+                  {needsVerification && (
+                    <div className="flex flex-col gap-2 p-4 rounded-lg bg-secondary border border-border">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-primary" />
+                        <span className="font-medium text-foreground">
+                          Email Verification Required
+                        </span>
+                      </div>
+                      <p className="text-sm text-blue-600 dark:text-blue-400">
+                        To complete your registration, please click the
+                        verification link sent to your email address.
+                      </p>
                     </div>
-                    <p className="text-sm text-blue-600 dark:text-blue-400">
-                      To complete your registration, please click the
-                      verification link sent to your email address.
-                    </p>
-                  </div>
+                  )}
 
                   {resendMessage && (
                     <div
@@ -243,23 +265,25 @@ export function SignUpModal({
                     <Button onClick={onClose} className="w-full">
                       Got it
                     </Button>
-                    <Button
-                      onClick={handleResendConfirmation}
-                      variant="outline"
-                      className="w-full"
-                      disabled={resendCooldown > 0 || resendLoading}
-                    >
-                      {resendLoading ? (
-                        'Sending...'
-                      ) : resendCooldown > 0 ? (
-                        <span className="flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          Resend available in {resendCooldown}s
-                        </span>
-                      ) : (
-                        'Resend verification email'
-                      )}
-                    </Button>
+                    {needsVerification && (
+                      <Button
+                        onClick={handleResendConfirmation}
+                        variant="outline"
+                        className="w-full"
+                        disabled={resendCooldown > 0 || resendLoading}
+                      >
+                        {resendLoading ? (
+                          'Sending...'
+                        ) : resendCooldown > 0 ? (
+                          <span className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Resend available in {resendCooldown}s
+                          </span>
+                        ) : (
+                          'Resend verification email'
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </TextureCardContent>
               </>

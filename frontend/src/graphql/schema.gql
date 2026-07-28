@@ -217,6 +217,7 @@ type Query {
   adminProjects: [AdminProject!]!
   adminUsers: [AdminUser!]!
   checkToken(input: CheckTokenInput!): Boolean!
+  emailVerificationRequired: Boolean!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
   getAvailableModelTags: [String!]
   getChatDetails(chatId: String!): Chat

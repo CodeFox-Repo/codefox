@@ -39,6 +39,17 @@ export class AuthResolver {
     return this.authService.isRegistrationOpen;
   }
 
+  /**
+   * Whether a new account must confirm its email before signing in. With mail
+   * disabled the backend lets unverified accounts straight in — the sign-up
+   * modal used to promise a verification email that was never sent.
+   */
+  @Query(() => Boolean)
+  @Public()
+  emailVerificationRequired(): boolean {
+    return process.env.MAIL_ENABLED?.toLowerCase() === 'true';
+  }
+
   @Query(() => Boolean)
   @Public()
   async checkToken(@Args('input') params: CheckTokenInput): Promise<boolean> {

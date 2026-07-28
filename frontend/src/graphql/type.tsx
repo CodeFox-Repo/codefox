@@ -365,6 +365,7 @@ export type Query = {
   adminProjects: Array<AdminProject>;
   adminUsers: Array<AdminUser>;
   checkToken: Scalars['Boolean']['output'];
+  emailVerificationRequired: Scalars['Boolean']['output'];
   fetchPublicProjects: Array<Project>;
   getAvailableModelTags?: Maybe<Array<Scalars['String']['output']>>;
   getChatDetails?: Maybe<Chat>;
@@ -1114,6 +1115,11 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryCheckTokenArgs, 'input'>
+  >;
+  emailVerificationRequired?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType
   >;
   fetchPublicProjects?: Resolver<
     Array<ResolversTypes['Project']>,

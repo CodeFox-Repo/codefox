@@ -45,3 +45,9 @@ export const RESEND_CONFIRMATION_EMAIL_MUTATION = gql`
     }
   }
 `;
+
+export const EMAIL_VERIFICATION_REQUIRED = gql`
+  query EmailVerificationRequired {
+    emailVerificationRequired
+  }
+`;
