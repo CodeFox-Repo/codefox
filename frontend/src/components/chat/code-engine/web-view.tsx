@@ -22,6 +22,17 @@ import { authenticatedFetch } from '@/lib/authenticatedFetch';
 function HtmlPreview({ project }: { project: any }) {
   const [html, setHtml] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const { takeProjectScreenshot } = useContext(ProjectContext);
+  // Covers come from the preview, and this preview never touches the
+  // dev-server path that captures them — fire the capture once the page
+  // exists. Once per mount: the next visit refreshes an outdated cover.
+  const coverRequested = useRef(false);
+
+  useEffect(() => {
+    if (!html || coverRequested.current || !project?.id) return;
+    coverRequested.current = true;
+    takeProjectScreenshot(project.id, '', project.projectPath)?.catch(() => {});
+  }, [html, project?.id, project?.projectPath, takeProjectScreenshot]);
 
   const load = async () => {
     try {

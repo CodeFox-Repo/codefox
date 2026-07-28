@@ -12,7 +12,9 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Request, Response } from 'express';
+import * as path from 'node:path';
 import puppeteer, { Browser } from 'puppeteer';
+import { getProjectsDir } from '../common/utils/common-path';
 import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
 import { WorkspaceService } from './workspace.service';
 import { Project } from './project.model';
@@ -69,7 +71,16 @@ export class ScreenshotController {
     });
 
     const workspace = await this.workspaces.for(projectPath);
-    const url = await workspace.internalPreviewUrl();
+    let url = await workspace.internalPreviewUrl();
+    if (!url) {
+      // An html project has no server to shoot — its page is a file on this
+      // machine (html projects live on the host in every mode), and the
+      // browser can open a file directly.
+      const project = await this.projects.findOne({ where: { projectPath } });
+      if (project?.template === 'html') {
+        url = `file://${path.join(getProjectsDir(), projectPath, 'index.html')}`;
+      }
+    }
     if (!url) {
       throw new BadRequestException('No preview is running for this project');
     }
