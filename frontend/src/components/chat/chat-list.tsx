@@ -128,7 +128,7 @@ export default function ChatList({
 
   return (
     <div className="w-full overflow-y-auto overflow-x-hidden h-full px-4 py-6">
-      <div className="w-full flex flex-col gap-3 min-h-full pb-4 max-w-3xl mx-auto">
+      <div className="w-full flex flex-col gap-5 min-h-full pb-4 max-w-3xl mx-auto">
         <AnimatePresence initial={false}>
           {visible.map((message, index) => {
             const isUser = isUserMessage(message.role);
@@ -160,45 +160,46 @@ export default function ChatList({
                   opacity: { duration: 0.15 },
                   y: { duration: 0.15 },
                 }}
-                className="group/msg flex items-start gap-3"
+                // Sender above, message below: in a narrow rail an avatar
+                // beside the text steals a fifth of every line.
+                className="group/msg flex flex-col gap-1.5"
               >
-                <div className="flex-shrink-0 mt-1">
+                <div className="flex items-center gap-2">
                   <Avatar
                     className={cn(
-                      'h-6 w-6',
+                      'h-5 w-5',
                       isUser ? 'bg-primary/10' : 'bg-secondary/10'
                     )}
                   >
                     {isUser ? (
                       <>
                         <AvatarImage src="/" alt="user" />
-                        <AvatarFallback className="text-primary-foreground text-xs">
+                        <AvatarFallback className="text-primary-foreground text-[10px]">
                           {user.username?.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </>
                     ) : (
                       <>
-                        <FoxMark className="h-full w-full p-1" />
+                        <FoxMark className="h-full w-full p-0.5" />
                         <AvatarFallback className="text-secondary-foreground">
                           AI
                         </AvatarFallback>
                       </>
                     )}
                   </Avatar>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    {isUser ? user.username || 'You' : 'CodeFox'}
+                  </span>
                 </div>
 
-                {/* The edit-message UI that lived here was a stage prop: it
-                    rewrote the local array, persisted nothing, and the agent
-                    never saw the change. Gone until editing can mean
-                    something (re-run from the edited turn). */}
-                <div className="flex-grow flex flex-col gap-2">
+                <div className="flex w-full flex-col gap-2">
                   <div className="flex flex-col gap-2">
                     <div
                       className={cn(
                         'rounded-lg break-words',
                         !isUser
                           ? 'bg-card px-4 py-3 text-card-foreground'
-                          : 'px-4 py-1 text-foreground'
+                          : 'px-1 py-0.5 text-foreground'
                       )}
                     >
                       {isUser || !message.steps ? (
@@ -266,15 +267,18 @@ export default function ChatList({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex gap-3 items-start"
+            className="flex flex-col gap-1.5"
           >
-            <div className="flex-shrink-0 mt-1">
-              <Avatar className="h-6 w-6 bg-secondary/10">
-                <FoxMark className="h-full w-full p-1" />
+            <div className="flex items-center gap-2">
+              <Avatar className="h-5 w-5 bg-secondary/10">
+                <FoxMark className="h-full w-full p-0.5" />
                 <AvatarFallback>AI</AvatarFallback>
               </Avatar>
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                CodeFox
+              </span>
             </div>
-            <div className="flex-grow">
+            <div className="w-full">
               <div className="px-4 py-2 flex flex-col">
                 <div className="flex items-center mt-2">
                   <div className="flex gap-1.5">
