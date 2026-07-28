@@ -106,6 +106,7 @@ input CreateProjectInput {
   model: String
   projectName: String
   public: Boolean
+  template: String
 }
 
 """Date custom scalar type"""
@@ -206,6 +207,7 @@ type Project {
 
   """Projects that are copies of this project"""
   subscribers: [Project!]
+  template: String
   uniqueProjectId: String!
   updatedAt: Date!
   user: User!
