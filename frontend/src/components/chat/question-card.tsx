@@ -19,6 +19,17 @@ export interface AgentQuestionBlock {
 }
 
 const FENCE = /```codefox-questions\s*\n([\s\S]*?)```/;
+const PARTIAL_FENCE = /```codefox-questions[\s\S]*$/;
+
+/**
+ * While the block is still streaming in, the half-arrived JSON would render
+ * as a raw code block for a few seconds. Hide the tail until it closes; the
+ * caret already says more is coming.
+ */
+export function stripPartialQuestionFence(content: string): string {
+  if (FENCE.test(content)) return content;
+  return content.replace(PARTIAL_FENCE, '');
+}
 
 /**
  * Pull the question block out of an assistant message, if a complete and

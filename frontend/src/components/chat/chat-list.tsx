@@ -10,7 +10,11 @@ import { code } from '@streamdown/code';
 import { cjk } from '@streamdown/cjk';
 import { Message } from '../../const/MessageType';
 import { TurnTrail } from './turn-trail';
-import { extractQuestions, QuestionCard } from './question-card';
+import {
+  extractQuestions,
+  QuestionCard,
+  stripPartialQuestionFence,
+} from './question-card';
 import { Button } from '../ui/button';
 import { Copy, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -142,14 +146,20 @@ export default function ChatList({
               index === visible.length - 1 &&
               !loadingSubmit &&
               Boolean(onAnswerQuestions);
-            const trailSteps =
-              questionBlock && message.steps
-                ? message.steps.map((step) =>
-                    step.kind === 'text'
-                      ? { ...step, text: extractQuestions(step.text).rest }
-                      : step
-                  )
-                : message.steps;
+            const trailSteps = message.steps
+              ? message.steps.map((step) =>
+                  step.kind === 'text'
+                    ? {
+                        ...step,
+                        text: isStreaming(index)
+                          ? stripPartialQuestionFence(
+                              extractQuestions(step.text).rest
+                            )
+                          : extractQuestions(step.text).rest,
+                      }
+                    : step
+                )
+              : message.steps;
             return (
               <motion.div
                 key={`${message.id}-${index}`}
@@ -205,7 +215,11 @@ export default function ChatList({
                       {isUser || !message.steps ? (
                         <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-2 prose-ul:my-2 prose-li:my-1 prose-headings:mb-2 prose-headings:mt-4 prose-pre:my-3">
                           {renderMessageContent(
-                            isUser ? message.content : proseContent,
+                            isUser
+                              ? message.content
+                              : isStreaming(index)
+                                ? stripPartialQuestionFence(proseContent)
+                                : proseContent,
                             !isUser && isStreaming(index)
                           )}
                         </div>

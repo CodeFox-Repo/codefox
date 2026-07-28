@@ -19,6 +19,8 @@ import { useChatList } from '@/hooks/useChatList';
 import { useChatStream } from '@/hooks/useChatStream';
 import { CodeEngine } from './code-engine/code-engine';
 import { useProjectStatusMonitor } from '@/hooks/useProjectStatusMonitor';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { cn } from '@/lib/utils';
 import { extractQuestions } from '@/components/chat/question-card';
 import { useAuthContext } from '@/providers/AuthProvider';
 
@@ -39,6 +41,10 @@ export default function Chat() {
     if (!selectedModel && models.length > 0) setSelectedModel(models[0]);
   }, [models, selectedModel]);
   const { refetchChats } = useChatList();
+  // A 18/82 horizontal split has no meaning on a phone: one pane at a time,
+  // with a slim switcher on top.
+  const isMobile = useIsMobile();
+  const [mobilePane, setMobilePane] = useState<'chat' | 'preview'>('chat');
 
   // Project status monitoring for the current chat
   const { isReady, projectId, chatModel, error } =
@@ -221,6 +227,65 @@ export default function Chat() {
   }, [updateChatId]);
 
   // Render the main layout
+  if (chatId && isMobile) {
+    return (
+      <div className="flex h-full w-full flex-col" key="with-chat-mobile">
+        <div className="flex shrink-0 items-center justify-center gap-1 border-b border-border px-2 py-1.5">
+          {(['chat', 'preview'] as const).map((pane) => (
+            <button
+              key={pane}
+              type="button"
+              onClick={() => setMobilePane(pane)}
+              className={cn(
+                'rounded-md px-4 py-1 font-mono text-xs uppercase tracking-[0.08em] transition-colors',
+                mobilePane === pane
+                  ? 'bg-secondary text-foreground'
+                  : 'text-muted-foreground'
+              )}
+            >
+              {pane === 'chat' ? 'Chat' : 'App'}
+            </button>
+          ))}
+        </div>
+        <div
+          className={cn('min-h-0 flex-1', mobilePane !== 'chat' && 'hidden')}
+        >
+          <ChatContent
+            chatId={chatId}
+            models={models}
+            selectedModel={selectedModel}
+            onModelChange={changeModel}
+            onRegenerate={regenerate}
+            onAnswerQuestions={sendMessage}
+            inputHidden={questionsPending}
+            messages={messages}
+            input={input}
+            handleInputChange={handleInputChange}
+            handleSubmit={handleSubmit}
+            loadingSubmit={loadingSubmit || waitingForFirstTurn}
+            activity={activity}
+            stop={stop}
+            formRef={formRef}
+            setInput={setInput}
+            setMessages={setMessages}
+          />
+        </div>
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-auto',
+            mobilePane !== 'preview' && 'hidden'
+          )}
+        >
+          <CodeEngine
+            chatId={chatId}
+            isProjectReady={isReady}
+            projectId={projectId}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return chatId ? (
     <ResizablePanelGroup
       direction="horizontal"
