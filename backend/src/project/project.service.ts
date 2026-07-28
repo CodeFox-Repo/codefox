@@ -33,7 +33,11 @@ import {
 import { UserService } from 'src/user/user.service';
 import { PreviewService } from './preview.service';
 import { WorkspaceService } from './workspace.service';
-import { sandboxMode } from 'src/chat/sandbox-provider';
+import {
+  SANDBOX_ROOT,
+  sandboxHandle,
+  sandboxMode,
+} from 'src/chat/sandbox-provider';
 
 @Injectable()
 export class ProjectService {
@@ -363,6 +367,45 @@ export class ProjectService {
    * @param projectId The project ID to fork
    * @returns The chat associated with the newly created project
    */
+  /**
+   * Sandbox-to-sandbox copy for forks: zip the source workspace (the same
+   * machinery the download button uses), then unpack it into the fork's own
+   * fresh sandbox. The template files the new sandbox cloned are simply
+   * overwritten — both sides come from the same starter.
+   */
+  private async copySandboxProject(
+    sourcePath: string,
+    newProjectId: string,
+  ): Promise<string> {
+    const source = await this.workspaces.for(sourcePath);
+    const { zipPath } = await source.archive(`fork-${newProjectId}`);
+
+    try {
+      const sandbox = await sandboxHandle(newProjectId);
+      const remoteZip = '/tmp/codefox-fork.zip';
+      await sandbox.writeFiles([
+        { path: remoteZip, content: new Uint8Array(fs.readFileSync(zipPath)) },
+      ]);
+      const unpack = await sandbox.runCommand({
+        cmd: 'python3',
+        args: ['-m', 'zipfile', '-e', remoteZip, SANDBOX_ROOT],
+        timeoutMs: 5 * 60 * 1000,
+      });
+      if (unpack.exitCode !== 0) {
+        throw new Error(
+          `Unpacking the fork failed: ${(await unpack.stderr()).slice(-300)}`,
+        );
+      }
+      return newProjectId;
+    } finally {
+      fs.promises
+        .unlink(zipPath)
+        .catch((error) =>
+          this.logger.warn(`Could not remove ${zipPath}: ${error}`),
+        );
+    }
+  }
+
   async forkProject(userId: string, projectId: string): Promise<Chat> {
     try {
       this.logger.debug(`User ${userId} forking project ${projectId}`);
@@ -403,10 +446,17 @@ export class ProjectService {
       // Give the fork its own copy of the files. Sharing the source path let
       // one owner's edits land in the other's project.
       try {
-        savedProject.projectPath = await copyProject(
-          sourceProject.projectPath,
-          savedProject.id,
-        );
+        // The host copy reads this machine's disk — in sandbox mode the
+        // source lives in a microVM, the host directory is empty, and the
+        // "no files" fallback silently handed every fork a fresh template
+        // instead of the project being forked.
+        savedProject.projectPath =
+          sandboxMode() === 'host'
+            ? await copyProject(sourceProject.projectPath, savedProject.id)
+            : await this.copySandboxProject(
+                sourceProject.projectPath,
+                savedProject.id,
+              );
         await this.projectsRepository.save(savedProject);
       } catch (error) {
         this.logger.error(
