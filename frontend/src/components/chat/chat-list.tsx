@@ -175,12 +175,7 @@ export default function ChatList({
                 className="group/msg flex flex-col gap-1.5"
               >
                 <div className="flex items-center gap-2">
-                  <Avatar
-                    className={cn(
-                      'h-5 w-5',
-                      isUser ? 'bg-primary/10' : 'bg-secondary/10'
-                    )}
-                  >
+                  <Avatar className={cn('h-5 w-5', isUser && 'bg-primary/10')}>
                     {isUser ? (
                       <>
                         <AvatarImage src="/" alt="user" />
@@ -189,12 +184,7 @@ export default function ChatList({
                         </AvatarFallback>
                       </>
                     ) : (
-                      <>
-                        <FoxMark className="h-full w-full p-0.5" />
-                        <AvatarFallback className="text-secondary-foreground">
-                          AI
-                        </AvatarFallback>
-                      </>
+                      <AvatarImage src="/convera-logo.png" alt="CodeFox" />
                     )}
                   </Avatar>
                   <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -284,9 +274,8 @@ export default function ChatList({
             className="flex flex-col gap-1.5"
           >
             <div className="flex items-center gap-2">
-              <Avatar className="h-5 w-5 bg-secondary/10">
-                <FoxMark className="h-full w-full p-0.5" />
-                <AvatarFallback>AI</AvatarFallback>
+              <Avatar className="h-5 w-5">
+                <AvatarImage src="/convera-logo.png" alt="CodeFox" />
               </Avatar>
               <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                 CodeFox
