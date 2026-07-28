@@ -197,6 +197,9 @@ importers:
       pg:
         specifier: ^8.14.1
         version: 8.14.1
+      puppeteer:
+        specifier: ^24.4.0
+        version: 24.4.0(typescript@5.6.3)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -412,9 +415,6 @@ importers:
       pino-pretty:
         specifier: ^13.0.0
         version: 13.0.0
-      puppeteer:
-        specifier: ^24.3.1
-        version: 24.4.0(typescript@5.6.3)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -13379,7 +13379,7 @@ snapshots:
       extract-zip: 2.0.1
       progress: 2.0.3
       proxy-agent: 6.5.0
-      semver: 7.7.1
+      semver: 7.7.3
       tar-fs: 3.0.8
       yargs: 17.7.2
     transitivePeerDependencies:

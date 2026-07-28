@@ -35,14 +35,28 @@ export const GetUserIdFromToken = createParamDecorator(
     }
 
     const token = authHeader.split(' ')[1];
-    const jwtService = new JwtService({});
-    const decodedToken: any = jwtService.decode(token);
 
-    if (!decodedToken || !decodedToken.userId) {
-      Logger.debug('invalid token, token:' + token);
-      throw new UnauthorizedException('Invalid token, token:', token);
+    // Verified, not merely decoded. `decode` reads the payload without ever
+    // looking at the signature, so a handler that only used this decorator
+    // — `me`, `uploadAvatar`, the project download — accepted any hand-written
+    // token naming someone else's id and answered as that user.
+    //
+    // A param decorator has no injector, so the secret comes from the
+    // environment; it is the same value AppConfigService hands JwtModule.
+    let payload: any;
+    try {
+      payload = new JwtService({}).verify(token, {
+        secret: process.env.JWT_SECRET,
+      });
+    } catch (error) {
+      Logger.warn(`Rejected token: ${(error as Error).message}`);
+      throw new UnauthorizedException('Invalid or expired token');
     }
 
-    return decodedToken.userId;
+    if (!payload?.userId) {
+      throw new UnauthorizedException('Token carries no user');
+    }
+
+    return payload.userId;
   },
 );

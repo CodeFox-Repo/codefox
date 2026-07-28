@@ -2,19 +2,26 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import {
   BadRequestException,
-  Body,
   Controller,
+  ForbiddenException,
   Get,
   InternalServerErrorException,
   Logger,
   NotFoundException,
   Post,
+  Body,
   Query,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import type { Request, Response } from 'express';
+import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
 import { getMediaDir, getProjectsDir } from '../common/utils/common-path';
+import { Project } from './project.model';
+import { assertProjectAccess } from './project-access';
 
 /**
  * Reads and writes the files of a generated project.
@@ -85,6 +92,11 @@ const compare = (
 export class FilesController {
   private readonly logger = new Logger('FilesController');
 
+  constructor(
+    @InjectRepository(Project)
+    private readonly projects: Repository<Project>,
+  ) {}
+
   /**
    * Resolve a caller-supplied path under the projects directory.
    *
@@ -122,8 +134,10 @@ export class FilesController {
   }
 
   @Get('project')
-  async tree(@Query('path') projectId?: string) {
+  @UseGuards(JWTAuthGuard)
+  async tree(@Req() req: Request, @Query('path') projectId?: string) {
     if (!projectId) throw new BadRequestException('Missing path');
+    await assertProjectAccess({ projects: this.projects, req, projectPath: projectId, write: false });
 
     const paths = await this.walk(this.resolve(projectId));
     if (paths.length === 0) return { res: emptyTree() };
@@ -220,8 +234,10 @@ export class FilesController {
   }
 
   @Get('file')
-  async read(@Query('path') filePath?: string) {
+  @UseGuards(JWTAuthGuard)
+  async read(@Req() req: Request, @Query('path') filePath?: string) {
     if (!filePath) throw new BadRequestException("Missing 'path'");
+    await assertProjectAccess({ projects: this.projects, req, projectPath: filePath, write: false });
     try {
       const content = await fs.readFile(this.resolve(filePath), 'utf-8');
       return { filePath, content };
@@ -232,12 +248,17 @@ export class FilesController {
   }
 
   @Post('file')
-  async write(@Body() body: { filePath?: string; newContent?: string }) {
+  @UseGuards(JWTAuthGuard)
+  async write(
+    @Req() req: Request,
+    @Body() body: { filePath?: string; newContent?: string },
+  ) {
     const { filePath, newContent } = body ?? {};
     // An empty string is a legitimate file body, so only absence is an error.
     if (!filePath || newContent == null) {
       throw new BadRequestException("Missing 'filePath' or 'newContent'");
     }
+    await assertProjectAccess({ projects: this.projects, req, projectPath: filePath, write: true });
 
     const full = this.resolve(filePath);
     try {

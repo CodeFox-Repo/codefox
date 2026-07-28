@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Project } from './project.model';
 import {
   CreateProjectInput,
@@ -27,6 +27,7 @@ import archiver from 'archiver';
 import {
   getMediaDir,
   getProjectPath,
+  getProjectsDir,
   getTempDir,
 } from '../common/utils/common-path';
 // import { GitHubService } from 'src/github/github.service';
@@ -236,7 +237,33 @@ export class ProjectService {
       project.isDeleted = true;
       await this.projectsRepository.save(project);
 
-      // Note: Related chats will be automatically handled by the CASCADE setting
+      // The row is only marked, but the files are gigabytes and nothing else
+      // will ever come back for them — a scaffolded project is ~1GB with its
+      // dependency tree, so leaving them turns every delete into a permanent
+      // leak on the volume. Best effort: a failure here must not fail the
+      // delete the user asked for.
+      if (project.projectPath) {
+        const dir = path.join(getProjectsDir(), project.projectPath);
+        await fs.promises
+          .rm(dir, { recursive: true, force: true })
+          .catch((error) =>
+            this.logger.warn(`Could not remove ${dir}: ${error}`),
+          );
+      }
+
+      // Nothing cascades here: the relation declares no cascade, and a soft
+      // delete never fires a database one anyway. Left alone the chats keep
+      // showing in the sidebar, each opening onto a project whose files this
+      // method just removed.
+      // Going through the relation returns nothing here — it is lazy, and the
+      // save above has already left it unpopulated — so ask for the rows by
+      // their foreign key instead.
+      await this.chatRepository
+        .createQueryBuilder()
+        .update(Chat)
+        .set({ isActive: false, isDeleted: true })
+        .where('projectId = :projectId', { projectId })
+        .execute();
 
       return true;
     } catch {
@@ -446,10 +473,13 @@ export class ProjectService {
   ): Promise<Project[]> {
     const limit = input.size > 50 ? 50 : input.size;
 
+    // No cover requirement. Covers are screenshots taken from a running
+    // preview, so any project whose screenshot did not land — and none did
+    // while the browser was missing — was published into an empty gallery
+    // with nothing to say why. The card already renders coverless.
     const whereCondition = {
       isPublic: true,
       isDeleted: false,
-      photoUrl: Not(IsNull()),
     };
 
     if (input.strategy === 'latest') {

@@ -5,10 +5,18 @@ import {
   InternalServerErrorException,
   Logger,
   Query,
+  Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import type { Request, Response } from 'express';
 import puppeteer, { Browser } from 'puppeteer';
+import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PreviewService } from './preview.service';
+import { Project } from './project.model';
+import { assertProjectAccess } from './project-access';
 
 /**
  * Screenshots a running preview, which is what gives a project its cover.
@@ -18,9 +26,16 @@ import puppeteer, { Browser } from 'puppeteer';
  * a browser launched anywhere else cannot reach it.
  */
 @Controller('api')
+@UseGuards(JWTAuthGuard)
 export class ScreenshotController {
   private readonly logger = new Logger('ScreenshotController');
   private browser: Browser | null = null;
+
+  constructor(
+    private readonly previews: PreviewService,
+    @InjectRepository(Project)
+    private readonly projects: Repository<Project>,
+  ) {}
 
   /** One browser for the process; launching per request costs seconds. */
   private async getBrowser(): Promise<Browser> {
@@ -36,8 +51,28 @@ export class ScreenshotController {
   }
 
   @Get('screenshot')
-  async screenshot(@Query('url') url: string, @Res() res: Response) {
-    if (!url) throw new BadRequestException('url is required');
+  async screenshot(
+    @Req() req: Request,
+    @Query('projectPath') projectPath: string,
+    @Res() res: Response,
+  ) {
+    // Only ever the caller's own preview. This used to take any `url` and
+    // fetch it from inside the container, which made it a working proxy into
+    // anything the box could reach — its own API on loopback included. A
+    // project the caller owns has exactly one legitimate target, so the
+    // address is derived here rather than accepted from the request.
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath,
+      write: true,
+    });
+
+    const port = this.previews.portFor(projectPath);
+    if (!port) {
+      throw new BadRequestException('No preview is running for this project');
+    }
+    const url = `http://127.0.0.1:${port}`;
 
     let page: Awaited<ReturnType<Browser['newPage']>> | null = null;
     try {
@@ -56,7 +91,10 @@ export class ScreenshotController {
       const shot = await page.screenshot({ type: 'png', fullPage: true });
       res.setHeader('Content-Type', 'image/png');
       res.setHeader('Cache-Control', 's-maxage=3600');
-      res.send(shot);
+      // Puppeteer hands back a Uint8Array, which Express does not recognise as
+      // a body it should send verbatim — it JSON-encodes it into an object of
+      // numbered bytes, so the cover arrived as text that no decoder accepts.
+      res.send(Buffer.from(shot));
     } catch (error) {
       this.logger.error(`Screenshot of ${url} failed: ${error}`);
       // A browser that lost its target stays broken for every later request,

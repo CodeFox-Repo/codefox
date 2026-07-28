@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { toast } from 'sonner';
 
+// Failures land back on the landing page, where the sign-in modal is. They
+// used to push /login, which has never been a route in this app — so the one
+// thing a user saw after a failed sign-in was a 404.
 export default function OAuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,7 +24,7 @@ export default function OAuthCallbackPage() {
         if (error) {
           console.error('Authentication error:', error);
           toast.error('Authentication failed');
-          router.push('/login');
+          router.push('/');
           return;
         }
 
@@ -29,7 +32,7 @@ export default function OAuthCallbackPage() {
         if (!accessToken || !refreshToken) {
           console.error('Missing tokens in callback');
           toast.error('Authentication failed: Missing tokens');
-          router.push('/login');
+          router.push('/');
           return;
         }
 
@@ -44,7 +47,7 @@ export default function OAuthCallbackPage() {
       } catch (error) {
         console.error('Error processing authentication:', error);
         toast.error('Authentication processing failed');
-        router.push('/login');
+        router.push('/');
       }
     };
 

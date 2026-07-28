@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 export interface ProjectContextType {
   projects: Project[];
@@ -469,6 +470,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     async (
       projectId: string,
       url: string,
+      // Lets the backend shoot the project's own dev server instead of this
+      // URL, which is the API origin and shows the preview only to a request
+      // holding the preview cookie.
       projectPath?: string
     ): Promise<void> => {
       // Check if this screenshot operation is already in progress
@@ -485,21 +489,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // rejected and the check never passed — which is why no project ever
         // got a cover image. /api/screenshot runs server-side and reports its
         // own failure below.
+        //
+        // The backend derives the address from the project itself; passing a
+        // URL used to let any caller aim it anywhere the container could
+        // reach, so it no longer accepts one.
+        if (!projectPath) throw new Error('No project to screenshot');
 
-        // Send the project as well as the URL. `url` is this origin, which
-        // only resolves to a preview for a request carrying the preview
-        // cookie — and the headless browser doing the capture has none, so on
-        // its own it photographs the API root. Given the project, the backend
-        // looks up the dev server's port and goes straight to loopback. That
-        // lookup has been there for a while; nothing was passing the argument,
-        // which is why no project ever ended up with a usable cover.
-        const screenshotUrl =
-          `/api/screenshot?url=${encodeURIComponent(url)}` +
-          (projectPath
-            ? `&projectPath=${encodeURIComponent(projectPath)}`
-            : '') +
-          `&t=${Date.now()}`;
-        const screenshotResponse = await fetch(screenshotUrl);
+        // Add a cache buster to avoid previous screenshot caching
+        const screenshotUrl = `/api/screenshot?projectPath=${encodeURIComponent(
+          projectPath
+        )}&t=${Date.now()}`;
+        const screenshotResponse = await authenticatedFetch(screenshotUrl);
 
         if (!screenshotResponse.ok) {
           throw new Error(
@@ -551,7 +551,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       try {
         // Backend-owned: it holds the project directories and the process
         // that serves them. /api/preview proxies through to the backend.
-        const response = await fetch(
+        const response = await authenticatedFetch(
           `/api/preview?projectPath=${encodeURIComponent(projectPath)}`,
           {
             method: 'GET',

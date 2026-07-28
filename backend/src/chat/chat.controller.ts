@@ -8,6 +8,7 @@ import { GetAuthToken } from '../common/decorators/get-auth-token.decorator';
 import { streamText } from 'ai';
 import { openrouter, DEFAULT_MODEL } from '../common/constants/ai.constants';
 import { runProjectAgent } from './project-agent';
+import { explain } from './explain-error';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -125,13 +126,13 @@ export class ChatController {
             break;
           case 'error':
             this.logger.error(`[${chatDto.chatId}] ${JSON.stringify(part)}`);
-            send({ t: 'error', v: 'The agent hit an error and stopped.' });
+            send({ t: 'error', v: explain((part as any).error ?? part) });
             break;
         }
       }
     } catch (error) {
       this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
-      if (!res.writableEnded) send({ t: 'error', v: 'The agent turn failed.' });
+      if (!res.writableEnded) send({ t: 'error', v: explain(error) });
     } finally {
       res.end();
       // Frees the bridge and its port. The project directory is the user's,
@@ -146,9 +147,17 @@ export class ChatController {
    * dropped line by line, so a chat with no project answered with silence.
    */
   private async pipePlainCompletion(chatDto: ChatRestDto, res: Response) {
+    // A provider error does not reject `textStream` — the iteration simply
+    // ends — so without this the whole turn came back as an empty 201 and the
+    // user watched a chat that answered nothing and complained about nothing.
+    let failure: unknown;
+
     const result = streamText({
       model: openrouter(chatDto.model || DEFAULT_MODEL),
       prompt: chatDto.message,
+      onError: ({ error }) => {
+        failure = error;
+      },
     });
 
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
@@ -165,11 +174,12 @@ export class ChatController {
         if (clientGone) break;
         res.write(`${JSON.stringify({ t: 'text', v: delta })}\n`);
       }
+      if (failure) throw failure;
     } catch (error) {
-      this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
+      this.logger.error(`[${chatDto.chatId}] ${error?.message ?? error}`);
       if (!res.writableEnded) {
         res.write(
-          `${JSON.stringify({ t: 'error', v: 'The reply failed.' })}\n`,
+          `${JSON.stringify({ t: 'error', v: explain(error) })}\n`,
         );
       }
     } finally {
