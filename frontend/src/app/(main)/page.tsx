@@ -237,21 +237,19 @@ export default function HomePage() {
             One turn, start to finish
           </p>
 
-          <div className="mb-4 flex items-center justify-between gap-4">
+          {/* One phrase, set as one phrase. It used to be pushed apart to the
+              two ends of the row with vertical type between the halves, which
+              at this width put 900px between two words that have to be read
+              together — the gap read as a layout bug, not as emphasis. */}
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
             <h2 className="font-display text-[clamp(2rem,6vw,4.25rem)] font-bold leading-[0.9] tracking-[-0.04em]">
-              Reset
+              Reset Streaks
             </h2>
-            <span className="hidden font-mono text-[10px] uppercase tracking-[0.3em] opacity-50 [writing-mode:vertical-rl] sm:block">
-              captured live
-            </span>
-            <h2 className="font-display text-[clamp(2rem,6vw,4.25rem)] font-bold leading-[0.9] tracking-[-0.04em]">
-              Streaks
-            </h2>
+            <p className="font-mono text-xs opacity-60">
+              the whole prompt: “Add a Reset Streaks button under the weekly
+              summary.”
+            </p>
           </div>
-          <p className="mb-10 font-mono text-xs opacity-60">
-            the whole prompt: “Add a Reset Streaks button under the weekly
-            summary.”
-          </p>
 
           <div className="grid gap-10 lg:grid-cols-2">
             <div>
@@ -313,16 +311,28 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ---------- honest limits ---------- */}
-      <section className="mx-auto w-full max-w-[1180px] px-5 py-20 sm:px-10">
-        <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
-          Read this before you star it
-        </p>
-        <h2 className="max-w-[17ch] font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
-          What it does not do yet.
-        </h2>
+      {/* The showcase sits here rather than below the small print: it is the
+          only place a visitor sees what the thing actually produces, and it is
+          the one section made of pictures in a page that is otherwise text. */}
+      <div className="mx-auto w-full max-w-[1180px] px-5 pt-4 sm:px-10">
+        <PublicProjects limit={6} />
+      </div>
 
-        <div className="mt-9 overflow-hidden rounded-xl border border-border">
+      {/* ---------- honest limits ----------
+          Two columns, because one narrow column of prose in a 1180px shell
+          leaves the right two thirds of the section empty. The heading holds
+          the left rail and sticks while the list scrolls past it. */}
+      <section className="mx-auto grid w-full max-w-[1180px] gap-x-14 gap-y-8 px-5 py-24 sm:px-10 lg:grid-cols-[minmax(0,20rem)_1fr]">
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
+            Read this before you star it
+          </p>
+          <h2 className="text-balance font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
+            What it does not do yet.
+          </h2>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-border">
           {LIMITS.map((l, i) => (
             <details
               key={l.title}
@@ -335,7 +345,7 @@ export default function HomePage() {
                 <span className="text-[1.0625rem] font-bold tracking-[-0.015em] text-foreground">
                   {l.title}
                 </span>
-                <span className="ml-auto rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                <span className="ml-auto shrink-0 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
                   {l.tag}
                 </span>
               </summary>
@@ -347,39 +357,43 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-[1180px] px-5 pb-20 sm:px-10">
-        <PublicProjects limit={6} />
-      </div>
-
       {/* ---------- close ---------- */}
+      {/* Left-aligned like every section above it. Centring only the last one
+          made the page look like it changed its mind at the bottom; the
+          actions move to the right column so the row is balanced instead. */}
       <section className="mx-auto w-full max-w-[1180px] px-5 pb-28 sm:px-10">
-        <div className="border-t-[3px] border-border pt-12 text-center">
-          <h2 className="mx-auto max-w-[17ch] font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
-            Clone it, run one command, type one sentence.
-          </h2>
-          <p className="mx-auto mt-5 max-w-[52ch] text-[1.0625rem] leading-relaxed text-muted-foreground">
-            All of it happens on your machine. If it does not work in the first
-            minute, that is a bug worth filing.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <button
-              onClick={() => setShowSignUp(true)}
-              className="rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              Get started
-            </button>
-            <a
-              href="https://github.com/Sma1lboy/codefox"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary"
-            >
-              Read the source
-            </a>
+        <div className="grid gap-x-14 gap-y-9 border-t-[3px] border-border pt-12 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <h2 className="max-w-[20ch] text-balance font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
+              Clone it, run one command, type one sentence.
+            </h2>
+            <p className="mt-5 max-w-[52ch] text-pretty text-[1.0625rem] leading-relaxed text-muted-foreground">
+              All of it happens on your machine. If it does not work in the
+              first minute, that is a bug worth filing.
+            </p>
           </div>
-          <p className="mt-6 font-mono text-xs text-muted-foreground">
-            MIT · Node 18+ · macOS, Linux, WSL
-          </p>
+
+          <div className="lg:text-right">
+            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+              <button
+                onClick={() => setShowSignUp(true)}
+                className="rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Get started
+              </button>
+              <a
+                href="https://github.com/Sma1lboy/codefox"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary"
+              >
+                Read the source
+              </a>
+            </div>
+            <p className="mt-6 font-mono text-xs text-muted-foreground">
+              MIT · Node 18+ · macOS, Linux, WSL
+            </p>
+          </div>
         </div>
       </section>
 

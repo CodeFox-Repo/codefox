@@ -49,7 +49,11 @@ export interface ProjectContextType {
   getWebUrl: (
     projectPath: string
   ) => Promise<{ domain: string; containerId: string }>;
-  takeProjectScreenshot: (projectId: string, url: string) => Promise<void>;
+  takeProjectScreenshot: (
+    projectId: string,
+    url: string,
+    projectPath?: string
+  ) => Promise<void>;
   refreshProjects: () => Promise<void>;
   editorRef?: React.MutableRefObject<any>;
 }
@@ -462,7 +466,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   });
 
   const takeProjectScreenshot = useCallback(
-    async (projectId: string, url: string): Promise<void> => {
+    async (
+      projectId: string,
+      url: string,
+      projectPath?: string
+    ): Promise<void> => {
       // Check if this screenshot operation is already in progress
       const operationKey = `screenshot_${projectId}`;
       if (pendingOperations.current.get(operationKey)) {
@@ -478,8 +486,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // got a cover image. /api/screenshot runs server-side and reports its
         // own failure below.
 
-        // Add a cache buster to avoid previous screenshot caching
-        const screenshotUrl = `/api/screenshot?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+        // Send the project as well as the URL. `url` is this origin, which
+        // only resolves to a preview for a request carrying the preview
+        // cookie — and the headless browser doing the capture has none, so on
+        // its own it photographs the API root. Given the project, the backend
+        // looks up the dev server's port and goes straight to loopback. That
+        // lookup has been there for a while; nothing was passing the argument,
+        // which is why no project ever ended up with a usable cover.
+        const screenshotUrl =
+          `/api/screenshot?url=${encodeURIComponent(url)}` +
+          (projectPath
+            ? `&projectPath=${encodeURIComponent(projectPath)}`
+            : '') +
+          `&t=${Date.now()}`;
         const screenshotResponse = await fetch(screenshotUrl);
 
         if (!screenshotResponse.ok) {
@@ -562,7 +581,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const project = projects.find((p) => p.projectPath === projectPath);
         if (project) {
           // Don't await this - let it run in background
-          takeProjectScreenshot(project.id, baseUrl).catch((err) =>
+          takeProjectScreenshot(project.id, baseUrl, projectPath).catch((err) =>
             logger.error('Background screenshot error:', err)
           );
         }
