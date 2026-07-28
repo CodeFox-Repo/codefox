@@ -15,6 +15,8 @@ import { PREVIEW_COOKIE } from './preview-proxy';
 import { PreviewService } from './preview.service';
 import { Project } from './project.model';
 import { assertProjectAccess } from './project-access';
+import { sandboxMode } from '../chat/sandbox-provider';
+import { WorkspaceService } from './workspace.service';
 
 // Booting a dev server costs real memory and the response hands back a cookie
 // that proxies the caller into the running app, so an unauthenticated caller
@@ -23,6 +25,7 @@ import { assertProjectAccess } from './project-access';
 @UseGuards(JWTAuthGuard)
 export class PreviewController {
   constructor(
+    private readonly workspaces: WorkspaceService,
     private readonly previewService: PreviewService,
     @InjectRepository(Project)
     private readonly projects: Repository<Project>,
@@ -53,26 +56,27 @@ export class PreviewController {
       write: true,
     });
 
-    const { port } = await this.previewService.start(projectPath);
+    const workspace = await this.workspaces.for(projectPath);
+    const { url } = await workspace.startPreview();
 
-    // A dev server binds to loopback, which is this machine — handing that
-    // address to a browser only works when they are the same machine. Point
-    // the iframe at this origin instead and let the cookie say which project
-    // the proxy should serve. SameSite=None because the frontend is served
-    // from another domain, so the iframe request is cross-site.
-    res.cookie(PREVIEW_COOKIE, projectPath, {
-      httpOnly: true,
-      sameSite: 'none',
-      secure: true,
-      path: '/',
-    });
+    // Only the host needs the cookie. There a dev server binds to loopback —
+    // this machine, not the visitor's — so the iframe is pointed back at this
+    // origin and the proxy uses the cookie to decide whose project to serve.
+    // A sandbox publishes its own address and is reached directly.
+    if (sandboxMode() === 'host') {
+      // SameSite=None because the frontend is served from another domain, so
+      // the iframe request is cross-site.
+      res.cookie(PREVIEW_COOKIE, projectPath, {
+        httpOnly: true,
+        sameSite: 'none',
+        secure: true,
+        path: '/',
+      });
+    }
 
-    const publicOrigin = process.env.PUBLIC_ORIGIN;
     return {
-      domain: publicOrigin
-        ? publicOrigin.replace(/^https?:\/\//, '')
-        : `127.0.0.1:${port}`,
-      containerId: `local-${projectPath}`,
+      domain: url.replace(/^https?:\/\//, ''),
+      containerId: `${sandboxMode()}-${projectPath}`,
     };
   }
 
@@ -92,6 +96,7 @@ export class PreviewController {
       projectPath,
       write: true,
     });
-    return { lines: this.previewService.logs(projectPath) };
+    const workspace = await this.workspaces.for(projectPath);
+    return { lines: await workspace.previewLogs() };
   }
 }

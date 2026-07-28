@@ -33,6 +33,8 @@ import {
 // import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 import { PreviewService } from './preview.service';
+import { WorkspaceService } from './workspace.service';
+import { sandboxMode } from 'src/chat/sandbox-provider';
 
 @Injectable()
 export class ProjectService {
@@ -48,6 +50,7 @@ export class ProjectService {
     // private readonly gitHubService: GitHubService,
     private userService: UserService,
     private previews: PreviewService,
+    private workspaces: WorkspaceService,
   ) {}
 
   async getProjectsByUser(userId: string): Promise<Project[]> {
@@ -192,7 +195,12 @@ export class ProjectService {
       this.logger.debug(`Project created: ${savedProject.id}`);
 
       try {
-        savedProject.projectPath = await scaffoldProject(savedProject.id);
+        // A sandbox clones the template itself when it is first created, so
+        // there is nothing to copy here — the id alone names the workspace.
+        savedProject.projectPath =
+          sandboxMode() === 'host'
+            ? await scaffoldProject(savedProject.id)
+            : savedProject.id;
         await this.projectsRepository.save(savedProject);
       } catch (error) {
         // A failed scaffold leaves projectPath empty; the chat still works,
@@ -245,24 +253,17 @@ export class ProjectService {
       // leak on the volume. Best effort: a failure here must not fail the
       // delete the user asked for.
       if (project.projectPath) {
-        // Stop the dev server first. It holds the directory open and keeps
-        // writing to it, so removing the files under a running preview freed
-        // nothing — the server rebuilt `.next` moments later — and left the
-        // process, its port and its memory behind for the life of the box.
-        await this.previews.stop(project.projectPath);
-
-        const dir = path.join(getProjectsDir(), project.projectPath);
-        await fs.promises
-          .rm(dir, { recursive: true, force: true })
+        // Whatever is holding the project — a directory on this disk or a
+        // microVM — is asked to throw itself away. A failure here must not
+        // fail the delete the user asked for.
+        const workspace = await this.workspaces.for(project.projectPath);
+        await workspace
+          .remove()
           .catch((error) =>
-            this.logger.warn(`Could not remove ${dir}: ${error}`),
+            this.logger.warn(`Could not remove ${project.projectPath}: ${error}`),
           );
       }
 
-      // Nothing cascades here: the relation declares no cascade, and a soft
-      // delete never fires a database one anyway. Left alone the chats keep
-      // showing in the sidebar, each opening onto a project whose files this
-      // method just removed.
       // Going through the relation returns nothing here — it is lazy, and the
       // save above has already left it unpopulated — so ask for the rows by
       // their foreign key instead.
@@ -524,94 +525,18 @@ export class ProjectService {
     userId: string,
     projectId: string,
   ): Promise<{ zipPath: string; fileName: string }> {
-    // Get the project
     const project = await this.getProjectById(projectId);
 
-    // Check ownership or if project is public
     if (project.userId !== userId && !project.isPublic) {
       throw new ForbiddenException(
         'You do not have permission to download this project',
       );
     }
 
-    // Ensure the project path exists
-    const projectPath = getProjectPath(project.projectPath);
-    this.logger.debug(`Project path: ${projectPath}`);
-
-    if (!fs.existsSync(projectPath)) {
-      throw new NotFoundException(
-        `Project directory not found at ${projectPath}`,
-      );
-    }
-
-    // Create a temporary directory for the zip file if it doesn't exist
-    const tempDir = getTempDir();
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    // Generate a filename for the zip
-    const fileName = `${project.projectName.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.zip`;
-    const zipPath = path.join(tempDir, fileName);
-
-    // Create a write stream for the zip file
-    const output = fs.createWriteStream(zipPath);
-    const archive = archiver('zip', {
-      zlib: { level: 9 }, // Set the compression level
-    });
-
-    // Listen for errors
-    output.on('error', (err) => {
-      throw new InternalServerErrorException(
-        `Error creating zip file: ${err.message}`,
-      );
-    });
-
-    // Pipe the archive to the output file
-    archive.pipe(output);
-
-    // Filter unwanted files/folders. `.next` matters: the preview dev server
-    // builds into the project directory, so without it every download carries
-    // hundreds of megabytes of build output.
-    const ignored = [
-      'node_modules',
-      '.git',
-      '.gitignore',
-      '.env',
-      '.next',
-      '.turbo',
-      '.codefox-uploads',
-    ];
-
-    // Add the project directory to the archive
-    archive.glob(
-      '**/*',
-      {
-        cwd: projectPath,
-        ignore: ignored.map((pattern) => `**/${pattern}/**`).concat(ignored),
-        dot: true,
-      },
-      {},
-    );
-
-    // Finalize the archive
-    await archive.finalize();
-
-    // Wait for the output stream to finish
-    await new Promise<void>((resolve, reject) => {
-      output.on('close', () => {
-        this.logger.debug(
-          `Created zip file: ${zipPath}, size: ${archive.pointer()} bytes`,
-        );
-        resolve();
-      });
-      output.on('error', (err) => {
-        reject(err);
-      });
-    });
-
-    return { zipPath, fileName };
+    const workspace = await this.workspaces.for(project.projectPath);
+    return workspace.archive(project.projectName);
   }
+
 
   // /**
   //  * Sync a project to GitHub:

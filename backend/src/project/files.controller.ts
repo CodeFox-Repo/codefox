@@ -19,9 +19,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Request, Response } from 'express';
 import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
-import { getMediaDir, getProjectsDir } from '../common/utils/common-path';
+import { getMediaDir } from '../common/utils/common-path';
 import { Project } from './project.model';
 import { assertProjectAccess } from './project-access';
+import { WorkspaceService } from './workspace.service';
 
 /**
  * Reads and writes the files of a generated project.
@@ -35,22 +36,6 @@ import { assertProjectAccess } from './project-access';
  * The frontend still calls `/api/project` and `/api/file`; its rewrite
  * forwards anything under `/api` here once the local handlers are gone.
  */
-
-/** Never part of the user's project: shared deps, vcs data, build output. */
-const IGNORED = new Set([
-  'node_modules',
-  '.codefox-uploads',
-  '.git',
-  '.next',
-  '.turbo',
-  '.vercel',
-  '.cache',
-  'dist',
-  'build',
-  'out',
-  'coverage',
-  '.DS_Store',
-]);
 
 interface TreeItem {
   index: string;
@@ -95,43 +80,8 @@ export class FilesController {
   constructor(
     @InjectRepository(Project)
     private readonly projects: Repository<Project>,
+    private readonly workspaces: WorkspaceService,
   ) {}
-
-  /**
-   * Resolve a caller-supplied path under the projects directory.
-   *
-   * The argument arrives from the browser, so it is checked rather than
-   * trusted: anything that escapes the projects directory is refused.
-   */
-  private resolve(relative: string): string {
-    const base = getProjectsDir();
-    const full = path.resolve(base, relative);
-    if (full !== base && !full.startsWith(base + path.sep)) {
-      throw new BadRequestException('Path escapes the projects directory');
-    }
-    return full;
-  }
-
-  private async walk(dir: string, prefix = ''): Promise<string[]> {
-    let entries: Awaited<ReturnType<typeof fs.readdir>>;
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return [];
-    }
-
-    const out: string[] = [];
-    for (const entry of entries) {
-      if (IGNORED.has(entry.name)) continue;
-      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) {
-        out.push(...(await this.walk(path.join(dir, entry.name), rel)));
-      } else {
-        out.push(rel);
-      }
-    }
-    return out;
-  }
 
   @Get('project')
   @UseGuards(JWTAuthGuard)
@@ -139,7 +89,8 @@ export class FilesController {
     if (!projectId) throw new BadRequestException('Missing path');
     await assertProjectAccess({ projects: this.projects, req, projectPath: projectId, write: false });
 
-    const paths = await this.walk(this.resolve(projectId));
+    const workspace = await this.workspaces.for(projectId);
+    const paths = await workspace.listFiles();
     if (paths.length === 0) return { res: emptyTree() };
 
     // A segment is a folder when some path continues past it. Deriving that
@@ -238,13 +189,12 @@ export class FilesController {
   async read(@Req() req: Request, @Query('path') filePath?: string) {
     if (!filePath) throw new BadRequestException("Missing 'path'");
     await assertProjectAccess({ projects: this.projects, req, projectPath: filePath, write: false });
-    try {
-      const content = await fs.readFile(this.resolve(filePath), 'utf-8');
-      return { filePath, content };
-    } catch (error) {
-      if (error instanceof BadRequestException) throw error;
-      throw new NotFoundException(`Cannot read ${filePath}`);
-    }
+
+    const [projectPath, ...rest] = filePath.split('/');
+    const workspace = await this.workspaces.for(projectPath);
+    const content = await workspace.readFile(rest.join('/'));
+    if (content == null) throw new NotFoundException(`Cannot read ${filePath}`);
+    return { filePath, content };
   }
 
   @Post('file')
@@ -260,10 +210,10 @@ export class FilesController {
     }
     await assertProjectAccess({ projects: this.projects, req, projectPath: filePath, write: true });
 
-    const full = this.resolve(filePath);
+    const [projectPath, ...rest] = filePath.split('/');
     try {
-      await fs.mkdir(path.dirname(full), { recursive: true });
-      await fs.writeFile(full, newContent, 'utf-8');
+      const workspace = await this.workspaces.for(projectPath);
+      await workspace.writeFile(rest.join('/'), newContent);
     } catch (error) {
       this.logger.error(`Failed to write ${filePath}: ${error}`);
       throw new InternalServerErrorException('Failed to update file');

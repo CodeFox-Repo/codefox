@@ -14,7 +14,7 @@ import { Repository } from 'typeorm';
 import type { Request, Response } from 'express';
 import puppeteer, { Browser } from 'puppeteer';
 import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
-import { PreviewService } from './preview.service';
+import { WorkspaceService } from './workspace.service';
 import { Project } from './project.model';
 import { assertProjectAccess } from './project-access';
 
@@ -32,7 +32,7 @@ export class ScreenshotController {
   private browser: Browser | null = null;
 
   constructor(
-    private readonly previews: PreviewService,
+    private readonly workspaces: WorkspaceService,
     @InjectRepository(Project)
     private readonly projects: Repository<Project>,
   ) {}
@@ -68,11 +68,11 @@ export class ScreenshotController {
       write: true,
     });
 
-    const port = this.previews.portFor(projectPath);
-    if (!port) {
+    const workspace = await this.workspaces.for(projectPath);
+    const url = await workspace.internalPreviewUrl();
+    if (!url) {
       throw new BadRequestException('No preview is running for this project');
     }
-    const url = `http://127.0.0.1:${port}`;
 
     let page: Awaited<ReturnType<Browser['newPage']>> | null = null;
     try {

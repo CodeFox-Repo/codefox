@@ -65,14 +65,18 @@ const TEMPLATE_REPO =
   process.env.TEMPLATE_REPO ??
   'https://github.com/Sma1lboy/nextjs-shadcn-template.git';
 
-export const sandboxFor = async ({ projectPath, harnessId }: SandboxFor) => {
-  if (sandboxMode() === 'host') {
-    return createLocalSandbox({
-      workingDirectory: path.join(getProjectsDir(), projectPath),
-      harnessId,
-    });
-  }
-
+/**
+ * The one microVM that belongs to a project.
+ *
+ * Named per project rather than per session so a turn resumes the previous
+ * turn's work instead of a fresh clone of the template. `persistent` makes
+ * Vercel snapshot the filesystem on stop and restore it on the next resume,
+ * so nothing here serialises state by hand.
+ *
+ * Shared deliberately: the agent, the file tree, the editor, the preview and
+ * the download all have to be looking at the same machine.
+ */
+export const sandboxHandle = async (projectPath: string): Promise<Sandbox> => {
   if (!vercelConfigured()) {
     throw new Error(
       'SANDBOX_PROVIDER=vercel needs VERCEL_PROJECT_ID (and VERCEL_TEAM_ID ' +
@@ -81,11 +85,6 @@ export const sandboxFor = async ({ projectPath, harnessId }: SandboxFor) => {
     );
   }
 
-  // One named sandbox per project, not one per session: letting the provider
-  // create its own would hand every turn a fresh microVM cloned from the
-  // template, losing the previous turn's work. `persistent` makes Vercel
-  // snapshot the filesystem when the sandbox stops and restore it on the next
-  // resume, so nothing here has to serialise state by hand.
   const sandbox = await Sandbox.getOrCreate({
     name: `codefox-${projectPath}`,
     persistent: true,
@@ -98,13 +97,25 @@ export const sandboxFor = async ({ projectPath, harnessId }: SandboxFor) => {
   });
 
   // Activity is the only thing that keeps a sandbox alive. Extending on every
-  // turn is what turns Vercel's wall-clock deadline into an idle timeout.
+  // use is what turns Vercel's wall-clock deadline into an idle timeout.
   await sandbox
     .extendTimeout(IDLE_MS)
     .catch((error: unknown) =>
       logger.warn(`Could not extend sandbox lifetime: ${String(error)}`),
     );
 
+  return sandbox;
+};
+
+export const sandboxFor = async ({ projectPath, harnessId }: SandboxFor) => {
+  if (sandboxMode() === 'host') {
+    return createLocalSandbox({
+      workingDirectory: path.join(getProjectsDir(), projectPath),
+      harnessId,
+    });
+  }
+
+  const sandbox = await sandboxHandle(projectPath);
   logger.debug(`Sandbox ${sandbox.name} ready for ${projectPath}`);
 
   // The provider treats a supplied sandbox as caller-owned, so its stop() and

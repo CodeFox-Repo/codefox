@@ -16,6 +16,7 @@ import { UploadModule } from 'src/upload/upload.module';
 import { DownloadController } from './downloadController';
 import { PreviewController } from './preview.controller';
 import { PreviewService } from './preview.service';
+import { WorkspaceService } from './workspace.service';
 // import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 
@@ -40,6 +41,7 @@ import { UserService } from 'src/user/user.service';
     ProjectsResolver,
     ProjectGuard,
     PreviewService,
+    WorkspaceService,
     // GitHubService,
     UserService,
   ],
