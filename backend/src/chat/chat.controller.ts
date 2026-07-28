@@ -87,10 +87,25 @@ export class ChatController {
    */
   private async pipeAgent(chatDto: ChatRestDto, res: Response) {
     const project = await this.chatService.getProjectByChatId(chatDto.chatId);
+
+    // The client saves the user's message before it calls this, so the stored
+    // history already ends with the very message being asked now. Replaying it
+    // would show the agent the question twice.
+    const stored = await this.chatService.getChatHistory(chatDto.chatId);
+    const history = stored.map((message) => ({
+      role: String(message.role),
+      content: message.content,
+    }));
+    const last = history[history.length - 1];
+    if (last && !/assistant/i.test(last.role) && last.content === chatDto.message) {
+      history.pop();
+    }
+
     const { result, session } = await runProjectAgent({
       projectPath: project.projectPath,
       message: chatDto.message,
       images: chatDto.images,
+      history,
       model: chatDto.model,
     });
 

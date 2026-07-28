@@ -113,10 +113,50 @@ Match the conventions already in the project — read a file before rewriting it
 and reuse the components that are already there instead of adding new ones.
 Finish with a short summary of what you changed.`;
 
+/** One earlier turn, oldest first. */
+export interface PriorTurn {
+  role: string;
+  content: string;
+}
+
+/** How much of the conversation to replay, and how much of each turn. */
+const HISTORY_TURNS = 20;
+const HISTORY_CHARS = 2000;
+
+/**
+ * Retell the conversation so far.
+ *
+ * Every turn gets a brand-new agent session, so without this the agent saw
+ * only the sentence just typed: told a preference in one message it answered
+ * "Unknown" when asked about it in the next, and a follow-up like "make it
+ * bigger" had no referent at all.
+ *
+ * Replayed as text rather than resumed through the harness on purpose — a
+ * resumable session lives in a bridge process that does not survive a deploy,
+ * and this server redeploys constantly.
+ */
+const retell = (history: PriorTurn[]): string => {
+  const recent = history.slice(-HISTORY_TURNS);
+  if (recent.length === 0) return '';
+
+  const lines = recent.map((turn) => {
+    const who = /assistant/i.test(turn.role) ? 'Assistant' : 'User';
+    const said =
+      turn.content.length > HISTORY_CHARS
+        ? `${turn.content.slice(0, HISTORY_CHARS)}…`
+        : turn.content;
+    return `${who}: ${said}`;
+  });
+
+  return `Earlier in this conversation:\n\n${lines.join('\n\n')}\n\n---\n\n`;
+};
+
 export interface ProjectAgentOptions {
   /** Project directory name under .codefox/projects. */
   projectPath: string;
   message: string;
+  /** Earlier turns of this chat, oldest first, excluding the current message. */
+  history?: PriorTurn[];
   /** Pasted or attached images, as `data:<mime>;base64,<data>` URLs. */
   images?: string[];
   /** Model id for the underlying claude CLI. Unset defers to its default. */
@@ -171,6 +211,7 @@ export const runProjectAgent = async ({
   projectPath,
   message,
   images,
+  history,
   model,
 }: ProjectAgentOptions) => {
   const workingDirectory = path.join(getProjectsDir(), projectPath);
@@ -189,9 +230,10 @@ export const runProjectAgent = async ({
     images?.length && sandboxMode() === 'host'
       ? await stageImages(workingDirectory, images)
       : [];
-  const prompt = staged.length
+  const asked = staged.length
     ? `${message}\n\nThe user attached ${staged.length === 1 ? 'this image' : 'these images'} — read ${staged.length === 1 ? 'it' : 'them'} before answering:\n${staged.map((f) => `- ${f}`).join('\n')}`
     : message;
+  const prompt = `${retell(history ?? [])}${asked}`;
 
   const agent = new HarnessAgent({
     harness: harnessFor(model),
