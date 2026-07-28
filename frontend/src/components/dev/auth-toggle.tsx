@@ -100,8 +100,13 @@ export function DevAuthToggle() {
       title={
         signedIn ? 'Dev: preview signed-out' : `Dev: sign in as ${EMAIL ?? '—'}`
       }
-      aria-label={signedIn ? 'Preview signed out' : 'Dev sign in'}
-      className="fixed bottom-5 right-5 z-[100] flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 text-foreground shadow-lg backdrop-blur transition-colors hover:border-primary"
+      // Not "Preview signed out": that label collided with the Preview tab in
+      // accessible-name lookups (tests, screen readers) and got activated in
+      // its place.
+      aria-label={signedIn ? 'Dev sign out' : 'Dev sign in'}
+      // Above the corner, not in it: the SaveChangesBar docks bottom-right and
+      // this sat exactly on its Save button.
+      className="fixed bottom-24 right-5 z-[100] flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 text-foreground shadow-lg backdrop-blur transition-colors hover:border-primary"
     >
       {busy ? (
         <Loader2 className="h-[18px] w-[18px] animate-spin text-primary" />

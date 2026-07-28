@@ -210,7 +210,10 @@ function SideBarItemComponent({
             Clear history
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={() => setIsDialogOpen(true)}
+            // The closing menu's dismiss ran after the dialog opened and shut
+            // it in the same breath — so Delete appeared to do nothing. Let
+            // the menu finish closing, then open the dialog.
+            onSelect={() => setTimeout(() => setIsDialogOpen(true), 0)}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="mr-2 h-4 w-4 shrink-0" />
