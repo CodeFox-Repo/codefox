@@ -1,8 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
+import { useState } from 'react';
+import { useMutation } from '@apollo/client';
+import { ArrowUpRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useChatList } from '@/hooks/useChatList';
+import { DELETE_CHAT, UPDATE_CHAT_TITLE } from '@/graphql/request';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { PromptForm, PromptFormRef } from '@/components/root/prompt-form';
 import { PublicProjects } from '@/components/root/public-projects';
 
@@ -32,8 +51,37 @@ export function Workbench({
   onSubmit,
   isLoading,
 }: WorkbenchProps) {
-  const { chats, loading } = useChatList();
+  const { chats, loading, refetchChats } = useChatList();
   const recent = chats.slice(0, 9);
+
+  // With the sidebar gone, the cards are where a project gets renamed or
+  // deleted. One dialog serves both, keyed by mode.
+  const [action, setAction] = useState<{
+    mode: 'rename' | 'delete';
+    id: string;
+    title: string;
+  } | null>(null);
+  const [draft, setDraft] = useState('');
+
+  const [updateTitle] = useMutation(UPDATE_CHAT_TITLE, {
+    onCompleted: () => refetchChats(),
+    onError: () => toast.error('Could not rename the project'),
+  });
+  const [deleteChat] = useMutation(DELETE_CHAT, {
+    onCompleted: () => {
+      toast.success('Project deleted');
+      refetchChats();
+    },
+    onError: () => toast.error('Could not delete the project'),
+  });
+
+  const commitRename = () => {
+    const next = draft.trim();
+    if (action && next && next !== action.title) {
+      updateTitle({ variables: { input: { chatId: action.id, title: next } } });
+    }
+    setAction(null);
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-5 pb-24 pt-4 sm:px-10">
@@ -89,10 +137,58 @@ export function Workbench({
           // keeps the empty tracks, so the cards stayed narrow.
           <ul className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">
             {recent.map((chat) => (
-              <li key={chat.id}>
+              <li key={chat.id} className="group/card relative">
+                {/* Above the Link so opening the menu does not navigate. */}
+                <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Project options"
+                        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          setTimeout(() => {
+                            setDraft(chat.title || '');
+                            setAction({
+                              mode: 'rename',
+                              id: chat.id,
+                              title: chat.title || '',
+                            });
+                          }, 0)
+                        }
+                      >
+                        <Pencil className="mr-2 h-4 w-4 shrink-0" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          setTimeout(
+                            () =>
+                              setAction({
+                                mode: 'delete',
+                                id: chat.id,
+                                title: chat.title || 'Untitled',
+                              }),
+                            0
+                          )
+                        }
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4 shrink-0" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <Link
                   href={`/chat?id=${chat.id}`}
-                  className="group/card flex h-full flex-col justify-between gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/45"
+                  className="flex h-full flex-col justify-between gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/45"
                 >
                   <p className="line-clamp-2 text-pretty font-medium leading-snug text-foreground">
                     {chat.title || 'Untitled'}
@@ -111,6 +207,55 @@ export function Workbench({
       </section>
 
       <PublicProjects limit={3} />
+
+      <Dialog
+        open={action !== null}
+        onOpenChange={(o) => !o && setAction(null)}
+      >
+        <DialogContent>
+          {action?.mode === 'rename' ? (
+            <DialogHeader className="space-y-4">
+              <DialogTitle>Rename project</DialogTitle>
+              <Input
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && commitRename()}
+                aria-label="Project title"
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAction(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={commitRename}>Save</Button>
+              </div>
+            </DialogHeader>
+          ) : (
+            <DialogHeader className="space-y-4">
+              <DialogTitle>Delete project?</DialogTitle>
+              <DialogDescription>
+                “{action?.title}” and its chat history will be removed. The
+                generated files stay on disk.
+              </DialogDescription>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAction(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (action)
+                      deleteChat({ variables: { chatId: action.id } });
+                    setAction(null);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </DialogHeader>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
