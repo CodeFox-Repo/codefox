@@ -143,6 +143,21 @@ export class PreviewService implements OnModuleDestroy {
     return this.previews.get(projectPath)?.port;
   }
 
+  /**
+   * Every dev server this process is holding open.
+   *
+   * These are invisible from the database — a preview is a child process and
+   * a port, nothing more — so an operator otherwise has no way to see what is
+   * consuming the box.
+   */
+  running(): { projectPath: string; port: number; pid: number }[] {
+    return [...this.previews.entries()].map(([projectPath, preview]) => ({
+      projectPath,
+      port: preview.port,
+      pid: preview.child.pid ?? -1,
+    }));
+  }
+
   logs(projectPath: string): LogLine[] {
     return this.previews.get(projectPath)?.log ?? [];
   }

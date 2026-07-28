@@ -35,13 +35,17 @@ export class RolesGuard implements CanActivate {
     const gqlContext = GqlExecutionContext.create(context);
     const { req } = gqlContext.getContext();
 
-    if (!req.user?.id) {
+    // JWTAuthGuard stores the token payload, which names the subject `userId`.
+    // Reading `id` found nothing, so this guard rejected every caller — the
+    // role system has never actually let anyone through.
+    const userId = req.user?.userId ?? req.user?.id;
+    if (!userId) {
       throw new UnauthorizedException('User is not authenticated');
     }
 
     try {
       const user = await this.userRepository.findOne({
-        where: { id: req.user.id },
+        where: { id: userId },
         relations: ['roles'],
       });
 

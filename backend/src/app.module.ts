@@ -22,8 +22,11 @@ import { MailModule } from './mail/mail.module';
 import { AppConfigService } from './config/config.service';
 import { getDatabaseConfig } from './database.config';
 
+import { AdminModule } from './admin/admin.module';
+
 @Module({
   imports: [
+    AdminModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validate: (config: Record<string, unknown>) => {

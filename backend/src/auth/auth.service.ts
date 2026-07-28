@@ -222,6 +222,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Nothing read this flag, so disabling an account changed a column and
+    // otherwise did nothing — the account kept signing in. Deliberately the
+    // same message as a bad password: whether an account exists and has been
+    // suspended is not something an unauthenticated caller should learn.
+    if (!user.isActive || user.isDeleted) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
     if (!user.isEmailConfirmed && this.isMailEnabled) {
       throw new Error('Email not confirmed. Please check your inbox.');
     }
