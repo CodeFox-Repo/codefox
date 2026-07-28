@@ -8,6 +8,15 @@ const config = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
+    // Streamdown ships its styling as Tailwind classes inside its own dist,
+    // so those files have to be scanned or every rendered message comes out
+    // unstyled. Both locations are listed because pnpm only puts the package
+    // in the workspace root when it hoists — a strict install keeps it under
+    // frontend/, where the first path does not exist.
+    '../node_modules/streamdown/dist/*.js',
+    './node_modules/streamdown/dist/*.js',
+    '../node_modules/@streamdown/*/dist/*.js',
+    './node_modules/@streamdown/*/dist/*.js',
   ],
   prefix: '',
   theme: {

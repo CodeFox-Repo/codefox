@@ -5,9 +5,9 @@ import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import CodeDisplayBlock from '../code-display-block';
+import { Streamdown } from 'streamdown';
+import { code } from '@streamdown/code';
+import { cjk } from '@streamdown/cjk';
 import { Message } from '../../const/MessageType';
 import { Button } from '../ui/button';
 import {
@@ -73,28 +73,45 @@ export default function ChatList({
     setEditContent('');
   };
 
-  const renderMessageContent = (content: string) => {
-    return (
-      <Markdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          code(props) {
-            const { children, className, node, ...rest } = props;
-            const match = /language-(\w+)/.exec(className || '');
-            return match ? (
-              <CodeDisplayBlock code={String(children)} lang={match[1]} />
-            ) : (
-              <code className={className} {...rest}>
-                {children}
-              </code>
-            );
-          },
-        }}
-      >
-        {content}
-      </Markdown>
-    );
-  };
+  /**
+   * Markdown that is still being written.
+   *
+   * react-markdown parses whatever it is handed as a finished document, so a
+   * half-arrived fenced block or table rendered as literal backticks and pipes
+   * until the closing token showed up, and every code block reflowed on each
+   * token. Streamdown parses for the streaming case, and its code plugin
+   * highlights with the same two Shiki themes the app already switches
+   * between; `cjk` keeps Chinese from being broken mid-word.
+   */
+  const PLUGINS = { code, cjk };
+
+  // Turns that produced nothing (a failed stream, or history saved before the
+  // empty-reply guard) would otherwise render as a blank bubble with action
+  // buttons under it.
+  const visible = messages.filter((m) => m.role === 'user' || m.content?.trim());
+
+  /**
+   * The bubble still being written: the last one, from the agent, while a turn
+   * is in flight. `loadingSubmit` stays true for the whole turn — it is
+   * cleared in the request's `finally` — so it covers the streaming window and
+   * not just the wait before the first token.
+   */
+  const isStreaming = (index: number) =>
+    Boolean(loadingSubmit) &&
+    index === visible.length - 1 &&
+    !isUserMessage(visible[index].role);
+
+  const renderMessageContent = (content: string, streaming = false) => (
+    <Streamdown
+      plugins={PLUGINS}
+      mode={streaming ? 'streaming' : 'static'}
+      isAnimating={streaming}
+      caret={streaming ? 'block' : undefined}
+      shikiTheme={['github-light', 'github-dark']}
+    >
+      {content}
+    </Streamdown>
+  );
 
   if (messages.length === 0) {
     return (
@@ -120,12 +137,7 @@ export default function ChatList({
     <div className="w-full overflow-y-auto overflow-x-hidden h-full px-4 py-6">
       <div className="w-full flex flex-col gap-3 min-h-full pb-4 max-w-3xl mx-auto">
         <AnimatePresence initial={false}>
-          {/* Turns that produced nothing (a failed stream, or history saved
-              before the empty-reply guard) would otherwise render as a blank
-              bubble with action buttons under it. */}
-          {messages
-            .filter((m) => m.role === 'user' || m.content?.trim())
-            .map((message, index) => {
+          {visible.map((message, index) => {
               const isUser = isUserMessage(message.role);
               const isEditing = message.id === editingMessageId;
 
@@ -204,9 +216,7 @@ export default function ChatList({
                               Preview
                             </div>
                             <div className="min-h-[200px] w-full p-2 rounded bg-muted prose dark:prose-invert prose-sm max-w-none overflow-auto">
-                              <Markdown remarkPlugins={[remarkGfm]}>
-                                {editContent}
-                              </Markdown>
+                              {renderMessageContent(editContent)}
                             </div>
                           </div>
                         </div>
@@ -249,7 +259,10 @@ export default function ChatList({
                           ) : (
                             <>
                               <div className="mt-4 prose dark:prose-invert prose-sm max-w-none">
-                                {renderMessageContent(message.content)}
+                                {renderMessageContent(
+                                  message.content,
+                                  isStreaming(index)
+                                )}
                               </div>
                             </>
                           )}
