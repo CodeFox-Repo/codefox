@@ -236,42 +236,45 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               </SelectContent>
             </Select>
 
-            {/* Model */}
-            <Select
-              value={selectedModel}
-              onValueChange={(value) =>
-                !isLoading && !isRegenerating && setSelectedModel(value)
-              }
-              disabled={isLoading || isRegenerating}
-            >
-              <SelectTrigger
-                className={cn(
-                  'h-9 px-3 text-sm font-medium border border-border',
-                  'bg-secondary text-foreground',
-                  'rounded-lg focus:outline-none hover:bg-accent',
-                  'transition-all duration-200 active:scale-[0.98]',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                  (isLoading || isRegenerating) &&
-                    'opacity-50 cursor-not-allowed'
-                )}
+            {/* Model — with a single deployment there is nothing to choose,
+                same rule as the chat composer. */}
+            {models.length > 1 && (
+              <Select
+                value={selectedModel}
+                onValueChange={(value) =>
+                  !isLoading && !isRegenerating && setSelectedModel(value)
+                }
+                disabled={isLoading || isRegenerating}
               >
-                {!isModelLoading ? <SelectValue /> : 'Loading...'}
-              </SelectTrigger>
-              <SelectContent>
-                {!isModelLoading ? (
-                  models.map((model) => (
-                    <SelectItem key={model} value={model}>
-                      <div className="flex items-center gap-2">
-                        <Cpu size={16} />
-                        <span>{model}</span>
-                      </div>
-                    </SelectItem>
-                  ))
-                ) : (
-                  <>Loading...</>
-                )}
-              </SelectContent>
-            </Select>
+                <SelectTrigger
+                  className={cn(
+                    'h-9 px-3 text-sm font-medium border border-border',
+                    'bg-secondary text-foreground',
+                    'rounded-lg focus:outline-none hover:bg-accent',
+                    'transition-all duration-200 active:scale-[0.98]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    (isLoading || isRegenerating) &&
+                      'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  {!isModelLoading ? <SelectValue /> : 'Loading...'}
+                </SelectTrigger>
+                <SelectContent>
+                  {!isModelLoading ? (
+                    models.map((model) => (
+                      <SelectItem key={model} value={model}>
+                        <div className="flex items-center gap-2">
+                          <Cpu size={16} />
+                          <span>{model}</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>Loading...</>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
 
             {/* Kind: a page by default, the full starter when asked. */}
             <Select
