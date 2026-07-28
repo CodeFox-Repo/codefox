@@ -16,7 +16,10 @@ import {
 const bytes = (n: number) => {
   if (!n) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
+  const i = Math.min(
+    Math.floor(Math.log(n) / Math.log(1024)),
+    units.length - 1
+  );
   return `${(n / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 };
 
@@ -97,7 +100,13 @@ function Stat({
   );
 }
 
-function Pill({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
+function Pill({
+  children,
+  muted,
+}: {
+  children: React.ReactNode;
+  muted?: boolean;
+}) {
   return (
     <span
       className={`inline-block rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] ${
@@ -147,7 +156,9 @@ export default function AdminConsole() {
     // touching this page.
     pollInterval: 15_000,
   });
-  const projects = useQuery(ADMIN_PROJECTS, { fetchPolicy: 'cache-and-network' });
+  const projects = useQuery(ADMIN_PROJECTS, {
+    fetchPolicy: 'cache-and-network',
+  });
   const users = useQuery(ADMIN_USERS, { fetchPolicy: 'cache-and-network' });
 
   const [pending, setPending] = useState<string | null>(null);
@@ -325,7 +336,9 @@ export default function AdminConsole() {
             <tbody className="divide-y divide-border font-mono">
               {projects.data?.adminProjects.map((p: any) => (
                 <tr key={p.id}>
-                  <td className={`${cell} max-w-[220px] truncate text-foreground`}>
+                  <td
+                    className={`${cell} max-w-[220px] truncate text-foreground`}
+                  >
                     {p.projectName}
                   </td>
                   <td className={`${cell} text-muted-foreground`}>
@@ -359,10 +372,7 @@ export default function AdminConsole() {
               ))}
               {!projects.data?.adminProjects.length && (
                 <tr>
-                  <td
-                    className={`${cell} text-muted-foreground`}
-                    colSpan={6}
-                  >
+                  <td className={`${cell} text-muted-foreground`} colSpan={6}>
                     No projects.
                   </td>
                 </tr>

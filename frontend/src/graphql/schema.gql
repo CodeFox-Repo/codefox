@@ -2,6 +2,63 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AdminCounts {
+  chats: Int!
+  deletedProjects: Int!
+  projects: Int!
+  users: Int!
+}
+
+type AdminDisk {
+  orphanDirs: Int!
+  projectBytes: Float!
+  projectDirs: Int!
+}
+
+type AdminOverview {
+  counts: AdminCounts!
+  disk: AdminDisk!
+  previews: [AdminPreview!]!
+  runtime: AdminRuntime!
+}
+
+type AdminPreview {
+  pid: Int!
+  port: Int!
+  projectPath: String!
+}
+
+type AdminProject {
+  chats: Int!
+  createdAt: Date!
+  id: String!
+  isPublic: Boolean!
+  onDisk: Boolean!
+  ownerEmail: String!
+  projectName: String!
+  projectPath: String!
+}
+
+type AdminRuntime {
+  model: String!
+  nodeEnv: String!
+  provider: String!
+  registrationOpen: Boolean!
+  sandbox: String!
+  uptime: Int!
+}
+
+type AdminUser {
+  chats: Int!
+  createdAt: Date!
+  email: String!
+  id: String!
+  isActive: Boolean!
+  projects: Int!
+  roles: [String!]!
+  username: String!
+}
+
 type AvatarUploadResponse {
   avatarUrl: String!
   success: Boolean!
@@ -100,6 +157,10 @@ type Message {
 }
 
 type Mutation {
+  adminDeleteProject(projectId: String!): Boolean!
+  adminSetUserActive(isActive: Boolean!, userId: String!): Boolean!
+  adminStopPreview(projectPath: String!): Boolean!
+  adminSweepOrphans: Int!
   clearChatHistory(chatId: String!): Boolean!
   confirmEmail(token: String!): EmailConfirmationResponse!
   createChat(newChatInput: NewChatInput!): Chat!
@@ -151,6 +212,9 @@ type Project {
 }
 
 type Query {
+  adminOverview: AdminOverview!
+  adminProjects: [AdminProject!]!
+  adminUsers: [AdminUser!]!
   checkToken(input: CheckTokenInput!): Boolean!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
   getAvailableModelTags: [String!]
