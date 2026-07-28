@@ -1,6 +1,6 @@
 import { promises as fs, createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import * as path from 'node:path';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import archiver from 'archiver';
 import { getProjectsDir, getTempDir } from '../common/utils/common-path';
 import type { LogLine, PreviewService } from './preview.service';
@@ -62,6 +62,12 @@ export class HostWorkspace implements ProjectWorkspace {
   }
 
   async listFiles(): Promise<string[]> {
+    // A project whose directory is gone must error, not answer "no files" —
+    // an empty 200 here is indistinguishable from a real empty project, and
+    // the UI replaces a perfectly good tree with nothing.
+    if (!existsSync(this.root)) {
+      throw new NotFoundException('Project directory does not exist');
+    }
     return this.walk(this.root);
   }
 

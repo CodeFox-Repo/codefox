@@ -16,13 +16,26 @@ import {
   UPDATE_PROJECT_PUBLIC_STATUS,
   UPDATE_PROJECT_PHOTO_URL,
 } from '@/graphql/request';
-import { Project } from '../project-modal';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
+
+/** Lived in project-modal.tsx until that unreachable modal was removed. */
+export interface Project {
+  id: string;
+  projectName: string;
+  projectPath: string;
+  createdAt: number;
+  updatedAt: number;
+  isActive: boolean;
+  isDeleted: boolean;
+  userId: string;
+  isPublic?: boolean;
+  photoUrl?: string;
+}
 
 export interface ProjectContextType {
   projects: Project[];
@@ -32,7 +45,6 @@ export interface ProjectContextType {
   projectLoading: boolean;
   filePath: string | null;
   setFilePath: React.Dispatch<React.SetStateAction<string | null>>;
-  createNewProject: (projectName: string, description: string) => Promise<void>;
   /** Resolves to the new chat id, or null when creation failed. */
   createProjectFromPrompt: (
     prompt: string,
@@ -599,10 +611,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           containerId: data.containerId,
         };
       } catch (error) {
+        // No toast: while the project is still scaffolding or the dev server
+        // is booting this fails by design, and the preview pane shows its own
+        // "not ready yet" state and retries. A toast here turned every fresh
+        // project into a spurious "preview failed".
         logger.error('Error getting web URL:', error);
-        if (isMounted.current) {
-          toast.error('Failed to prepare web preview');
-        }
         throw error;
       } finally {
         pendingOperations.current.delete(operationKey);
@@ -614,46 +627,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [getChatDetail] = useLazyQuery(GET_CHAT_DETAILS, {
     fetchPolicy: 'network-only',
   });
-
-  // Original createNewProject function
-  const createNewProject = useCallback(
-    async (projectName: string, description: string): Promise<void> => {
-      if (!projectName || !description) {
-        if (isMounted.current) {
-          toast.error('Please fill in all fields!');
-        }
-        return;
-      }
-
-      try {
-        if (isMounted.current) {
-          setIsLoading(true);
-        }
-
-        await createProject({
-          variables: {
-            createProjectInput: {
-              projectName,
-              description,
-              databaseType: 'MySQL',
-              packages: [],
-              public: false, // Default to private
-            },
-          },
-        });
-      } catch (err) {
-        logger.error('Failed to create project:', err);
-        if (isMounted.current) {
-          toast.error('An error occurred while creating the project');
-        }
-      } finally {
-        if (isMounted.current) {
-          setIsLoading(false);
-        }
-      }
-    },
-    [createProject]
-  );
 
   // New function to create project from prompt
   const createProjectFromPrompt = useCallback(
@@ -880,7 +853,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       projectLoading,
       filePath,
       setFilePath,
-      createNewProject,
       createProjectFromPrompt,
       forkProject,
       setProjectPublicStatus,
@@ -896,7 +868,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       curProject,
       projectLoading,
       filePath,
-      createNewProject,
       createProjectFromPrompt,
       forkProject,
       setProjectPublicStatus,

@@ -36,6 +36,7 @@ function PreviewContent({
   );
   const lastProjectPathRef = useRef<string | null>(null);
   const serviceCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const MAX_CHECK_ATTEMPTS = 15; // Reduced max attempts since we have progressive intervals
 
   // Function to check if the frontend service is ready
@@ -185,12 +186,23 @@ function PreviewContent({
         // Start checking if the service is ready
         startServiceReadyCheck(baseUrl);
       } catch (error) {
+        // A fresh project fails here while it scaffolds and its dev server
+        // boots — that is "not yet", not "failed". Say so and try again.
         logger.error('Error getting web URL:', error);
-        setLoadingMessage('Error initializing preview.');
+        setLoadingMessage('Preview is not ready yet — waiting for the app…');
+        lastProjectPathRef.current = null;
+        retryTimerRef.current = setTimeout(initWebUrl, 5000);
       }
     };
 
     initWebUrl();
+
+    return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
   }, [curProject, getWebUrl]);
 
   useEffect(() => {

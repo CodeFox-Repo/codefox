@@ -50,8 +50,12 @@ export class VercelWorkspace implements ProjectWorkspace {
       cwd: ROOT,
     });
     if (result.exitCode !== 0) {
-      this.logger.warn(`Listing ${this.sandbox.name} failed: ${result.exitCode}`);
-      return [];
+      // Failing to list is not the same as an empty project — returning []
+      // here made the UI replace a real tree with nothing and read as the
+      // project having wiped itself.
+      throw new Error(
+        `Listing ${this.sandbox.name} failed: exit ${result.exitCode}`,
+      );
     }
 
     return (await result.stdout())

@@ -31,15 +31,14 @@ export class DownloadController {
       'Content-Disposition': `attachment; filename="${fileName}"`,
     });
 
-    const fileStream = fs.createReadStream(zipPath);
-    fileStream.pipe(response);
+    // The zip is a temp file for this one response, so it goes away however
+    // the stream ends — 'close' fires on completion and on a client that
+    // disconnects halfway, which 'end' alone missed, leaving the file forever.
+    const cleanup = () =>
+      fs.promises
+        .unlink(zipPath)
+        .catch((err) => this.logger.warn(`Could not remove ${zipPath}: ${err}`));
 
-    fileStream.on('end', () => {
-      fs.unlink(zipPath, (err) => {
-        if (err) {
-          this.logger.error(`Error deleting zip file: ${err.message}`);
-        }
-      });
-    });
+    fs.createReadStream(zipPath).on('close', cleanup).pipe(response);
   }
 }
