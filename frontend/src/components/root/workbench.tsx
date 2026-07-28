@@ -52,7 +52,9 @@ export function Workbench({
   isLoading,
 }: WorkbenchProps) {
   const { chats, loading, refetchChats } = useChatList();
-  const recent = chats.slice(0, 9);
+  // Nine keeps the grid tidy, but the tenth project must not be unreachable.
+  const [showAll, setShowAll] = useState(false);
+  const recent = showAll ? chats : chats.slice(0, 9);
 
   // With the sidebar gone, the cards are where a project gets renamed or
   // deleted. One dialog serves both, keyed by mode.
@@ -105,10 +107,20 @@ export function Workbench({
           <h2 className="font-mono text-sm tracking-[0.12em] text-primary">
             RECENT
           </h2>
-          {recent.length > 0 && (
-            <span className="font-mono text-xs text-muted-foreground">
-              {chats.length} total
-            </span>
+          {chats.length > 9 ? (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {showAll ? 'Show recent' : `Show all ${chats.length}`}
+            </button>
+          ) : (
+            recent.length > 0 && (
+              <span className="font-mono text-xs text-muted-foreground">
+                {chats.length} total
+              </span>
+            )
           )}
         </div>
 
