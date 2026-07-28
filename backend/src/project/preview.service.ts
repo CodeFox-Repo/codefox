@@ -147,11 +147,33 @@ export class PreviewService implements OnModuleDestroy {
     return this.previews.get(projectPath)?.log ?? [];
   }
 
-  stop(projectPath: string): void {
+  /**
+   * Resolves once the dev server has actually exited.
+   *
+   * Returning as soon as the signal was sent was enough for a caller that only
+   * wanted the port back, but not for one about to delete the directory: Next
+   * keeps writing `.next` on its way down, so the files reappeared behind the
+   * removal and the project directory survived its own deletion.
+   */
+  async stop(projectPath: string): Promise<void> {
     const preview = this.previews.get(projectPath);
     if (!preview) return;
-    preview.child.kill('SIGTERM');
     this.previews.delete(projectPath);
+
+    const { child } = preview;
+    if (child.exitCode !== null || child.signalCode !== null) return;
+
+    await new Promise<void>((resolve) => {
+      // A dev server that ignores SIGTERM must not hold up the caller forever.
+      const hard = setTimeout(() => child.kill('SIGKILL'), 5_000);
+      const settle = () => {
+        clearTimeout(hard);
+        resolve();
+      };
+      child.once('exit', settle);
+      child.once('error', settle);
+      child.kill('SIGTERM');
+    });
   }
 
   onModuleDestroy() {

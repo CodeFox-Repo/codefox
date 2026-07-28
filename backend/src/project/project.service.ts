@@ -249,7 +249,7 @@ export class ProjectService {
         // writing to it, so removing the files under a running preview freed
         // nothing — the server rebuilt `.next` moments later — and left the
         // process, its port and its memory behind for the life of the box.
-        this.previews.stop(project.projectPath);
+        await this.previews.stop(project.projectPath);
 
         const dir = path.join(getProjectsDir(), project.projectPath);
         await fs.promises
