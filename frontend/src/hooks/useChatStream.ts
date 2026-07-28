@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useContext, useRef } from 'react';
 import { useMutation } from '@apollo/client';
 import { CREATE_CHAT, SAVE_MESSAGE } from '@/graphql/request';
-import { Message } from '@/const/MessageType';
+import { Message, splitTurn, TurnStep } from '@/const/MessageType';
 import { toast } from 'sonner';
 import { logger } from '@/app/log/logger';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -108,22 +108,37 @@ export const useChatStream = ({
       // The agent loop runs on the backend, against the project's real files.
       // The bubble appears with the first text delta rather than up front, so a
       // failed turn does not leave an empty message behind.
-      const appendText = (delta: string) =>
-        setMessages((prev) =>
-          prev.some((m) => m.id === replyId)
-            ? prev.map((m) =>
-                m.id === replyId ? { ...m, content: m.content + delta } : m
+      // The turn is built as steps, not as one growing string: the agent
+      // narrates, runs a tool, narrates again, and only its last words are the
+      // answer. `content` still holds the joined text so everything that reads
+      // a message as plain text keeps working.
+      const steps: TurnStep[] = [];
+      const flush = () =>
+        setMessages((prev) => {
+          const next: Message = {
+            id: replyId,
+            role: 'assistant',
+            content: steps
+              .filter(
+                (s): s is Extract<TurnStep, { kind: 'text' }> =>
+                  s.kind === 'text'
               )
-            : [
-                ...prev,
-                {
-                  id: replyId,
-                  role: 'assistant',
-                  content: delta,
-                  createdAt: new Date().toISOString(),
-                },
-              ]
-        );
+              .map((s) => s.text)
+              .join(''),
+            createdAt: new Date().toISOString(),
+            steps: [...steps],
+          };
+          return prev.some((m) => m.id === replyId)
+            ? prev.map((m) => (m.id === replyId ? { ...m, ...next } : m))
+            : [...prev, next];
+        });
+
+      const appendText = (delta: string) => {
+        const last = steps[steps.length - 1];
+        if (last?.kind === 'text') last.text += delta;
+        else steps.push({ kind: 'text', text: delta });
+        flush();
+      };
 
       let touchedFiles = false;
 
@@ -132,7 +147,9 @@ export const useChatStream = ({
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const reply = await startChatStream(userInput, token, {
+      // The joined text it returns is no longer what gets saved; the
+      // structured steps are, so the answer can be told apart from the notes.
+      await startChatStream(userInput, token, {
         signal: controller.signal,
         images,
         onText: appendText,
@@ -142,6 +159,8 @@ export const useChatStream = ({
           // The agent stream carries no file-change parts, so a write is
           // inferred from the tool that ran.
           if (/edit|write|create|delete/i.test(tool)) touchedFiles = true;
+          steps.push({ kind: 'tool', tool, file: target });
+          flush();
           setActivity({ tool, file: target });
         },
         onError: (m) => toast.error(m),
@@ -149,13 +168,21 @@ export const useChatStream = ({
 
       setActivity(null);
 
-      if (!reply.trim()) return;
+      // Only the answer is kept. The working notes exist to be watched while
+      // the turn runs; storing them would replay "let me check X…" forever on
+      // every reload, where there is no longer anything to fold them into.
+      const answer = splitTurn(steps)
+        .answer.map((s) => (s.kind === 'text' ? s.text : ''))
+        .join('')
+        .trim();
+
+      if (!answer) return;
 
       await saveMessage({
         variables: {
           input: {
             chatId: targetChatId,
-            message: reply,
+            message: answer,
             model: selectedModel,
             role: 'assistant',
           } as ChatInputType,

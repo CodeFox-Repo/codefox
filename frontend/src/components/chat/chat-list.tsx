@@ -9,6 +9,7 @@ import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
 import { cjk } from '@streamdown/cjk';
 import { Message } from '../../const/MessageType';
+import { TurnTrail } from './turn-trail';
 import { Button } from '../ui/button';
 import {
   Check,
@@ -252,21 +253,22 @@ export default function ChatList({
                             : 'text-foreground'
                         )}
                       >
-                        {isUser ? (
-                          <div className="prose dark:prose-invert prose-sm max-w-none">
-                            <div className="mt-4 prose dark:prose-invert prose-sm max-w-none">
-                              {renderMessageContent(message.content)}
-                            </div>
+                        {isUser || !message.steps ? (
+                          <div className="prose dark:prose-invert prose-sm mt-4 max-w-none">
+                            {renderMessageContent(
+                              message.content,
+                              !isUser && isStreaming(index)
+                            )}
                           </div>
                         ) : (
-                          <>
-                            <div className="mt-4 prose dark:prose-invert prose-sm max-w-none">
-                              {renderMessageContent(
-                                message.content,
-                                isStreaming(index)
-                              )}
-                            </div>
-                          </>
+                          // A live turn carries its own trail: the working
+                          // notes above, foldable, and the answer below.
+                          <div className="mt-4">
+                            <TurnTrail
+                              steps={message.steps}
+                              streaming={isStreaming(index)}
+                            />
+                          </div>
                         )}
                       </div>
                       {/* Action buttons */}
