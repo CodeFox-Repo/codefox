@@ -373,6 +373,7 @@ export type Query = {
   getProject: Project;
   getUserChats?: Maybe<Array<Chat>>;
   getUserProjects: Array<Project>;
+  googleAuthAvailable: Scalars['Boolean']['output'];
   logout: Scalars['Boolean']['output'];
   me: User;
   registrationOpen: Scalars['Boolean']['output'];
@@ -1157,6 +1158,11 @@ export type QueryResolvers<
   >;
   getUserProjects?: Resolver<
     Array<ResolversTypes['Project']>,
+    ParentType,
+    ContextType
+  >;
+  googleAuthAvailable?: Resolver<
+    ResolversTypes['Boolean'],
     ParentType,
     ContextType
   >;

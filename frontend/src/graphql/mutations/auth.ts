@@ -51,3 +51,9 @@ export const EMAIL_VERIFICATION_REQUIRED = gql`
     emailVerificationRequired
   }
 `;
+
+export const GOOGLE_AUTH_AVAILABLE = gql`
+  query GoogleAuthAvailable {
+    googleAuthAvailable
+  }
+`;

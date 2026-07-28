@@ -20,6 +20,7 @@ import {
 import { useMutation, useQuery } from '@apollo/client';
 import {
   EMAIL_VERIFICATION_REQUIRED,
+  GOOGLE_AUTH_AVAILABLE,
   REGISTER_USER,
   RESEND_CONFIRMATION_EMAIL_MUTATION,
 } from '@/graphql/mutations/auth';
@@ -42,8 +43,11 @@ export function SignUpModal({
   // lie that strands the user at their inbox. Default to the strict copy
   // until the backend answers.
   const { data: verificationData } = useQuery(EMAIL_VERIFICATION_REQUIRED);
-  const needsVerification =
-    verificationData?.emailVerificationRequired ?? true;
+  const needsVerification = verificationData?.emailVerificationRequired ?? true;
+  // Hidden when the backend has no Google credentials; the divider below goes
+  // with it, since "or continue with" needs something above it to be an "or".
+  const { data: googleData } = useQuery(GOOGLE_AUTH_AVAILABLE);
+  const googleAvailable = googleData?.googleAuthAvailable ?? false;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -297,42 +301,38 @@ export function SignUpModal({
                 </TextureCardHeader>
                 <TextureSeparator />
                 <TextureCardContent>
-                  <Button
-                    variant="outline"
-                    className="flex items-center justify-center gap-2 w-full"
-                    type="button"
-                    onClick={() => {
-                      // Same guard as the sign-in modal: the backend route
-                      // 302s to Google with whatever client id is configured,
-                      // so without one the user lands on a Google error page.
-                      if (!process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED) {
-                        toast.error('Google sign-up is not configured yet.');
-                        return;
-                      }
-                      window.location.href =
-                        process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
-                        'http://localhost:8080/auth/google';
-                    }}
-                  >
-                    <img
-                      src="/images/google.svg"
-                      alt="Google"
-                      className="w-5 h-5"
-                    />
-                    <span>Continue with Google</span>
-                  </Button>
+                  {googleAvailable && (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="flex items-center justify-center gap-2 w-full"
+                        type="button"
+                        onClick={() => {
+                          window.location.href =
+                            process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
+                            'http://localhost:8080/auth/google';
+                        }}
+                      >
+                        <img
+                          src="/images/google.svg"
+                          alt="Google"
+                          className="w-5 h-5"
+                        />
+                        <span>Continue with Google</span>
+                      </Button>
 
-                  {/* Divider with "or" text */}
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-border"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-background text-muted-foreground">
-                        Or continue with
-                      </span>
-                    </div>
-                  </div>
+                      <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-border"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-background text-muted-foreground">
+                            Or continue with
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <form onSubmit={handleSubmit} className="space-y-2">
                     <div className="space-y-1">

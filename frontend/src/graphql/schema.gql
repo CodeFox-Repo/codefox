@@ -225,6 +225,7 @@ type Query {
   getProject(projectId: String!): Project!
   getUserChats: [Chat!]
   getUserProjects: [Project!]!
+  googleAuthAvailable: Boolean!
   logout: Boolean!
   me: User!
   registrationOpen: Boolean!

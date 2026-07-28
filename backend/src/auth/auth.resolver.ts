@@ -50,6 +50,17 @@ export class AuthResolver {
     return process.env.MAIL_ENABLED?.toLowerCase() === 'true';
   }
 
+  /**
+   * Whether "Continue with Google" can actually work. The strategy boots on
+   * placeholder credentials when unconfigured, so the button used to send
+   * users to a Google error page.
+   */
+  @Query(() => Boolean)
+  @Public()
+  googleAuthAvailable(): boolean {
+    return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_SECRET);
+  }
+
   @Query(() => Boolean)
   @Public()
   async checkToken(@Args('input') params: CheckTokenInput): Promise<boolean> {

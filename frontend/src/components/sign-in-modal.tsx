@@ -18,8 +18,8 @@ import {
   TextureSeparator,
 } from '@/components/ui/texture-card';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@apollo/client';
-import { LOGIN_USER } from '@/graphql/mutations/auth';
+import { useMutation, useQuery } from '@apollo/client';
+import { GOOGLE_AUTH_AVAILABLE, LOGIN_USER } from '@/graphql/mutations/auth';
 import { toast } from 'sonner';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -39,6 +39,10 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const { login } = useAuthContext();
 
   // Destructure `loading` so we can disable the button while logging in
+  // Hidden entirely when the backend has no Google credentials — a button
+  // whose only outcome is an error toast is not a feature.
+  const { data: googleData } = useQuery(GOOGLE_AUTH_AVAILABLE);
+  const googleAvailable = googleData?.googleAuthAvailable ?? false;
   const [loginUser, { loading }] = useMutation(LOGIN_USER, {
     onCompleted: (data) => {
       if (data?.login) {
@@ -150,31 +154,26 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-col gap-4">
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2 w-full"
-                    onClick={() => {
-                      // The backend route exists but 302s to Google with
-                      // whatever client id is configured; say so rather than
-                      // bouncing the user to a Google error page.
-                      if (!process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED) {
-                        toast.error('Google sign-in is not configured yet.');
-                        return;
-                      }
-                      window.location.href =
-                        process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
-                        'http://localhost:8080/auth/google';
-                    }}
-                  >
-                    <img
-                      src="/images/google.svg"
-                      alt="Google"
-                      className="w-5 h-5"
-                    />
-                    <span>Google</span>
-                  </Button>
-                </div>
+                {googleAvailable && (
+                  <div className="mt-4 flex flex-col gap-4">
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2 w-full"
+                      onClick={() => {
+                        window.location.href =
+                          process.env.NEXT_PUBLIC_BACKEND_GOOGLE_OAUTH ||
+                          'http://localhost:8080/auth/google';
+                      }}
+                    >
+                      <img
+                        src="/images/google.svg"
+                        alt="Google"
+                        className="w-5 h-5"
+                      />
+                      <span>Google</span>
+                    </Button>
+                  </div>
+                )}
               </div>
             </TextureCardContent>
           </div>
