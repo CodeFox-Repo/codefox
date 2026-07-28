@@ -51,7 +51,25 @@ export const sandboxMode = (): SandboxMode =>
  * and rejected a perfectly good CLI login.
  */
 export const vercelConfigured = (): boolean =>
-  Boolean(process.env.VERCEL_PROJECT_ID);
+  Boolean(process.env.VERCEL_PROJECT_ID) &&
+  Boolean(process.env.VERCEL_TOKEN || process.env.VERCEL_OIDC_TOKEN);
+
+/**
+ * Credentials as the SDK actually wants them.
+ *
+ * It reads no `VERCEL_TOKEN` of its own — the choice is an OIDC token in the
+ * environment, or all three of token/teamId/projectId passed in together.
+ * Setting `VERCEL_TOKEN` and expecting it to be picked up got the SDK's
+ * "run `npx vercel link`" advice on a server that has no CLI.
+ */
+const credentials = () =>
+  process.env.VERCEL_TOKEN
+    ? {
+        token: process.env.VERCEL_TOKEN,
+        teamId: process.env.VERCEL_TEAM_ID,
+        projectId: process.env.VERCEL_PROJECT_ID,
+      }
+    : {};
 
 export interface SandboxFor {
   /** Project directory name under `.codefox/projects` (host mode). */
@@ -89,6 +107,7 @@ export const sandboxHandle = async (projectPath: string): Promise<Sandbox> => {
   }
 
   const sandbox = await Sandbox.getOrCreate({
+    ...credentials(),
     name: `codefox-${projectPath}`,
     persistent: true,
     runtime: 'node24',
