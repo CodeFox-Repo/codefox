@@ -223,10 +223,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ---------- inverted band: one real turn ----------
-          A page that stays one tone reads flat no matter how good the palette
-          is. This band flips surface and ink while keeping the same accent. */}
-      <section className="bg-foreground py-20 text-background">
+      {/* ---------- one real turn ----------
+          Separated by a step in surface, not by inverting it. Flipping to
+          `bg-foreground` dropped a light slab into a dark page — a hard value
+          jump that reads as a copy-paste accident — and it broke its own
+          contents: `primary` is a value rather than a hue now, so nine
+          `text-primary` children rendered near-white on near-white. A
+          neighbouring surface from the same palette separates the band and
+          leaves every token inside it working. */}
+      <section className="bg-secondary py-20">
         <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-10">
           <p className="mb-6 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
             One turn, start to finish
@@ -253,12 +258,12 @@ export default function HomePage() {
               <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] opacity-50">
                 What the agent did
               </p>
-              <div className="rounded-xl border border-background/15">
+              <div className="rounded-xl border border-border">
                 {TOOL_CALLS.map((c, i) => (
                   <div
                     key={`${c.tool}-${i}`}
                     className={`grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 px-4 py-2.5 font-mono text-xs ${
-                      i > 0 ? 'border-t border-background/10' : ''
+                      i > 0 ? 'border-t border-border' : ''
                     }`}
                   >
                     <span className="text-primary">{c.tool}</span>
@@ -276,7 +281,7 @@ export default function HomePage() {
               <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] opacity-50">
                 What changed on disk
               </p>
-              <pre className="overflow-x-auto rounded-xl border border-background/15 p-4 font-mono text-xs leading-[1.9]">
+              <pre className="overflow-x-auto rounded-xl border border-border p-4 font-mono text-xs leading-[1.9]">
                 <span className="opacity-50">src/app/page.tsx</span>
                 {'\n'}
                 <span className="text-primary">+ &apos;use client&apos;;</span>
