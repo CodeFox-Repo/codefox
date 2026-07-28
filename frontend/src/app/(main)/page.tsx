@@ -124,6 +124,14 @@ export default function HomePage() {
     <div className="relative overflow-x-clip">
       {/* ---------- hero ---------- */}
       <section className="relative">
+        {/* Painted sky: warm charcoal canvas, a beam of light, paper foxes
+            climbing it. Dark theme only — the painting is night air, and on
+            paper-light it would sit like a hole in the page. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 hidden h-[820px] bg-[url(/hero-canvas.jpg)] bg-cover bg-[position:62%_44%] opacity-80 dark:block
+                     [mask-image:linear-gradient(180deg,#000_0%,#000_62%,transparent_98%)]"
+        />
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-[780px] opacity-[0.05]
