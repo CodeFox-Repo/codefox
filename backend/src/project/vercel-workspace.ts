@@ -64,8 +64,10 @@ export class VercelWorkspace implements ProjectWorkspace {
   }
 
   async readFile(relativePath: string): Promise<string | null> {
+    // Same as the host: the path check throws, only the read is forgiving.
+    const full = this.resolve(relativePath);
     const buffer = await this.sandbox
-      .readFileToBuffer({ path: this.resolve(relativePath) })
+      .readFileToBuffer({ path: full })
       .catch(() => null);
     return buffer ? buffer.toString('utf-8') : null;
   }

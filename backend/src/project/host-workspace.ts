@@ -66,8 +66,12 @@ export class HostWorkspace implements ProjectWorkspace {
   }
 
   async readFile(relativePath: string): Promise<string | null> {
+    // Resolved outside the catch on purpose: a path that escapes the project
+    // must surface as a refusal, not be flattened into "no such file" by the
+    // same handler that covers a genuine miss.
+    const full = this.resolve(relativePath);
     try {
-      return await fs.readFile(this.resolve(relativePath), 'utf-8');
+      return await fs.readFile(full, 'utf-8');
     } catch {
       return null;
     }
@@ -80,13 +84,16 @@ export class HostWorkspace implements ProjectWorkspace {
   }
 
   async startPreview(): Promise<{ url: string }> {
-    await this.previews.start(this.projectPath);
+    const { port } = await this.previews.start(this.projectPath);
 
     // Not the dev server's own address: it binds to loopback, which is this
     // machine and not the visitor's. The browser is sent back to this origin
     // and the preview proxy forwards it, keyed by a cookie the controller sets.
+    //
+    // Falling back to loopback matters for local development, where browser
+    // and server really are the same machine and PUBLIC_ORIGIN is unset.
     const origin = process.env.PUBLIC_ORIGIN;
-    return { url: origin ?? '' };
+    return { url: origin ?? `http://127.0.0.1:${port}` };
   }
 
   async previewLogs(): Promise<LogLine[]> {
