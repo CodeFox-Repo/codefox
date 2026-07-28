@@ -131,7 +131,15 @@ export default function HomePage() {
                      bg-[radial-gradient(ellipse_55%_45%_at_25%_0%,hsl(var(--primary)/0.16),transparent_70%)]"
         />
 
-        <div className="relative mx-auto grid w-full max-w-[1180px] gap-12 px-5 pb-20 pt-12 sm:px-10 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-20">
+        {/* The composer used to live in the left column, which made that column
+            643px tall against the shot's 362px — vertically centred, the shot
+            floated with 140px of nothing above and below it. The shot cannot
+            grow to match without either overflowing the row or cropping the app
+            out of its own screenshot, so the composer moved out instead: the
+            row is now headline against shot, which are close in height, and the
+            composer spans the full width below, where it is also a better
+            target than a half-width box. */}
+        <div className="relative mx-auto grid w-full max-w-[1180px] gap-12 px-5 pt-12 sm:px-10 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:gap-8 lg:pt-20">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -154,39 +162,23 @@ export default function HomePage() {
               Claude Code at it, and boots a dev server beside the chat. Not a
               preview of code — the code, on a port, in your browser.
             </p>
-
-            <div className="mt-9 rounded-xl border border-border bg-card">
-              <PromptForm
-                ref={promptFormRef}
-                isAuthorized={isAuthorized}
-                onSubmit={handleSubmit}
-                onAuthRequired={() => setShowAuthChoice(true)}
-                isLoading={isLoading}
-                compact
-              />
-            </div>
-
-            <p className="mt-4 font-mono text-xs text-muted-foreground">
-              Node 18+ · no database to install · no cloud API key
-            </p>
           </motion.div>
 
-          {/* Real product, not an illustration. Bleeds off the right edge. */}
+          {/* Real product, not an illustration. It used to be pulled past the
+              container's right edge, which left 170px of margin on the left of
+              the row and 11px on the right — the shot ended up crowding the
+              window while the text side kept its air. It stays inside the
+              container so both sides of the row are measured the same. */}
           <motion.div
-            className="relative lg:-mr-24 xl:-mr-40"
+            className="relative"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           >
+            {/* No fake window chrome around it: the shot already contains the
+                product's own toolbar and address bar, so the dots and the
+                title bar made a frame around a frame. */}
             <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
-              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
-                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
-                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
-                <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                  StreakKeeper — 127.0.0.1:55077
-                </span>
-              </div>
               <Image
                 src="/demo/product-shot.png"
                 alt="The generated habit tracker running on localhost inside CodeFox preview"
@@ -198,6 +190,28 @@ export default function HomePage() {
             </div>
           </motion.div>
         </div>
+
+        <motion.div
+          className="relative mx-auto w-full max-w-[1180px] px-5 pb-20 pt-10 sm:px-10 lg:pb-28"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="rounded-xl border border-border bg-card">
+            <PromptForm
+              ref={promptFormRef}
+              isAuthorized={isAuthorized}
+              onSubmit={handleSubmit}
+              onAuthRequired={() => setShowAuthChoice(true)}
+              isLoading={isLoading}
+              compact
+            />
+          </div>
+
+          <p className="mt-4 font-mono text-xs text-muted-foreground">
+            Node 18+ · no database to install · no cloud API key
+          </p>
+        </motion.div>
       </section>
 
       {/* ---------- the numbers ---------- */}
