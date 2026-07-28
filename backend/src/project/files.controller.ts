@@ -2,19 +2,25 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import {
   BadRequestException,
-  Body,
   Controller,
+  ForbiddenException,
   Get,
   InternalServerErrorException,
   Logger,
   NotFoundException,
   Post,
+  Body,
   Query,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import type { Request, Response } from 'express';
+import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
 import { getMediaDir, getProjectsDir } from '../common/utils/common-path';
+import { Project } from './project.model';
 
 /**
  * Reads and writes the files of a generated project.
@@ -85,6 +91,11 @@ const compare = (
 export class FilesController {
   private readonly logger = new Logger('FilesController');
 
+  constructor(
+    @InjectRepository(Project)
+    private readonly projects: Repository<Project>,
+  ) {}
+
   /**
    * Resolve a caller-supplied path under the projects directory.
    *
@@ -98,6 +109,40 @@ export class FilesController {
       throw new BadRequestException('Path escapes the projects directory');
     }
     return full;
+  }
+
+  /**
+   * Refuse a path that does not belong to the caller.
+   *
+   * These routes had no authentication of any kind, so knowing a project's
+   * directory name — the first segment of every path they take — was enough
+   * to read anyone's source and to write files into their project. Traversal
+   * was blocked, which only ever kept a caller inside the directory holding
+   * every user's work.
+   *
+   * Reads are allowed on a public project so the gallery can show one without
+   * forking it first; writes are for the owner alone.
+   */
+  private async authorize(
+    req: Request,
+    relative: string,
+    write: boolean,
+  ): Promise<void> {
+    const userId = (req as any).user?.userId;
+    if (!userId) throw new ForbiddenException('Not signed in');
+
+    // Every path these routes accept starts with the project's directory.
+    const projectPath = relative.split('/')[0];
+    if (!projectPath) throw new BadRequestException('Missing project');
+
+    const project = await this.projects.findOne({
+      where: { projectPath, isDeleted: false },
+    });
+    if (!project) throw new NotFoundException('No such project');
+
+    const owns = project.userId === userId;
+    if (owns || (!write && project.isPublic)) return;
+    throw new ForbiddenException('This project is not yours');
   }
 
   private async walk(dir: string, prefix = ''): Promise<string[]> {
@@ -122,8 +167,10 @@ export class FilesController {
   }
 
   @Get('project')
-  async tree(@Query('path') projectId?: string) {
+  @UseGuards(JWTAuthGuard)
+  async tree(@Req() req: Request, @Query('path') projectId?: string) {
     if (!projectId) throw new BadRequestException('Missing path');
+    await this.authorize(req, projectId, false);
 
     const paths = await this.walk(this.resolve(projectId));
     if (paths.length === 0) return { res: emptyTree() };
@@ -220,8 +267,10 @@ export class FilesController {
   }
 
   @Get('file')
-  async read(@Query('path') filePath?: string) {
+  @UseGuards(JWTAuthGuard)
+  async read(@Req() req: Request, @Query('path') filePath?: string) {
     if (!filePath) throw new BadRequestException("Missing 'path'");
+    await this.authorize(req, filePath, false);
     try {
       const content = await fs.readFile(this.resolve(filePath), 'utf-8');
       return { filePath, content };
@@ -232,12 +281,17 @@ export class FilesController {
   }
 
   @Post('file')
-  async write(@Body() body: { filePath?: string; newContent?: string }) {
+  @UseGuards(JWTAuthGuard)
+  async write(
+    @Req() req: Request,
+    @Body() body: { filePath?: string; newContent?: string },
+  ) {
     const { filePath, newContent } = body ?? {};
     // An empty string is a legitimate file body, so only absence is an error.
     if (!filePath || newContent == null) {
       throw new BadRequestException("Missing 'filePath' or 'newContent'");
     }
+    await this.authorize(req, filePath, true);
 
     const full = this.resolve(filePath);
     try {
