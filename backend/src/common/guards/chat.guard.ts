@@ -37,9 +37,11 @@ export class ChatGuard implements CanActivate {
       chatId =
         args.chatId || args.input?.chatId || args.updateChatTitleInput?.chatId;
 
-      // Allow chat creation mutation which doesn't require a chatId
+      // Allow chat creation mutation which doesn't require a chatId.
+      // Optional chaining: an anonymous operation has no name node, and the
+      // guard crashing 500 is worse than just falling through to the checks.
       const info = gqlContext.getInfo();
-      if (info.operation.name.value === 'createChat') {
+      if (info.operation.name?.value === 'createChat') {
         return true;
       }
     }

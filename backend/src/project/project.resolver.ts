@@ -1,4 +1,5 @@
 // GraphQL Resolvers for Project APIs
+import { Public } from 'src/common/decorators/public.decorator';
 import {
   Args,
   Mutation,
@@ -13,7 +14,6 @@ import { Project } from './project.model';
 import {
   CreateProjectInput,
   FetchPublicProjectsInputs,
-  IsValidProjectInput,
   UpdateProjectPhotoInput,
 } from './dto/project.input';
 import { Logger, UseGuards } from '@nestjs/common';
@@ -60,15 +60,6 @@ export class ProjectsResolver {
   @UseGuards(ProjectGuard)
   async deleteProject(@Args('projectId') projectId: string): Promise<boolean> {
     return this.projectService.deleteProject(projectId);
-  }
-
-  @Query(() => Boolean)
-  @JWTAuth()
-  async isValidateProject(
-    @GetUserIdFromToken() userId: string,
-    @Args('isValidProject') input: IsValidProjectInput,
-  ): Promise<boolean> {
-    return this.projectService.isValidProject(userId, input);
   }
 
   @ResolveField('user', () => User)
@@ -138,6 +129,7 @@ export class ProjectsResolver {
    * @returns return some projects
    */
   @Query(() => [Project])
+  @Public()
   async fetchPublicProjects(
     @Args('input') input: FetchPublicProjectsInputs,
   ): Promise<Project[]> {

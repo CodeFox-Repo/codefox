@@ -1,3 +1,4 @@
+import { Public } from 'src/common/decorators/public.decorator';
 import {
   Args,
   Field,
@@ -54,6 +55,7 @@ export class UserResolver {
   // }
 
   @Mutation(() => EmailConfirmationResponse)
+  @Public()
   async resendConfirmationEmail(
     @Args('input') input: ResendEmailInput,
   ): Promise<EmailConfirmationResponse> {
@@ -61,6 +63,7 @@ export class UserResolver {
   }
 
   @Mutation(() => User)
+  @Public()
   async registerUser(
     @Args('input') registerUserInput: RegisterUserInput,
   ): Promise<User> {
@@ -72,6 +75,7 @@ export class UserResolver {
   }
 
   @Mutation(() => LoginResponse)
+  @Public()
   async login(
     @Args('input') loginUserInput: LoginUserInput,
   ): Promise<LoginResponse> {

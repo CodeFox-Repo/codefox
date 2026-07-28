@@ -1,3 +1,4 @@
+import { Public } from 'src/common/decorators/public.decorator';
 import {
   Args,
   Query,
@@ -38,11 +39,13 @@ export class AuthResolver {
   }
 
   @Query(() => Boolean)
+  @Public()
   async checkToken(@Args('input') params: CheckTokenInput): Promise<boolean> {
     return this.authService.validateToken(params);
   }
 
   @Mutation(() => RefreshTokenResponse)
+  @Public()
   async refreshToken(
     @Args('refreshToken') refreshToken: string,
   ): Promise<RefreshTokenResponse> {
@@ -50,6 +53,7 @@ export class AuthResolver {
   }
 
   @Mutation(() => EmailConfirmationResponse)
+  @Public()
   async confirmEmail(
     @Args('token') token: string,
   ): Promise<EmailConfirmationResponse> {
