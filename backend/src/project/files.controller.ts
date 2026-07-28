@@ -21,6 +21,7 @@ import type { Request, Response } from 'express';
 import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
 import { getMediaDir, getProjectsDir } from '../common/utils/common-path';
 import { Project } from './project.model';
+import { assertProjectAccess } from './project-access';
 
 /**
  * Reads and writes the files of a generated project.
@@ -111,40 +112,6 @@ export class FilesController {
     return full;
   }
 
-  /**
-   * Refuse a path that does not belong to the caller.
-   *
-   * These routes had no authentication of any kind, so knowing a project's
-   * directory name — the first segment of every path they take — was enough
-   * to read anyone's source and to write files into their project. Traversal
-   * was blocked, which only ever kept a caller inside the directory holding
-   * every user's work.
-   *
-   * Reads are allowed on a public project so the gallery can show one without
-   * forking it first; writes are for the owner alone.
-   */
-  private async authorize(
-    req: Request,
-    relative: string,
-    write: boolean,
-  ): Promise<void> {
-    const userId = (req as any).user?.userId;
-    if (!userId) throw new ForbiddenException('Not signed in');
-
-    // Every path these routes accept starts with the project's directory.
-    const projectPath = relative.split('/')[0];
-    if (!projectPath) throw new BadRequestException('Missing project');
-
-    const project = await this.projects.findOne({
-      where: { projectPath, isDeleted: false },
-    });
-    if (!project) throw new NotFoundException('No such project');
-
-    const owns = project.userId === userId;
-    if (owns || (!write && project.isPublic)) return;
-    throw new ForbiddenException('This project is not yours');
-  }
-
   private async walk(dir: string, prefix = ''): Promise<string[]> {
     let entries: Awaited<ReturnType<typeof fs.readdir>>;
     try {
@@ -170,7 +137,7 @@ export class FilesController {
   @UseGuards(JWTAuthGuard)
   async tree(@Req() req: Request, @Query('path') projectId?: string) {
     if (!projectId) throw new BadRequestException('Missing path');
-    await this.authorize(req, projectId, false);
+    await assertProjectAccess({ projects: this.projects, req, projectPath: projectId, write: false });
 
     const paths = await this.walk(this.resolve(projectId));
     if (paths.length === 0) return { res: emptyTree() };
@@ -270,7 +237,7 @@ export class FilesController {
   @UseGuards(JWTAuthGuard)
   async read(@Req() req: Request, @Query('path') filePath?: string) {
     if (!filePath) throw new BadRequestException("Missing 'path'");
-    await this.authorize(req, filePath, false);
+    await assertProjectAccess({ projects: this.projects, req, projectPath: filePath, write: false });
     try {
       const content = await fs.readFile(this.resolve(filePath), 'utf-8');
       return { filePath, content };
@@ -291,7 +258,7 @@ export class FilesController {
     if (!filePath || newContent == null) {
       throw new BadRequestException("Missing 'filePath' or 'newContent'");
     }
-    await this.authorize(req, filePath, true);
+    await assertProjectAccess({ projects: this.projects, req, projectPath: filePath, write: true });
 
     const full = this.resolve(filePath);
     try {

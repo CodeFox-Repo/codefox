@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 export interface ProjectContextType {
   projects: Project[];
@@ -488,12 +489,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // rejected and the check never passed — which is why no project ever
         // got a cover image. /api/screenshot runs server-side and reports its
         // own failure below.
+        //
+        // The backend derives the address from the project itself; passing a
+        // URL used to let any caller aim it anywhere the container could
+        // reach, so it no longer accepts one.
+        if (!projectPath) throw new Error('No project to screenshot');
 
         // Add a cache buster to avoid previous screenshot caching
-        const screenshotUrl =
-          `/api/screenshot?url=${encodeURIComponent(url)}&t=${Date.now()}` +
-          (projectPath ? `&projectPath=${encodeURIComponent(projectPath)}` : '');
-        const screenshotResponse = await fetch(screenshotUrl);
+        const screenshotUrl = `/api/screenshot?projectPath=${encodeURIComponent(
+          projectPath
+        )}&t=${Date.now()}`;
+        const screenshotResponse = await authenticatedFetch(screenshotUrl);
 
         if (!screenshotResponse.ok) {
           throw new Error(
@@ -545,7 +551,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       try {
         // Backend-owned: it holds the project directories and the process
         // that serves them. /api/preview proxies through to the backend.
-        const response = await fetch(
+        const response = await authenticatedFetch(
           `/api/preview?projectPath=${encodeURIComponent(projectPath)}`,
           {
             method: 'GET',
