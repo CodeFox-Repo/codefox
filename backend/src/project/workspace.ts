@@ -13,12 +13,25 @@ import type { LogLine } from './preview.service';
  * Two implementations sit behind this: the host disk, and a Vercel microVM.
  * Nothing above this interface knows which one it is talking to.
  */
+/** One file the project has diverged from its template on. */
+export interface ChangedFile {
+  path: string;
+  status: 'added' | 'modified' | 'deleted';
+}
+
 export interface ProjectWorkspace {
   /**
    * Every file in the project, as paths relative to its root, with shared
    * dependencies and build output left out.
    */
   listFiles(): Promise<string[]>;
+
+  /**
+   * What the agent has actually touched — the project relative to its git
+   * baseline (every workspace starts as a clone of the template). Null when
+   * there is no git history to diff against.
+   */
+  changedFiles(): Promise<ChangedFile[] | null>;
 
   /** File contents as text, or null when there is no such file. */
   readFile(relativePath: string): Promise<string | null>;
@@ -72,3 +85,32 @@ export const IGNORED_ENTRIES = [
   'coverage',
   '.DS_Store',
 ];
+
+/**
+ * `git status --porcelain` lines into ChangedFile records. Renames report the
+ * new path; the ignore list keeps agent scratch out of the view.
+ */
+export function parsePorcelain(output: string): ChangedFile[] {
+  const changes: ChangedFile[] = [];
+  for (const line of output.split('\n')) {
+    if (!line.trim()) continue;
+    const flags = line.slice(0, 2);
+    let file = line.slice(3).trim();
+    const arrow = file.indexOf(' -> ');
+    if (arrow !== -1) file = file.slice(arrow + 4);
+    file = file.replace(/^"|"$/g, '');
+    if (
+      IGNORED_ENTRIES.some(
+        (name) => file === name || file.startsWith(`${name}/`),
+      )
+    )
+      continue;
+    const status: ChangedFile['status'] = flags.includes('D')
+      ? 'deleted'
+      : flags === '??' || flags.includes('A')
+        ? 'added'
+        : 'modified';
+    changes.push({ path: file, status });
+  }
+  return changes;
+}

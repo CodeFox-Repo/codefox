@@ -63,7 +63,7 @@ export default function ChatContent({
       className="flex h-full w-full flex-col justify-between"
     >
       <div className="sticky top-0 z-10">
-        <ChatTopbar chatId={chatId} />
+        <ChatTopbar chatId={chatId} onHistoryCleared={() => setMessages([])} />
       </div>
 
       <div className="flex-grow overflow-hidden">

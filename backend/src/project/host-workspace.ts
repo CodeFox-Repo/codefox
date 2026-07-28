@@ -1,10 +1,24 @@
-import { promises as fs, createWriteStream, existsSync, mkdirSync } from 'node:fs';
+import {
+  promises as fs,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+} from 'node:fs';
 import * as path from 'node:path';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import archiver from 'archiver';
 import { getProjectsDir, getTempDir } from '../common/utils/common-path';
 import type { LogLine, PreviewService } from './preview.service';
-import { IGNORED_ENTRIES, ProjectWorkspace } from './workspace';
+import {
+  ChangedFile,
+  IGNORED_ENTRIES,
+  parsePorcelain,
+  ProjectWorkspace,
+} from './workspace';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 const IGNORED = new Set(IGNORED_ENTRIES);
 
@@ -59,6 +73,20 @@ export class HostWorkspace implements ProjectWorkspace {
       }
     }
     return out;
+  }
+
+  async changedFiles(): Promise<ChangedFile[] | null> {
+    if (!existsSync(path.join(this.root, '.git'))) return null;
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['-C', this.root, 'status', '--porcelain'],
+        { maxBuffer: 4 * 1024 * 1024 },
+      );
+      return parsePorcelain(stdout);
+    } catch {
+      return null;
+    }
   }
 
   async listFiles(): Promise<string[]> {
@@ -138,7 +166,9 @@ export class HostWorkspace implements ProjectWorkspace {
       '**/*',
       {
         cwd: this.root,
-        ignore: IGNORED_ENTRIES.map((p) => `**/${p}/**`).concat(IGNORED_ENTRIES),
+        ignore: IGNORED_ENTRIES.map((p) => `**/${p}/**`).concat(
+          IGNORED_ENTRIES,
+        ),
         dot: true,
       },
       {},

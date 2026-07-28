@@ -83,11 +83,37 @@ export class FilesController {
     private readonly workspaces: WorkspaceService,
   ) {}
 
+  /**
+   * What the agent changed, straight from git — every workspace starts as a
+   * clone of the template, so `status --porcelain` is the honest diff. 204
+   * when there is no git baseline; the client falls back to the full tree.
+   */
+  @Get('project/changes')
+  @UseGuards(JWTAuthGuard)
+  async changes(@Req() req: Request, @Query('path') projectId?: string) {
+    if (!projectId) throw new BadRequestException('Missing path');
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath: projectId,
+      write: false,
+    });
+
+    const workspace = await this.workspaces.for(projectId);
+    const changes = await workspace.changedFiles();
+    return { changes };
+  }
+
   @Get('project')
   @UseGuards(JWTAuthGuard)
   async tree(@Req() req: Request, @Query('path') projectId?: string) {
     if (!projectId) throw new BadRequestException('Missing path');
-    await assertProjectAccess({ projects: this.projects, req, projectPath: projectId, write: false });
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath: projectId,
+      write: false,
+    });
 
     const workspace = await this.workspaces.for(projectId);
     const paths = await workspace.listFiles();
@@ -191,7 +217,12 @@ export class FilesController {
   @UseGuards(JWTAuthGuard)
   async read(@Req() req: Request, @Query('path') filePath?: string) {
     if (!filePath) throw new BadRequestException("Missing 'path'");
-    await assertProjectAccess({ projects: this.projects, req, projectPath: filePath, write: false });
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath: filePath,
+      write: false,
+    });
 
     const [projectPath, ...rest] = filePath.split('/');
     const workspace = await this.workspaces.for(projectPath);
@@ -211,7 +242,12 @@ export class FilesController {
     if (!filePath || newContent == null) {
       throw new BadRequestException("Missing 'filePath' or 'newContent'");
     }
-    await assertProjectAccess({ projects: this.projects, req, projectPath: filePath, write: true });
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath: filePath,
+      write: true,
+    });
 
     const [projectPath, ...rest] = filePath.split('/');
     try {

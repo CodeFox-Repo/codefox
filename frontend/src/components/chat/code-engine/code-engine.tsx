@@ -278,6 +278,7 @@ export function CodeEngine({
         return (
           <CodeTab
             editorRef={editorRef}
+            projectPath={activeProject?.projectPath || projectPathRef.current}
             fileStructureData={fileStructureData}
             newCode={newCode}
             isFileStructureLoading={isFileStructureLoading}

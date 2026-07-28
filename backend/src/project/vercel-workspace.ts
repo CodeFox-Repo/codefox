@@ -6,7 +6,12 @@ import type { Sandbox } from '@vercel/sandbox';
 import { SANDBOX_ROOT as ROOT } from '../chat/sandbox-provider';
 import { getTempDir } from '../common/utils/common-path';
 import type { LogLine } from './preview.service';
-import { IGNORED_ENTRIES, ProjectWorkspace } from './workspace';
+import {
+  ChangedFile,
+  IGNORED_ENTRIES,
+  parsePorcelain,
+  ProjectWorkspace,
+} from './workspace';
 
 /** Bounded so one enormous project cannot exhaust the backend's memory. */
 const MAX_FILES = 5000;
@@ -35,6 +40,17 @@ export class VercelWorkspace implements ProjectWorkspace {
       throw new BadRequestException('Path escapes the project');
     }
     return full;
+  }
+
+  async changedFiles(): Promise<ChangedFile[] | null> {
+    const result = await this.sandbox.runCommand({
+      cmd: 'sh',
+      args: ['-lc', 'git status --porcelain 2>/dev/null || echo __NO_GIT__'],
+      cwd: ROOT,
+    });
+    const out = await result.stdout();
+    if (out.includes('__NO_GIT__')) return null;
+    return parsePorcelain(out);
   }
 
   async listFiles(): Promise<string[]> {
@@ -248,7 +264,9 @@ export class VercelWorkspace implements ProjectWorkspace {
     await this.sandbox
       .stop()
       .catch((error: unknown) =>
-        this.logger.warn(`Could not stop ${this.sandbox.name}: ${String(error)}`),
+        this.logger.warn(
+          `Could not stop ${this.sandbox.name}: ${String(error)}`,
+        ),
       );
   }
 }
