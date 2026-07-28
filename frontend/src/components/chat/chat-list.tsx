@@ -19,6 +19,7 @@ import { Button } from '../ui/button';
 import { Copy, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { mediaUrl } from '@/lib/media';
 
 interface ChatListProps {
   messages: Message[];
@@ -178,7 +179,12 @@ export default function ChatList({
                   <Avatar className={cn('h-5 w-5', isUser && 'bg-primary/10')}>
                     {isUser ? (
                       <>
-                        <AvatarImage src="/" alt="user" />
+                        {user.avatarUrl && (
+                          <AvatarImage
+                            src={mediaUrl(user.avatarUrl)}
+                            alt="user"
+                          />
+                        )}
                         <AvatarFallback className="text-primary-foreground text-[10px]">
                           {user.username?.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
