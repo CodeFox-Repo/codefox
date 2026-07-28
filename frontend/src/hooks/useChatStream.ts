@@ -209,7 +209,11 @@ export const useChatStream = ({
       // caller's to retry — right after creation the backend may still be
       // provisioning the project's sandbox and rejects the turn outright.
       if (!saveUser && steps.length === 0) throw err;
-      toast.error('Failed to get chat response' + err);
+      // An abort is the user's own stop, not a failure to report.
+      if ((err as Error)?.name !== 'AbortError') {
+        toast.error('The agent hit an error mid-reply — try sending again.');
+        logger.error('turn failed:', err);
+      }
     } finally {
       abortRef.current = null;
       setActivity(null);

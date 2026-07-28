@@ -34,8 +34,8 @@ const TOOL_CALLS = [
 const FACTS = [
   {
     n: '365',
-    title: 'files scaffolded',
-    hint: 'Next.js 15 + shadcn starter, copied per project',
+    title: 'files in the app starter',
+    hint: 'Next.js 15 + shadcn — or a one-file HTML page, your pick',
     accent: true,
   },
   {
@@ -62,9 +62,9 @@ const LIMITS = [
     body: 'Every project comes from the same template, so they symlink a single install. That stops being true the moment the agent is allowed to add a dependency.',
   },
   {
-    title: 'One template, one stack',
-    tag: 'roadmap',
-    body: 'The scaffolder takes a git URL, so a second starter is configuration rather than code — but nothing selects between them yet.',
+    title: 'Two starters, not a marketplace',
+    tag: 'known',
+    body: 'A project is either a self-contained HTML page or a Next.js app — you pick at creation. The scaffolder takes a git URL, so further starters are configuration rather than code.',
   },
 ];
 
