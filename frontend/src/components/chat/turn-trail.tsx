@@ -57,7 +57,13 @@ export function TurnTrail({
   streaming?: boolean;
 }) {
   const { work, answer } = splitTurn(steps);
-  const done = answer.length > 0;
+
+  // A turn is finished when the stream is, not merely when it has said
+  // something last. Mid-stream the sentence being typed is always the final
+  // segment, so reading "there is trailing text" as "there is an answer"
+  // folded the notes shut a second after they appeared — the opposite of
+  // being able to watch the work.
+  const done = !streaming && answer.length > 0;
 
   // Tracks `done` until the reader overrides it, so the fold happens on its
   // own exactly once and never fights a deliberate click afterwards.
