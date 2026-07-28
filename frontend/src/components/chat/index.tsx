@@ -228,9 +228,9 @@ export default function Chat() {
       key="with-chat"
     >
       <ResizablePanel
-        defaultSize={40}
-        minSize={20}
-        maxSize={70}
+        defaultSize={18}
+        minSize={15}
+        maxSize={45}
         className="h-full"
       >
         <div className="h-full overflow-hidden">
@@ -259,9 +259,9 @@ export default function Chat() {
       <ResizableHandle withHandle className="w-px bg-border" />
 
       <ResizablePanel
-        defaultSize={60}
-        minSize={30}
-        maxSize={80}
+        defaultSize={82}
+        minSize={55}
+        maxSize={85}
         className="h-full"
       >
         <div className="h-full overflow-auto">

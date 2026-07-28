@@ -195,14 +195,14 @@ export default function ChatList({
                   <div className="flex flex-col gap-2">
                     <div
                       className={cn(
-                        'px-4 py-1 rounded-lg break-words',
+                        'rounded-lg break-words',
                         !isUser
-                          ? 'bg-card text-card-foreground'
-                          : 'text-foreground'
+                          ? 'bg-card px-4 py-3 text-card-foreground'
+                          : 'px-4 py-1 text-foreground'
                       )}
                     >
                       {isUser || !message.steps ? (
-                        <div className="prose dark:prose-invert prose-sm mt-4 max-w-none">
+                        <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-2 prose-ul:my-2 prose-li:my-1 prose-headings:mb-2 prose-headings:mt-4 prose-pre:my-3">
                           {renderMessageContent(
                             isUser ? message.content : proseContent,
                             !isUser && isStreaming(index)
@@ -211,7 +211,7 @@ export default function ChatList({
                       ) : (
                         // A live turn carries its own trail: the working
                         // notes above, foldable, and the answer below.
-                        <div className="mt-4">
+                        <div>
                           <TurnTrail
                             steps={trailSteps}
                             streaming={isStreaming(index)}

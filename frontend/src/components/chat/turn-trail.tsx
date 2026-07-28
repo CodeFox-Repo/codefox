@@ -132,7 +132,10 @@ export function TurnTrail({
       )}
 
       {answer.map((step, i) => (
-        <div key={i} className="prose prose-sm max-w-none dark:prose-invert">
+        <div
+          key={i}
+          className="prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-headings:mb-2 prose-headings:mt-4 prose-pre:my-3 prose-p:leading-relaxed"
+        >
           <Markdown
             text={step.kind === 'text' ? step.text : ''}
             streaming={streaming}
