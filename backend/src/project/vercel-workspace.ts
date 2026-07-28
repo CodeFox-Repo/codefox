@@ -130,12 +130,24 @@ export class VercelWorkspace implements ProjectWorkspace {
     return { url: this.sandbox.domain(this.previewPort) };
   }
 
+  /**
+   * Whether the dev server is answering — not whether the app is healthy.
+   *
+   * These are different questions and conflating them cost two minutes per
+   * request: a project whose own code throws answers 500, `curl -f` called
+   * that a failure, and the caller waited out the whole startup timeout before
+   * reporting that the preview had not started. A 500 from the user's app is
+   * something they should see in the preview, not something to hide behind a
+   * timeout.
+   */
   private async isPreviewRunning(): Promise<boolean> {
     const check = await this.sandbox.runCommand('sh', [
       '-lc',
-      `curl -sf -o /dev/null http://127.0.0.1:${this.previewPort} && echo up`,
+      `curl -s -o /dev/null -w '%{http_code}' --max-time 5 ` +
+        `http://127.0.0.1:${this.previewPort} || echo 000`,
     ]);
-    return (await check.stdout()).includes('up');
+    const code = (await check.stdout()).trim().slice(-3);
+    return /^[1-5]\d\d$/.test(code);
   }
 
   private async waitForPreview(): Promise<void> {
