@@ -101,9 +101,30 @@ export class ChatController {
       res.write(`${JSON.stringify(event)}\n`);
 
     // A client that hangs up mid-turn should stop the agent, not leak a session.
+    //
+    // Stopping here rather than only after the loop notices: the loop is
+    // parked on `await` for the model's next part, so a turn abandoned during
+    // inference never reached the flag — and the bridge process, holding its
+    // model connection open, outlived the request indefinitely.
     let clientGone = false;
+    let stopped = false;
+    // `stop` persists resume state and leaves the runtime to be picked up
+    // again; on a host sandbox that means the bridge process survives, which
+    // is a leak when nobody is coming back. An abandoned turn is not resumed
+    // — the UI starts a fresh one — so it gets `destroy`, which ends the
+    // runtime outright.
+    const endSession = async (why: string, abandoned: boolean) => {
+      if (stopped) return;
+      stopped = true;
+      try {
+        await (abandoned ? session.destroy?.() : session.stop?.());
+      } catch (error) {
+        this.logger.warn(`[${chatDto.chatId}] ${why} failed: ${error}`);
+      }
+    };
     res.on('close', () => {
       clientGone = true;
+      void endSession('destroy', true);
     });
 
     try {
@@ -137,7 +158,7 @@ export class ChatController {
       res.end();
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
-      await session.stop?.().catch?.(() => {});
+      await endSession('stop', false);
     }
   }
 
