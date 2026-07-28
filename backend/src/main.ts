@@ -37,8 +37,10 @@ async function bootstrap() {
   // straight past Express's 100kb default. Bounded by ArrayMaxSize(4) on the DTO.
   app.use(json({ limit: '25mb' }));
 
-  // After Nest's router, so a real route always wins and only unclaimed
-  // paths — a preview's own assets — reach the proxy.
+  // Necessarily *before* Nest's router: Nest answers an unmatched path with
+  // its own 404 rather than calling next(), so a proxy mounted after it never
+  // runs. Being first means it must decline this server's own routes itself —
+  // see OURS in preview-proxy.
   mountPreviewProxy(
     app.getHttpAdapter().getInstance(),
     app.get(PreviewService),

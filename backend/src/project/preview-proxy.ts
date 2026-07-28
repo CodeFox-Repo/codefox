@@ -5,6 +5,22 @@ import { PreviewService } from './preview.service';
 /** Identifies which project's dev server unclaimed requests belong to. */
 export const PREVIEW_COOKIE = 'codefox_preview';
 
+/**
+ * Paths this server answers itself, which the proxy must never take.
+ *
+ * The proxy has to run before Nest's router — Nest replies to an unmatched
+ * path with its own 404 instead of calling next(), so anything mounted after
+ * it is unreachable. Running first means every request carrying the preview
+ * cookie went to the project's dev server, including the calls that make the
+ * page work: /api/chat answered 404 and the chat never replied, /api/project
+ * answered 404 and the file tree spun forever.
+ *
+ * Deliberately the specific routes rather than all of `/api`: a generated app
+ * has its own API routes, and those are the preview's to serve.
+ */
+const OURS =
+  /^\/(graphql|health|download|api\/(chat|project|file|media|preview|screenshot))(\/|\?|$)/;
+
 const logger = new Logger('PreviewProxy');
 
 /**
@@ -25,6 +41,8 @@ const logger = new Logger('PreviewProxy');
  */
 export const mountPreviewProxy = (app: Express, previews: PreviewService) => {
   app.use(async (req: Request, res: Response, next: NextFunction) => {
+    if (OURS.test(req.path)) return next();
+
     const projectPath = (req.headers.cookie ?? '')
       .split(';')
       .map((part) => part.trim().split('='))

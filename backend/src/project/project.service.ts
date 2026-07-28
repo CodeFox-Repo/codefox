@@ -32,6 +32,7 @@ import {
 } from '../common/utils/common-path';
 // import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
+import { PreviewService } from './preview.service';
 
 @Injectable()
 export class ProjectService {
@@ -46,6 +47,7 @@ export class ProjectService {
     private uploadService: UploadService,
     // private readonly gitHubService: GitHubService,
     private userService: UserService,
+    private previews: PreviewService,
   ) {}
 
   async getProjectsByUser(userId: string): Promise<Project[]> {
@@ -243,6 +245,12 @@ export class ProjectService {
       // leak on the volume. Best effort: a failure here must not fail the
       // delete the user asked for.
       if (project.projectPath) {
+        // Stop the dev server first. It holds the directory open and keeps
+        // writing to it, so removing the files under a running preview freed
+        // nothing — the server rebuilt `.next` moments later — and left the
+        // process, its port and its memory behind for the life of the box.
+        this.previews.stop(project.projectPath);
+
         const dir = path.join(getProjectsDir(), project.projectPath);
         await fs.promises
           .rm(dir, { recursive: true, force: true })
