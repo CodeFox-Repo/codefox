@@ -79,6 +79,21 @@ export async function scaffoldProject(projectId: string): Promise<string> {
     'dir',
   ).catch(() => undefined);
 
+  // A git baseline is what makes "what changed" answerable — the sandbox
+  // gets one for free from its clone; the host copy deliberately skips .git,
+  // so seed a fresh repo with the template as the first commit.
+  try {
+    const git = simpleGit(target);
+    await git.init();
+    await git.add('-A');
+    await git.commit('template baseline', undefined, {
+      '--author': 'CodeFox <bot@codefox.local>',
+      '--no-gpg-sign': null,
+    });
+  } catch (error) {
+    logger.warn(`No git baseline for ${projectId}: ${error}`);
+  }
+
   logger.log(`Scaffolded project ${projectId} from ${template}`);
   return projectId;
 }

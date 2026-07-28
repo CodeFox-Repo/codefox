@@ -19,6 +19,12 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'demo-password-123';
 const results = [];
 const state = {};
 
+async function gqlOrThrow(query, variables, token) {
+  const r = await gql(query, variables, token);
+  if (r.errors?.length) throw new Error(r.errors[0].message);
+  return r;
+}
+
 async function gql(query, variables, token) {
   const res = await fetch(`${BASE}/graphql`, {
     method: 'POST',
@@ -48,7 +54,7 @@ async function turn(chatId, message, token) {
   const res = await rest(
     '/api/chat',
     { method: 'POST', body: JSON.stringify({ chatId, message }) },
-    token,
+    token
   );
   if (!res.ok) throw new Error(`turn http ${res.status}`);
   let text = '';
@@ -82,9 +88,16 @@ async function node(name, fn) {
   try {
     const detail = await fn();
     results.push({ name, ok: true, ms: Date.now() - started, detail });
-    console.log(`  ✓ ${name} (${Date.now() - started}ms)${detail ? ` — ${detail}` : ''}`);
+    console.log(
+      `  ✓ ${name} (${Date.now() - started}ms)${detail ? ` — ${detail}` : ''}`
+    );
   } catch (error) {
-    results.push({ name, ok: false, ms: Date.now() - started, detail: String(error).slice(0, 160) });
+    results.push({
+      name,
+      ok: false,
+      ms: Date.now() - started,
+      detail: String(error).slice(0, 160),
+    });
     console.log(`  ✗ ${name} — ${String(error).slice(0, 160)}`);
   }
 }
@@ -102,21 +115,30 @@ await node('01 graphql alive', async () => {
 
 await node('02 registration open', async () => {
   const r = await gql('query{registrationOpen}');
-  if (r.data?.registrationOpen !== true) throw new Error('registration closed — remaining nodes need it');
+  if (r.data?.registrationOpen !== true)
+    throw new Error('registration closed — remaining nodes need it');
 });
 
 await node('03 register throwaway', async () => {
   const r = await gql(
     'mutation($i:RegisterUserInput!){registerUser(input:$i){id}}',
-    { i: { username: `e2e${ts}`, email: EMAIL, password: PASSWORD, confirmPassword: PASSWORD } },
+    {
+      i: {
+        username: `e2e${ts}`,
+        email: EMAIL,
+        password: PASSWORD,
+        confirmPassword: PASSWORD,
+      },
+    }
   );
-  if (!r.data?.registerUser?.id) throw new Error(JSON.stringify(r.errors?.[0]?.message));
+  if (!r.data?.registerUser?.id)
+    throw new Error(JSON.stringify(r.errors?.[0]?.message));
 });
 
 await node('04 login throwaway', async () => {
   const r = await gql(
     'mutation($i:LoginUserInput!){login(input:$i){accessToken}}',
-    { i: { email: EMAIL, password: PASSWORD } },
+    { i: { email: EMAIL, password: PASSWORD } }
   );
   state.token = r.data?.login?.accessToken;
   if (!state.token) throw new Error(JSON.stringify(r.errors?.[0]?.message));
@@ -138,7 +160,7 @@ await node('07 create project', async () => {
   const r = await gql(
     'mutation($i:CreateProjectInput!){createProject(createProjectInput:$i){id}}',
     { i: { description: '帮我做一个网站', public: false, model: state.model } },
-    state.token,
+    state.token
   );
   state.chatId = r.data?.createProject?.id;
   if (!state.chatId) throw new Error(JSON.stringify(r.errors?.[0]?.message));
@@ -150,7 +172,7 @@ await node('08 project binds (≤120s)', async () => {
     const r = await gql(
       'query($c:String!){getChatDetails(chatId:$c){model project{id projectPath}}}',
       { c: state.chatId },
-      state.token,
+      state.token
     );
     const project = r.data?.getChatDetails?.project;
     if (project?.projectPath) {
@@ -170,48 +192,81 @@ await node('09 chat remembers its model', async () => {
 });
 
 await node('10 first turn asks, does not build', async () => {
-  const { text, tools } = await turn(state.chatId, '帮我做一个网站', state.token);
+  const { text, tools } = await turn(
+    state.chatId,
+    '帮我做一个网站',
+    state.token
+  );
   if (!text.includes('codefox-questions')) throw new Error('no question block');
   if (tools > 0) throw new Error(`built anyway (${tools} tools)`);
   // store like the client does so the next turn sees the exchange
-  await gql(
-    'mutation($i:ChatInput!){saveMessage(input:$i)}',
-    { i: { chatId: state.chatId, message: text, model: state.model, role: 'assistant' } },
-    state.token,
+  await gqlOrThrow(
+    'mutation($i:ChatInputType!){saveMessage(input:$i)}',
+    {
+      i: {
+        chatId: state.chatId,
+        message: text,
+        model: state.model,
+        role: 'Assistant',
+      },
+    },
+    state.token
   );
 });
 
 await node('11 answered turn builds without re-asking', async () => {
   const answer =
     'My choices:\n- 网站主要做什么: 个人主页\n- 风格: 简洁专业\nNote: 单页即可,内容极简';
-  await gql(
-    'mutation($i:ChatInput!){saveMessage(input:$i)}',
-    { i: { chatId: state.chatId, message: answer, model: state.model, role: 'user' } },
-    state.token,
+  await gqlOrThrow(
+    'mutation($i:ChatInputType!){saveMessage(input:$i)}',
+    {
+      i: {
+        chatId: state.chatId,
+        message: answer,
+        model: state.model,
+        role: 'User',
+      },
+    },
+    state.token
   );
   const { text, tools } = await turn(state.chatId, answer, state.token);
   if (text.includes('codefox-questions')) throw new Error('asked again');
   if (tools < 1) throw new Error('no tools ran');
-  await gql(
-    'mutation($i:ChatInput!){saveMessage(input:$i)}',
-    { i: { chatId: state.chatId, message: text || 'built', model: state.model, role: 'assistant' } },
-    state.token,
+  await gqlOrThrow(
+    'mutation($i:ChatInputType!){saveMessage(input:$i)}',
+    {
+      i: {
+        chatId: state.chatId,
+        message: text || 'built',
+        model: state.model,
+        role: 'Assistant',
+      },
+    },
+    state.token
   );
   return `${tools} tool calls`;
 });
 
 await node('12 changed files listed', async () => {
-  const r = await rest(`/api/project/changes?path=${state.projectPath}`, {}, state.token);
+  const r = await rest(
+    `/api/project/changes?path=${state.projectPath}`,
+    {},
+    state.token
+  );
   const { changes } = await r.json();
-  if (!Array.isArray(changes) || changes.length === 0) throw new Error('no changes');
-  return changes.map((c) => `${c.status[0].toUpperCase()} ${c.path}`).join(', ').slice(0, 80);
+  if (!Array.isArray(changes) || changes.length === 0)
+    throw new Error('no changes');
+  return changes
+    .map((c) => `${c.status[0].toUpperCase()} ${c.path}`)
+    .join(', ')
+    .slice(0, 80);
 });
 
 await node('13 file reads', async () => {
   const r = await rest(
     `/api/file?path=${encodeURIComponent(`${state.projectPath}/src/app/page.tsx`)}`,
     {},
-    state.token,
+    state.token
   );
   const { content } = await r.json();
   if (!content || content.length < 100) throw new Error('empty page');
@@ -221,25 +276,39 @@ await node('14 file writes and shows as change', async () => {
   const marker = `e2e-marker-${ts}`;
   const w = await rest(
     '/api/file',
-    { method: 'POST', body: JSON.stringify({ filePath: `${state.projectPath}/E2E.md`, newContent: marker }) },
-    state.token,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        filePath: `${state.projectPath}/E2E.md`,
+        newContent: marker,
+      }),
+    },
+    state.token
   );
   if (!w.ok) throw new Error(`write ${w.status}`);
   const r = await rest(
     `/api/file?path=${encodeURIComponent(`${state.projectPath}/E2E.md`)}`,
     {},
-    state.token,
+    state.token
   );
   const { content } = await r.json();
   if (content !== marker) throw new Error('readback mismatch');
-  const c = await rest(`/api/project/changes?path=${state.projectPath}`, {}, state.token);
+  const c = await rest(
+    `/api/project/changes?path=${state.projectPath}`,
+    {},
+    state.token
+  );
   const { changes } = await c.json();
   if (!changes?.some((x) => x.path === 'E2E.md' && x.status === 'added'))
     throw new Error('marker not in changes');
 });
 
 await node('15 preview comes up (≤180s)', async () => {
-  const r = await rest(`/api/preview?projectPath=${state.projectPath}`, {}, state.token);
+  const r = await rest(
+    `/api/preview?projectPath=${state.projectPath}`,
+    {},
+    state.token
+  );
   if (!r.ok) throw new Error(`preview ${r.status}`);
   const { domain } = await r.json();
   if (!domain) throw new Error('no domain');
@@ -258,50 +327,53 @@ await node('17 rename sticks', async () => {
   await gql(
     'mutation($i:UpdateChatTitleInput!){updateChatTitle(updateChatTitleInput:$i){id}}',
     { i: { chatId: state.chatId, title: 'E2E renamed' } },
-    state.token,
+    state.token
   );
   const r = await gql(
     'query($c:String!){getChatDetails(chatId:$c){title}}',
     { c: state.chatId },
-    state.token,
+    state.token
   );
-  if (r.data?.getChatDetails?.title !== 'E2E renamed') throw new Error('title unchanged');
+  if (r.data?.getChatDetails?.title !== 'E2E renamed')
+    throw new Error('title unchanged');
 });
 
 await node('18 trailing reply can be dropped', async () => {
   const r = await gql(
     'mutation($c:String!){dropLastAssistantReply(chatId:$c)}',
     { c: state.chatId },
-    state.token,
+    state.token
   );
-  if (r.data?.dropLastAssistantReply !== true) throw new Error('nothing dropped');
+  if (r.data?.dropLastAssistantReply !== true)
+    throw new Error('nothing dropped');
 });
 
 await node('19 ownership guard denies strangers', async () => {
   const admin = await gql(
     'mutation($i:LoginUserInput!){login(input:$i){accessToken}}',
-    { i: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } },
+    { i: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } }
   );
   state.adminToken = admin.data?.login?.accessToken;
   if (!state.adminToken) throw new Error('admin login failed');
   const r = await gql(
     'query($c:String!){getChatHistory(chatId:$c){content}}',
     { c: state.chatId },
-    state.adminToken,
+    state.adminToken
   );
-  if (!r.errors?.[0]?.message?.match(/authoriz/i)) throw new Error('stranger read the chat');
+  if (!r.errors?.[0]?.message?.match(/authoriz/i))
+    throw new Error('stranger read the chat');
 });
 
 await node('20 fork carries the real files', async () => {
   await gql(
     'mutation($p:ID!,$v:Boolean!){updateProjectPublicStatus(projectId:$p,isPublic:$v){id}}',
     { p: state.projectId, v: true },
-    state.token,
+    state.token
   );
   const fork = await gql(
     'mutation($p:ID!){forkProject(projectId:$p){id project{projectPath}}}',
     { p: state.projectId },
-    state.adminToken,
+    state.adminToken
   );
   const forkPath = fork.data?.forkProject?.project?.projectPath;
   if (!forkPath) throw new Error(JSON.stringify(fork.errors?.[0]?.message));
@@ -310,32 +382,34 @@ await node('20 fork carries the real files', async () => {
   const r = await rest(
     `/api/file?path=${encodeURIComponent(`${forkPath}/E2E.md`)}`,
     {},
-    state.adminToken,
+    state.adminToken
   );
   const { content } = await r.json();
-  if (!content?.includes(`e2e-marker-${ts}`)) throw new Error('fork missing the marker file');
+  if (!content?.includes(`e2e-marker-${ts}`))
+    throw new Error('fork missing the marker file');
 });
 
 await node('21 history clears', async () => {
   const r = await gql(
     'mutation($c:String!){clearChatHistory(chatId:$c)}',
     { c: state.chatId },
-    state.token,
+    state.token
   );
   if (r.data?.clearChatHistory !== true) throw new Error('clear failed');
   const h = await gql(
     'query($c:String!){getChatHistory(chatId:$c){id}}',
     { c: state.chatId },
-    state.token,
+    state.token
   );
-  if ((h.data?.getChatHistory ?? []).length !== 0) throw new Error('history survived');
+  if ((h.data?.getChatHistory ?? []).length !== 0)
+    throw new Error('history survived');
 });
 
 await node('22 chat deletes', async () => {
   const r = await gql(
     'mutation($c:String!){deleteChat(chatId:$c)}',
     { c: state.chatId },
-    state.token,
+    state.token
   );
   if (r.data?.deleteChat !== true) throw new Error('delete failed');
 });
@@ -344,7 +418,7 @@ await node('23 admin overview answers', async () => {
   const r = await gql(
     'query{adminOverview{counts{users projects}}}',
     undefined,
-    state.adminToken,
+    state.adminToken
   );
   if (typeof r.data?.adminOverview?.counts?.users !== 'number')
     throw new Error(JSON.stringify(r.errors?.[0]?.message));
@@ -352,7 +426,9 @@ await node('23 admin overview answers', async () => {
 });
 
 const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length}/${results.length} nodes green`);
+console.log(
+  `\n${results.length - failed.length}/${results.length} nodes green`
+);
 if (failed.length) {
   console.log('failed:', failed.map((f) => f.name).join(' | '));
   process.exit(1);
