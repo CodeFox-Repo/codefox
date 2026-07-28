@@ -159,7 +159,7 @@ await node('06 models listed', async () => {
 await node('07 create project', async () => {
   const r = await gql(
     'mutation($i:CreateProjectInput!){createProject(createProjectInput:$i){id}}',
-    { i: { description: '帮我做一个网站', public: false, model: state.model } },
+    { i: { description: '帮我做一个网站', public: false, model: state.model, template: 'next' } },
     state.token
   );
   state.chatId = r.data?.createProject?.id;
@@ -423,6 +423,66 @@ await node('23 admin overview answers', async () => {
   if (typeof r.data?.adminOverview?.counts?.users !== 'number')
     throw new Error(JSON.stringify(r.errors?.[0]?.message));
   return `${r.data.adminOverview.counts.users} users, ${r.data.adminOverview.counts.projects} projects`;
+});
+
+await node('24 html project scaffolds instantly', async () => {
+  const r = await gqlOrThrow(
+    'mutation($i:CreateProjectInput!){createProject(createProjectInput:$i){id}}',
+    { i: { description: '一个双语打招呼页面', public: false, model: state.model, template: 'html' } },
+    state.token,
+  );
+  state.htmlChatId = r.data.createProject.id;
+  for (let i = 0; i < 12; i++) {
+    const d = await gql(
+      'query($c:String!){getChatDetails(chatId:$c){project{projectPath template}}}',
+      { c: state.htmlChatId },
+      state.token,
+    );
+    const project = d.data?.getChatDetails?.project;
+    if (project?.projectPath) {
+      if (project.template !== 'html') throw new Error(`kind ${project.template}`);
+      state.htmlPath = project.projectPath;
+      const f = await rest(
+        `/api/file?path=${encodeURIComponent(`${state.htmlPath}/index.html`)}`,
+        {},
+        state.token,
+      );
+      const { content } = await f.json();
+      if (!content?.includes('tailwind')) throw new Error('no starter html');
+      return state.htmlPath;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  throw new Error('html project never bound');
+});
+
+await node('25 html turn edits the page, nothing else', async () => {
+  const { tools } = await turn(
+    state.htmlChatId,
+    '把页面做成中英双语的打招呼页,深色背景',
+    state.token,
+  );
+  if (tools < 1) throw new Error('no tools ran');
+  const f = await rest(
+    `/api/file?path=${encodeURIComponent(`${state.htmlPath}/index.html`)}`,
+    {},
+    state.token,
+  );
+  const { content } = await f.json();
+  if (!content || content.length < 600) throw new Error('page unchanged');
+  if (content.includes('package.json')) throw new Error('toolchain leaked in');
+  return `${content.length} bytes`;
+});
+
+await node('26 html changes are exactly the page', async () => {
+  const r = await rest(`/api/project/changes?path=${state.htmlPath}`, {}, state.token);
+  const { changes } = await r.json();
+  if (!changes?.some((c) => c.path === 'index.html')) throw new Error('index.html not listed');
+  await gqlOrThrow(
+    'mutation($c:String!){deleteChat(chatId:$c)}',
+    { c: state.htmlChatId },
+    state.token,
+  );
 });
 
 const failed = results.filter((r) => !r.ok);
