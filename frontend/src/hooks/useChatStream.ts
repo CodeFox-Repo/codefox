@@ -304,6 +304,24 @@ export const useChatStream = ({
     [setInput]
   );
 
+  // Steering: the composer stays live while the agent works. Messages sent
+  // mid-turn queue here and go out as the next turn the moment the stream
+  // ends — the harness has no mid-turn injection, so this is the honest
+  // version of "keep talking while it builds".
+  const [queued, setQueued] = useState<string[]>([]);
+  const queueMessage = useCallback((text: string) => {
+    if (!text.trim()) return;
+    setQueued((prev) => [...prev, text.trim()]);
+  }, []);
+  const clearQueued = useCallback(() => setQueued([]), []);
+  useEffect(() => {
+    if (loadingSubmit || queued.length === 0) return;
+    const text = queued.join('\n\n');
+    setQueued([]);
+    sendMessage(text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingSubmit, queued]);
+
   // Aborting the request closes the response; the backend sees the hang-up and
   // stops the agent, so this is a real stop rather than just hiding the spinner.
   const stop = useCallback(() => {
@@ -323,6 +341,9 @@ export const useChatStream = ({
     startTurn,
     sendMessage,
     stop,
+    queued,
+    queueMessage,
+    clearQueued,
     isStreaming: loadingSubmit,
     currentChatId,
     startChatStream,

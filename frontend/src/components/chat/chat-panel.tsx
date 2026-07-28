@@ -33,6 +33,9 @@ export interface ChatProps {
   isMobile?: boolean;
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   setMessages: (messages: Message[]) => void;
+  queued?: string[];
+  onQueue?: (text: string) => void;
+  onClearQueue?: () => void;
 }
 
 export default function ChatContent({
@@ -54,6 +57,9 @@ export default function ChatContent({
   isMobile,
   setInput,
   setMessages,
+  queued,
+  onQueue,
+  onClearQueue,
 }: ChatProps) {
   return (
     <motion.div
@@ -91,6 +97,9 @@ export default function ChatContent({
           formRef={formRef}
           setInput={setInput}
           setMessages={setMessages}
+          queued={queued}
+          onQueue={onQueue}
+          onClearQueue={onClearQueue}
         />
       </div>
     </motion.div>

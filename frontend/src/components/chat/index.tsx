@@ -112,6 +112,9 @@ export default function Chat() {
     sendMessage,
     stop,
     activity,
+    queued,
+    queueMessage,
+    clearQueued,
   } = useChatStream({
     chatId,
     input,
@@ -288,6 +291,9 @@ export default function Chat() {
             loadingSubmit={loadingSubmit || waitingForFirstTurn}
             activity={activity}
             stop={stop}
+            queued={queued}
+            onQueue={queueMessage}
+            onClearQueue={clearQueued}
             formRef={formRef}
             setInput={setInput}
             setMessages={setMessages}
@@ -337,6 +343,9 @@ export default function Chat() {
             onAnswerQuestions={sendMessage}
             inputHidden={questionsPending}
             stop={stop}
+            queued={queued}
+            onQueue={queueMessage}
+            onClearQueue={clearQueued}
             formRef={formRef}
             setInput={setInput}
             setMessages={setMessages}

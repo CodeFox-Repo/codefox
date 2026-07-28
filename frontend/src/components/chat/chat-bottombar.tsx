@@ -41,6 +41,10 @@ interface ChatBottombarProps {
   setMessages: (messages: Message[]) => void;
   isStreaming?: boolean;
   activity?: { tool?: string; file?: string } | null;
+  /** Messages typed while the agent was busy; sent as the next turn. */
+  queued?: string[];
+  onQueue?: (text: string) => void;
+  onClearQueue?: () => void;
 }
 
 export default function ChatBottombar({
@@ -58,6 +62,9 @@ export default function ChatBottombar({
   stop,
   isStreaming = false,
   activity,
+  queued = [],
+  onQueue,
+  onClearQueue,
 }: ChatBottombarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -79,10 +86,21 @@ export default function ChatBottombar({
     };
   }, []);
 
+  const queueCurrentInput = () => {
+    if (!input.trim() || !onQueue) return;
+    onQueue(input);
+    setInput?.('');
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (isStreaming) return;
+      // Mid-turn the message queues instead of vanishing — steering, not
+      // a locked door.
+      if (isStreaming) {
+        queueCurrentInput();
+        return;
+      }
       submitWithAttachments(e as unknown as React.FormEvent<HTMLFormElement>);
     }
   };
@@ -177,6 +195,19 @@ export default function ChatBottombar({
             </>
           ) : (
             <span>thinking…</span>
+          )}
+          {queued.length > 0 && (
+            <span className="ml-auto flex items-center gap-1.5">
+              {queued.length} queued for the next turn
+              <button
+                type="button"
+                onClick={onClearQueue}
+                aria-label="Drop queued messages"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
           )}
         </p>
       )}
@@ -312,14 +343,13 @@ export default function ChatBottombar({
               ref={inputRef}
               onKeyDown={handleKeyPress}
               onPaste={handlePaste}
-              disabled={isStreaming}
               onChange={handleInputChange}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               name="message"
               placeholder={
                 isStreaming
-                  ? 'Agent is working…'
+                  ? 'Keep typing — sends when the agent finishes this turn'
                   : 'Describe a change — the agent edits the real files'
               }
               className="resize-none px-2 py-2.5 w-full focus:outline-none bg-transparent text-foreground text-sm placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
@@ -340,14 +370,26 @@ export default function ChatBottombar({
             </a>
 
             {isStreaming ? (
-              <button
-                type="button"
-                onClick={stop}
-                className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90"
-                aria-label="Stop the agent"
-              >
-                <Square className="h-3 w-3" fill="currentColor" />
-              </button>
+              <>
+                {input.trim() && (
+                  <button
+                    type="button"
+                    onClick={queueCurrentInput}
+                    className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-foreground transition-colors hover:bg-accent"
+                    aria-label="Queue for the next turn"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={stop}
+                  className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                  aria-label="Stop the agent"
+                >
+                  <Square className="h-3 w-3" fill="currentColor" />
+                </button>
+              </>
             ) : (
               <button
                 type="submit"
