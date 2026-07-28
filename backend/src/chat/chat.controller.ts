@@ -9,6 +9,7 @@ import { streamText } from 'ai';
 import { openrouter, DEFAULT_MODEL } from '../common/constants/ai.constants';
 import { runProjectAgent } from './project-agent';
 import { explain } from './explain-error';
+import { MessageRole } from './message.model';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -108,6 +109,12 @@ export class ChatController {
     // model connection open, outlived the request indefinitely.
     let clientGone = false;
     let stopped = false;
+
+    // What the model has said so far. The browser is what normally persists a
+    // reply, at the end of the stream — so a turn the user walked away from
+    // left the chat showing a question with no answer, next to files the agent
+    // had already changed. Whatever the client never received, this saves.
+    let reply = '';
     // `stop` persists resume state and leaves the runtime to be picked up
     // again; on a host sandbox that means the bridge process survives, which
     // is a leak when nobody is coming back. An abandoned turn is not resumed
@@ -125,6 +132,15 @@ export class ChatController {
     res.on('close', () => {
       clientGone = true;
       void endSession('destroy', true);
+      if (reply.trim()) {
+        void this.chatService
+          .saveMessage(chatDto.chatId, reply, MessageRole.Assistant)
+          .catch((error) =>
+            this.logger.warn(
+              `[${chatDto.chatId}] could not save the abandoned reply: ${error}`,
+            ),
+          );
+      }
     });
 
     try {
@@ -133,6 +149,7 @@ export class ChatController {
 
         switch (part.type) {
           case 'text-delta':
+            reply += part.text;
             send({ t: 'text', v: part.text });
             break;
           case 'tool-call':
