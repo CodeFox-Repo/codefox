@@ -129,8 +129,8 @@ export default function HomePage() {
             paper-light it would sit like a hole in the page. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 hidden h-[820px] bg-[url(/hero-canvas.jpg)] bg-cover bg-[position:62%_44%] opacity-80 dark:block
-                     [mask-image:linear-gradient(180deg,#000_0%,#000_62%,transparent_98%)]"
+          className="pointer-events-none absolute inset-x-0 top-0 hidden h-[1200px] bg-[url(/hero-canvas.jpg)] bg-cover bg-[position:62%_38%] opacity-80 dark:block
+                     [mask-image:linear-gradient(180deg,#000_0%,#000_48%,transparent_96%)]"
         />
         <div
           aria-hidden
@@ -230,7 +230,7 @@ export default function HomePage() {
 
       {/* ---------- the numbers ---------- */}
       <section className="mx-auto w-full max-w-[1180px] px-5 pb-16 sm:px-10">
-        <div className="grid gap-8 border-t-[3px] border-border pt-8 sm:grid-cols-3">
+        <div className="grid gap-8 pt-8 sm:grid-cols-3">
           {FACTS.map((f) => (
             <div key={f.title}>
               <p
@@ -259,7 +259,7 @@ export default function HomePage() {
           `text-primary` children rendered near-white on near-white. A
           neighbouring surface from the same palette separates the band and
           leaves every token inside it working. */}
-      <section className="bg-secondary py-20">
+      <section className="bg-[linear-gradient(180deg,transparent,hsl(var(--secondary))_140px,hsl(var(--secondary))_calc(100%-140px),transparent)] py-24">
         <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-10">
           <p className="mb-6 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
             One turn, start to finish

@@ -69,9 +69,12 @@ const FloatingNavbar = ({
 
   return (
     <>
-      <div className={` top-5 left-0 right-0 z-50 ${className}`}>
+      {/* A glass capsule floating over the page rather than a full-bleed bar:
+          sticky so it stays in flow (nothing hides under it), translucent with
+          backdrop blur so the painted hero reads through it. */}
+      <div className={`sticky top-4 z-50 px-4 pt-4 ${className}`}>
         <div
-          className={`mx-auto flex w-full max-w-[1180px] items-center justify-between gap-4 px-5 py-6 sm:px-10 ${containerClassName}`}
+          className={`mx-auto flex w-full max-w-[1040px] items-center justify-between gap-4 rounded-2xl border border-border/60 bg-background/55 px-4 py-2.5 shadow-lg shadow-black/20 backdrop-blur-xl sm:px-6 ${containerClassName}`}
         >
           {/* Left side - terminal prompt wordmark, always a way home */}
           <div className={`flex items-center ${logoContainerClassName}`}>
