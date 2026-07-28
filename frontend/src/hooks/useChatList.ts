@@ -13,7 +13,10 @@ export function useChatList() {
     error,
     refetch,
   } = useQuery<{ getUserChats: Chat[] }>(GET_USER_CHATS, {
-    fetchPolicy: chatListUpdated ? 'network-only' : 'cache-first',
+    // Serve the cache instantly, refresh behind it: the invalidation flag
+    // this used to key on died with the sidebar, so a cache-first list went
+    // stale the moment a project was created or renamed elsewhere.
+    fetchPolicy: 'cache-and-network',
     skip: !isAuthorized,
   });
 

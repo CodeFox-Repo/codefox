@@ -124,7 +124,7 @@ export function Workbench({
           )}
         </div>
 
-        {loading ? (
+        {loading && chats.length === 0 ? (
           // A skeleton in the shape of the thing that is coming, rather than
           // the word "Loading" — the row keeps its height so the page below
           // does not jump when the data lands.
