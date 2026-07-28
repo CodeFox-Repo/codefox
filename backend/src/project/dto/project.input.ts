@@ -54,6 +54,10 @@ export class CreateProjectInput {
    *  hardcoded default here silently overrode the configured endpoint. */
   @Field(() => String, { nullable: true })
   model?: string;
+
+  /** 'html' (light, default) or 'next' (full starter). */
+  @Field(() => String, { nullable: true })
+  template?: string;
 }
 
 @InputType()

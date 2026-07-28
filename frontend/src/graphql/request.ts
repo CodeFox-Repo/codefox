@@ -121,6 +121,7 @@ export const GET_USER_PROJECTS = gql`
       id
       projectName
       projectPath
+      template
       isPublic
       photoUrl
       subNumber
@@ -180,6 +181,7 @@ export const GET_CHAT_DETAILS = gql`
         id
         projectName
         projectPath
+        template
         isPublic
         photoUrl
       }

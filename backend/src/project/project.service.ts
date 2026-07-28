@@ -14,7 +14,7 @@ import {
   FetchPublicProjectsInputs,
 } from './dto/project.input';
 import { generateText } from 'ai';
-import { copyProject, scaffoldProject } from './scaffold';
+import { copyProject, scaffoldHtmlProject, scaffoldProject } from './scaffold';
 import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
@@ -194,18 +194,25 @@ export class ProjectService {
       project.userId = userId;
       project.isPublic = input.public || false;
       project.uniqueProjectId = uuidv4();
+      // Light by default: most generated sites are a page, not a toolchain.
+      project.template = input.template === 'next' ? 'next' : 'html';
 
       // Save project — the generated id names the project directory.
       const savedProject = await this.projectsRepository.save(project);
       this.logger.debug(`Project created: ${savedProject.id}`);
 
       try {
-        // A sandbox clones the template itself when it is first created, so
-        // there is nothing to copy here — the id alone names the workspace.
-        savedProject.projectPath =
-          sandboxMode() === 'host'
-            ? await scaffoldProject(savedProject.id)
-            : savedProject.id;
+        // html projects scaffold on the host in both modes — a page needs no
+        // microVM until the agent runs. The Next starter keeps its old paths:
+        // host copy locally, template clone inside the sandbox.
+        if (savedProject.template === 'html') {
+          savedProject.projectPath = await scaffoldHtmlProject(savedProject.id);
+        } else {
+          savedProject.projectPath =
+            sandboxMode() === 'host'
+              ? await scaffoldProject(savedProject.id)
+              : savedProject.id;
+        }
         await this.projectsRepository.save(savedProject);
       } catch (error) {
         // A failed scaffold leaves projectPath empty; the chat still works,
@@ -265,7 +272,9 @@ export class ProjectService {
         await workspace
           .remove()
           .catch((error) =>
-            this.logger.warn(`Could not remove ${project.projectPath}: ${error}`),
+            this.logger.warn(
+              `Could not remove ${project.projectPath}: ${error}`,
+            ),
           );
       }
 
@@ -439,6 +448,7 @@ export class ProjectService {
       newProject.uniqueProjectId = uuidv4(); // Generate new unique ID
       newProject.forkedFromId = sourceProject.uniqueProjectId; // Reference the original
       newProject.photoUrl = sourceProject.photoUrl; // Copy screenshot if available
+      newProject.template = sourceProject.template; // A fork is the same kind
 
       // Save the new project
       const savedProject = await this.projectsRepository.save(newProject);
@@ -553,7 +563,6 @@ export class ProjectService {
     const workspace = await this.workspaces.for(project.projectPath);
     return workspace.archive(project.projectName);
   }
-
 
   // /**
   //  * Sync a project to GitHub:

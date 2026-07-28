@@ -111,6 +111,7 @@ export class ChatController {
       images: chatDto.images,
       history,
       model: chatDto.model,
+      template: project.template,
     });
 
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');

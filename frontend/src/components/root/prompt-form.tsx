@@ -27,6 +27,7 @@ export interface PromptFormRef {
     message: string;
     isPublic: boolean;
     model: string;
+    template: string;
   };
   clearMessage: () => void;
 }
@@ -53,6 +54,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
     ref
   ) {
     const [message, setMessage] = useState('');
+    // Light by default: a page, not a toolchain. The full Next starter is
+    // the plug-in choice for when a real app is the goal.
+    const [template, setTemplate] = useState<'html' | 'next'>('html');
     const [visibility, setVisibility] = useState<'public' | 'private'>(
       'public'
     );
@@ -123,6 +127,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         message,
         isPublic: visibility === 'public',
         model: selectedModel,
+        template,
       }),
       clearMessage: () => setMessage(''),
     }));
@@ -265,6 +270,49 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                 ) : (
                   <>Loading...</>
                 )}
+              </SelectContent>
+            </Select>
+
+            {/* Kind: a page by default, the full starter when asked. */}
+            <Select
+              value={template}
+              onValueChange={(value) =>
+                !isLoading &&
+                !isRegenerating &&
+                setTemplate(value as 'html' | 'next')
+              }
+              disabled={isLoading || isRegenerating}
+            >
+              <SelectTrigger
+                className={cn(
+                  'h-9 px-3 text-sm font-medium border border-border',
+                  'bg-secondary text-foreground',
+                  'rounded-lg focus:outline-none hover:bg-accent',
+                  'transition-all duration-200 active:scale-[0.98]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                  (isLoading || isRegenerating) &&
+                    'opacity-50 cursor-not-allowed'
+                )}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="html">
+                  <div className="flex flex-col items-start">
+                    <span className="font-semibold">Page</span>
+                    <span className="text-xs text-muted-foreground">
+                      Self-contained HTML — instant preview
+                    </span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="next">
+                  <div className="flex flex-col items-start">
+                    <span className="font-semibold">Next.js app</span>
+                    <span className="text-xs text-muted-foreground">
+                      Full starter with a dev server
+                    </span>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>

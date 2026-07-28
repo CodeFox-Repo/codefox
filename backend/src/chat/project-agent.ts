@@ -6,7 +6,10 @@ import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
-import { AVAILABLE_MODELS, DEFAULT_MODEL } from '../common/constants/ai.constants';
+import {
+  AVAILABLE_MODELS,
+  DEFAULT_MODEL,
+} from '../common/constants/ai.constants';
 import {
   SANDBOX_ROOT,
   sandboxFor,
@@ -119,6 +122,15 @@ const harnessFor = (rawModel?: string) => {
   return created;
 };
 
+const HTML_INSTRUCTIONS = `You are CodeFox, building self-contained HTML pages.
+
+The working directory holds a handful of .html files — index.html is the
+page. Edit them in place. Everything stays in the HTML files: Tailwind via
+the CDN script tag that is already there, inline <script> for behavior. No
+package.json, no build step, no framework — if a page needs more structure,
+add another .html file and link to it.
+`;
+
 const INSTRUCTIONS = `You are CodeFox, building a Next.js 15 + Tailwind + shadcn/ui app.
 
 The working directory already contains a scaffolded project. Edit it in place.
@@ -141,6 +153,16 @@ request is already specific enough to act on, build without asking again.
 Match the conventions already in the project — read a file before rewriting it,
 and reuse the components that are already there instead of adding new ones.
 Finish with a short summary of what you changed.`;
+
+const PLAN_SECTION = INSTRUCTIONS.slice(
+  INSTRUCTIONS.indexOf('Plan before you build.'),
+  INSTRUCTIONS.indexOf('Match the conventions'),
+);
+
+const instructionsFor = (template?: string | null): string =>
+  template === 'html'
+    ? `${HTML_INSTRUCTIONS}\n${PLAN_SECTION}\nFinish with a short summary of what you changed.`
+    : INSTRUCTIONS;
 
 /** One earlier turn, oldest first. */
 export interface PriorTurn {
@@ -190,6 +212,8 @@ export interface ProjectAgentOptions {
   images?: string[];
   /** Model id for the underlying claude CLI. Unset defers to its default. */
   model?: string;
+  /** 'html' runs on host files with the light instructions. */
+  template?: string | null;
 }
 
 const EXTENSIONS: Record<string, string> = {
@@ -281,6 +305,7 @@ export const runProjectAgent = async ({
   images,
   history,
   model,
+  template,
 }: ProjectAgentOptions) => {
   const workingDirectory = path.join(getProjectsDir(), projectPath);
 
@@ -288,9 +313,10 @@ export const runProjectAgent = async ({
   // sandbox can see. In a remote sandbox that path resolves to nothing, so
   // say the attachment was dropped rather than point the agent at a file it
   // cannot open.
+  const onHost = sandboxMode() === 'host' || template === 'html';
   const staged = !images?.length
     ? []
-    : sandboxMode() === 'host'
+    : onHost
       ? await stageImagesOnHost(workingDirectory, images)
       : await stageImagesInSandbox(projectPath, images);
   const asked = staged.length
@@ -300,10 +326,14 @@ export const runProjectAgent = async ({
 
   const agent = new HarnessAgent({
     harness: harnessFor(model),
-    instructions: INSTRUCTIONS,
+    instructions: instructionsFor(template),
+    // html projects live on the host in every mode — their agent edits those
+    // files directly. NOTE: that trades away microVM isolation for them;
+    // seed-a-sandbox is the follow-up before registration opens.
     sandbox: (await sandboxFor({
       projectPath,
       harnessId: harnessId(),
+      forceHost: template === 'html',
     })) as any,
   });
 

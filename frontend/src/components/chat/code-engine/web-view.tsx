@@ -13,6 +13,90 @@ import {
 } from 'lucide-react';
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
+
+/**
+ * An html project previews by rendering its file — no dev server, no
+ * sandbox, no waiting. Open-design's model: the artifact IS the page.
+ */
+function HtmlPreview({ project }: { project: any }) {
+  const [html, setHtml] = useState('');
+  const [loaded, setLoaded] = useState(false);
+
+  const load = async () => {
+    try {
+      const res = await authenticatedFetch(
+        `/api/file?path=${encodeURIComponent(`${project.projectPath}/index.html`)}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (typeof data.content === 'string') setHtml(data.content);
+    } catch (error) {
+      logger.warn('html preview load failed:', error);
+    } finally {
+      setLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // Light poll so the page follows the agent's edits without a manual
+    // refresh; a file read every few seconds costs nothing.
+    const timer = setInterval(load, 5000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.projectPath]);
+
+  const openInTab = () => {
+    const blob = new Blob([html], { type: 'text/html' });
+    window.open(URL.createObjectURL(blob), '_blank');
+  };
+
+  return (
+    <div className="flex h-full w-full flex-col">
+      <div className="flex h-9 items-center justify-between border-b border-border bg-muted px-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+          index.html
+        </span>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={load}
+            aria-label="Refresh preview"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={openInTab}
+            disabled={!html}
+            aria-label="Open in new tab"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      {loaded && !html ? (
+        <div className="flex flex-1 items-center justify-center">
+          <p className="font-mono text-xs text-muted-foreground">
+            No index.html yet — ask the agent to build the page.
+          </p>
+        </div>
+      ) : (
+        <iframe
+          title="preview"
+          srcDoc={html}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          className="w-full flex-1 border-none bg-white"
+        />
+      )}
+    </div>
+  );
+}
 
 function PreviewContent({
   curProject,
@@ -421,6 +505,10 @@ function PreviewContent({
 export default function WebPreview({ project }: { project?: any }) {
   const { curProject, getWebUrl } = useContext(ProjectContext);
   const target = project ?? curProject;
+
+  if (target?.template === 'html') {
+    return <HtmlPreview project={target} />;
+  }
 
   if (!target || !getWebUrl) {
     return (

@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import {
   REMOTE_PREVIEW_PORT,
   sandboxHandle,
@@ -6,6 +8,7 @@ import {
 } from '../chat/sandbox-provider';
 import { HostWorkspace } from './host-workspace';
 import { PreviewService } from './preview.service';
+import { Project } from './project.model';
 import { VercelWorkspace } from './vercel-workspace';
 import type { ProjectWorkspace } from './workspace';
 
@@ -19,14 +22,25 @@ import type { ProjectWorkspace } from './workspace';
  */
 @Injectable()
 export class WorkspaceService {
-  constructor(private readonly previews: PreviewService) {}
+  constructor(
+    private readonly previews: PreviewService,
+    @InjectRepository(Project)
+    private readonly projects: Repository<Project>,
+  ) {}
 
   async for(projectPath: string): Promise<ProjectWorkspace> {
-    if (sandboxMode() === 'host') {
+    // html projects are a handful of static files; they live on the host in
+    // every mode — there is nothing in them that needs a microVM to serve.
+    if (sandboxMode() === 'host' || (await this.isHtml(projectPath))) {
       return new HostWorkspace(projectPath, this.previews);
     }
 
     const sandbox = await sandboxHandle(projectPath);
     return new VercelWorkspace(sandbox, REMOTE_PREVIEW_PORT);
+  }
+
+  private async isHtml(projectPath: string): Promise<boolean> {
+    const project = await this.projects.findOne({ where: { projectPath } });
+    return project?.template === 'html';
   }
 }

@@ -89,11 +89,17 @@ export default function HomePage() {
   const handleSubmit = async () => {
     if (!promptFormRef.current) return;
 
-    const { message, isPublic, model } = promptFormRef.current.getPromptData();
+    const { message, isPublic, model, template } =
+      promptFormRef.current.getPromptData();
     if (!message.trim()) return;
 
     try {
-      const chatId = await createProjectFromPrompt(message, isPublic, model);
+      const chatId = await createProjectFromPrompt(
+        message,
+        isPublic,
+        model,
+        template
+      );
       if (!chatId) return; // createProjectFromPrompt already surfaced the error
 
       promptFormRef.current.clearMessage();

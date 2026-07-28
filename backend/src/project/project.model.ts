@@ -27,6 +27,16 @@ export class Project extends SystemBaseModel {
   @Column()
   projectPath: string;
 
+  /**
+   * What kind of workspace this is. 'html' — a handful of self-contained
+   * HTML files, previewed by rendering them directly, no toolchain at all.
+   * 'next' (and null, for older rows) — the full Next.js starter with a dev
+   * server. Open-design's insight: most generated sites need no template.
+   */
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  template: string | null;
+
   @Field(() => ID)
   @RelationId((project: Project) => project.user)
   @Column({ name: 'user_id' })

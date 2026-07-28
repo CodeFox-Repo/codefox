@@ -132,3 +132,46 @@ export async function copyProject(
   logger.log(`Copied ${fromProjectPath} -> ${toProjectId}`);
   return toProjectId;
 }
+
+/** The whole starter for an html project: one self-contained page. */
+const HTML_STARTER = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="grid min-h-screen place-items-center bg-neutral-950 text-neutral-100">
+    <main class="text-center">
+      <h1 class="text-3xl font-bold">Hello.</h1>
+      <p class="mt-2 text-neutral-400">Tell the agent what this page should become.</p>
+    </main>
+  </body>
+</html>
+`;
+
+/**
+ * Scaffold the light kind: a directory with one index.html and a git
+ * baseline. No dependencies, no dev server — the preview renders the file.
+ */
+export async function scaffoldHtmlProject(projectId: string): Promise<string> {
+  const target = path.join(getProjectsDir(), projectId);
+  await fsExtra.ensureDir(target);
+  await fsExtra.writeFile(path.join(target, 'index.html'), HTML_STARTER);
+
+  try {
+    const git = simpleGit(target);
+    await git.init();
+    await git.add('-A');
+    await git.commit('starter baseline', undefined, {
+      '--author': 'CodeFox <bot@codefox.local>',
+      '--no-gpg-sign': null,
+    });
+  } catch (error) {
+    logger.warn(`No git baseline for ${projectId}: ${error}`);
+  }
+
+  logger.log(`Scaffolded html project ${projectId}`);
+  return projectId;
+}

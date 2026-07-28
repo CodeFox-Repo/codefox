@@ -75,6 +75,8 @@ export interface SandboxFor {
   /** Project directory name under `.codefox/projects` (host mode). */
   projectPath: string;
   harnessId: string;
+  /** html projects: their files live on the host in every mode. */
+  forceHost?: boolean;
 }
 
 /**
@@ -136,8 +138,12 @@ export const sandboxHandle = async (projectPath: string): Promise<Sandbox> => {
   return sandbox;
 };
 
-export const sandboxFor = async ({ projectPath, harnessId }: SandboxFor) => {
-  if (sandboxMode() === 'host') {
+export const sandboxFor = async ({
+  projectPath,
+  harnessId,
+  forceHost,
+}: SandboxFor) => {
+  if (sandboxMode() === 'host' || forceHost) {
     return createLocalSandbox({
       workingDirectory: path.join(getProjectsDir(), projectPath),
       harnessId,
