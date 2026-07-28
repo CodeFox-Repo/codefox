@@ -318,7 +318,9 @@ export default function ChatBottombar({
               onBlur={() => setIsFocused(false)}
               name="message"
               placeholder={
-                isStreaming ? 'Agent is working…' : 'Message Agent...'
+                isStreaming
+                  ? 'Agent is working…'
+                  : 'Describe a change — the agent edits the real files'
               }
               className="resize-none px-2 py-2.5 w-full focus:outline-none bg-transparent text-foreground text-sm placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
               maxRows={5}

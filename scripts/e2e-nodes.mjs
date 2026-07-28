@@ -488,11 +488,26 @@ await node('26 html changes are exactly the page', async () => {
   const r = await rest(`/api/project/changes?path=${state.htmlPath}`, {}, state.token);
   const { changes } = await r.json();
   if (!changes?.some((c) => c.path === 'index.html')) throw new Error('index.html not listed');
+});
+
+await node('27 html cover shoots the file', async () => {
+  // No dev server exists for an html project — the controller must fall
+  // back to shooting the file itself.
+  const r = await rest(
+    `/api/screenshot?projectPath=${encodeURIComponent(state.htmlPath)}`,
+    {},
+    state.token,
+  );
+  if (!r.ok) throw new Error(`screenshot ${r.status}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (buf.slice(1, 4).toString() !== 'PNG')
+    throw new Error(`not a png (${buf.length} bytes)`);
   await gqlOrThrow(
     'mutation($c:String!){deleteChat(chatId:$c)}',
     { c: state.htmlChatId },
     state.token,
   );
+  return `${Math.round(buf.length / 1024)} KB png`;
 });
 
 const failed = results.filter((r) => !r.ok);

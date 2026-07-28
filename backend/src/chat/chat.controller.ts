@@ -202,10 +202,21 @@ export class ChatController {
               arg: targetOf(part.input),
             });
             break;
-          case 'error':
+          case 'error': {
+            // The harness reports its own reconnect attempts as error frames
+            // ("Reconnecting... 1/5"). Those are transients it is already
+            // handling — surfacing them killed turns that were about to
+            // recover. A reconnect that fails for good ends the stream, and
+            // the catch below owns that.
+            const detail = String((part as any).error ?? '');
+            if (/^Reconnecting\.\.\./.test(detail)) {
+              this.logger.warn(`[${chatDto.chatId}] transient: ${detail}`);
+              break;
+            }
             this.logger.error(`[${chatDto.chatId}] ${JSON.stringify(part)}`);
             send({ t: 'error', v: explain((part as any).error ?? part) });
             break;
+          }
         }
       }
     } catch (error) {
