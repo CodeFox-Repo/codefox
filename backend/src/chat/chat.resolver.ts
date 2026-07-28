@@ -49,6 +49,7 @@ export class ChatResolver {
   }
 
   @Query(() => [Chat], { nullable: true })
+  @JWTAuth()
   async getUserChats(@GetUserIdFromToken() userId: string): Promise<Chat[]> {
     const user = await this.userService.getUserChats(userId);
 

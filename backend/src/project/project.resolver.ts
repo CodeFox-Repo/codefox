@@ -18,6 +18,7 @@ import {
 } from './dto/project.input';
 import { Logger, UseGuards } from '@nestjs/common';
 import { ProjectGuard } from '../common/guards/project.guard';
+import { JWTAuth } from 'src/common/decorators/jwt-auth.decorator';
 import { GetUserIdFromToken } from '../common/decorators/get-auth-token.decorator';
 import { Chat } from 'src/chat/chat.model';
 import { User } from 'src/user/user.model';
@@ -29,6 +30,7 @@ export class ProjectsResolver {
   constructor(private readonly projectService: ProjectService) {}
 
   @Query(() => [Project])
+  @JWTAuth()
   async getUserProjects(
     @GetUserIdFromToken() userId: string,
   ): Promise<Project[]> {
@@ -42,6 +44,7 @@ export class ProjectsResolver {
   }
 
   @Mutation(() => Chat)
+  @JWTAuth()
   async createProject(
     @GetUserIdFromToken() userId: string,
     @Args('createProjectInput') createProjectInput: CreateProjectInput,
@@ -60,6 +63,7 @@ export class ProjectsResolver {
   }
 
   @Query(() => Boolean)
+  @JWTAuth()
   async isValidateProject(
     @GetUserIdFromToken() userId: string,
     @Args('isValidProject') input: IsValidProjectInput,
@@ -102,6 +106,7 @@ export class ProjectsResolver {
   }
 
   @Mutation(() => Project)
+  @JWTAuth()
   async updateProjectPublicStatus(
     @GetUserIdFromToken() userId: string,
     @Args('projectId', { type: () => ID }) projectId: string,
@@ -118,6 +123,7 @@ export class ProjectsResolver {
   }
 
   @Mutation(() => Chat)
+  @JWTAuth()
   async forkProject(
     @GetUserIdFromToken() userId: string,
     @Args('projectId', { type: () => ID }) projectId: string,

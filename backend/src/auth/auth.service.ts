@@ -280,14 +280,20 @@ export class AuthService {
 
   async logout(token: string): Promise<boolean> {
     try {
-      await this.jwtService.verifyAsync(token);
-      const refreshToken = await this.refreshTokenRepository.findOne({
-        where: { token },
-      });
+      const payload = await this.jwtService.verifyAsync(token);
 
-      if (refreshToken) {
-        await this.refreshTokenRepository.remove(refreshToken);
-      }
+      // The guard admits a token only while the cache still holds it, so this
+      // is what actually ends the session. Without it logging out changed
+      // nothing at all: the access token kept working until it expired.
+      await this.jwtCacheService.removeToken(token);
+
+      // Refresh tokens are looked up by the user, not by the access token
+      // handed to this method — those are different strings, so the old
+      // `where: { token }` never matched one and every refresh token outlived
+      // every logout, indefinitely.
+      await this.refreshTokenRepository.delete({
+        userId: payload.userId,
+      } as any);
 
       return true;
     } catch (error) {

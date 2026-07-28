@@ -15,7 +15,8 @@ import {
   GetAuthToken,
   GetUserIdFromToken,
 } from 'src/common/decorators/get-auth-token.decorator';
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
+import { JWTAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { EmailConfirmationResponse } from 'src/auth/auth.resolver';
 import { ResendEmailInput } from './dto/resend-email.input';
 import { FileUpload, GraphQLUpload } from 'graphql-upload-minimal';
@@ -82,7 +83,10 @@ export class UserResolver {
     return this.authService.logout(token);
   }
 
+  // Guarded, not just decorated: the decorator proves the signature is ours,
+  // while the guard is what rejects a token that logout has since retired.
   @Query(() => User)
+  @UseGuards(JWTAuthGuard)
   async me(@GetUserIdFromToken() id: string): Promise<User> {
     Logger.log('me id:', id);
     return this.userService.getUser(id);
@@ -93,6 +97,7 @@ export class UserResolver {
    * Uses validateAndBufferFile to ensure the image meets requirements
    */
   @Mutation(() => AvatarUploadResponse)
+  @UseGuards(JWTAuthGuard)
   async uploadAvatar(
     @GetUserIdFromToken() userId: string,
     @Args('file', { type: () => GraphQLUpload }) file: Promise<FileUpload>,
