@@ -189,6 +189,16 @@ await node('08 project binds (≤120s)', async () => {
 await node('09 chat remembers its model', async () => {
   if (state.storedModel !== state.model)
     throw new Error(`stored ${state.storedModel}`);
+  // The home cards label each card by project kind — the chat list has to
+  // carry the project along, not just titles.
+  const r = await gqlOrThrow(
+    '{ getUserChats { id project { template } } }',
+    undefined,
+    state.token
+  );
+  const mine = r.data.getUserChats.find((c) => c.id === state.chatId);
+  if (mine?.project?.template !== 'next')
+    throw new Error(`chat list project: ${JSON.stringify(mine?.project)}`);
 });
 
 await node('10 first turn asks, does not build', async () => {
