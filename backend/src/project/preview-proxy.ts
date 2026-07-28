@@ -51,6 +51,11 @@ export const mountPreviewProxy = (app: Express, previews: PreviewService) => {
     const port = projectPath ? previews.portFor(projectPath) : undefined;
     if (!port) return next();
 
+    // Traffic through here is the only evidence that someone still has the
+    // preview open; without it a user reading their own running app would
+    // have it shut down underneath them on the idle sweep.
+    previews.touch(projectPath!);
+
     const target = `http://127.0.0.1:${port}${req.originalUrl}`;
     try {
       const headers: Record<string, string> = {};

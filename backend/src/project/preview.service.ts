@@ -1,7 +1,12 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import { connect, createServer, AddressInfo } from 'node:net';
 import * as path from 'node:path';
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import fsExtra from 'fs-extra';
 import { getProjectsDir } from '../common/utils/common-path';
 
@@ -13,6 +18,8 @@ interface Preview {
   ready: Promise<void>;
   /** Ring buffer of dev-server output, for the Console tab. */
   log: LogLine[];
+  /** Last time anyone asked for this preview; drives idle reaping. */
+  lastUsed: number;
 }
 
 export interface LogLine {
@@ -24,6 +31,17 @@ export interface LogLine {
 const LOG_LINES = 500;
 
 const READY_TIMEOUT_MS = 90_000;
+
+/**
+ * How long a preview may sit untouched before it is shut down.
+ *
+ * Nothing reclaimed these: a dev server started on the first preview request
+ * and then ran until the container restarted. They are several hundred
+ * megabytes each and share the box with the API, so a handful of visitors was
+ * enough to take the whole backend down with them.
+ */
+const IDLE_MS = Number(process.env.PREVIEW_IDLE_MS ?? 10 * 60 * 1000);
+const SWEEP_MS = 60_000;
 
 const freePort = (): Promise<number> =>
   new Promise((resolve, reject) => {
@@ -59,13 +77,38 @@ const portAccepts = (port: number): Promise<boolean> =>
  * agent uses.
  */
 @Injectable()
-export class PreviewService implements OnModuleDestroy {
+export class PreviewService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PreviewService.name);
   private readonly previews = new Map<string, Preview>();
+  private sweeper?: NodeJS.Timeout;
+
+  onModuleInit() {
+    this.sweeper = setInterval(() => void this.reapIdle(), SWEEP_MS);
+    // Nothing here should hold the process open on its own.
+    this.sweeper.unref?.();
+  }
+
+  /** Note that someone is still using this preview. */
+  touch(projectPath: string): void {
+    const preview = this.previews.get(projectPath);
+    if (preview) preview.lastUsed = Date.now();
+  }
+
+  private async reapIdle(): Promise<void> {
+    const cutoff = Date.now() - IDLE_MS;
+    for (const [projectPath, preview] of [...this.previews]) {
+      if (preview.lastUsed > cutoff) continue;
+      this.logger.log(`[${projectPath}] stopping idle preview`);
+      await this.stop(projectPath).catch((error) =>
+        this.logger.warn(`[${projectPath}] could not stop: ${error}`),
+      );
+    }
+  }
 
   async start(projectPath: string): Promise<{ port: number }> {
     const existing = this.previews.get(projectPath);
     if (existing && !existing.child.killed) {
+      existing.lastUsed = Date.now();
       await existing.ready;
       return { port: existing.port };
     }
@@ -112,7 +155,13 @@ export class PreviewService implements OnModuleDestroy {
     });
 
     const ready = this.waitForPort(port, projectPath, () => exited);
-    this.previews.set(projectPath, { port, child, ready, log });
+    this.previews.set(projectPath, {
+      port,
+      child,
+      ready,
+      log,
+      lastUsed: Date.now(),
+    });
 
     await ready;
     return { port };
@@ -192,6 +241,7 @@ export class PreviewService implements OnModuleDestroy {
   }
 
   onModuleDestroy() {
+    if (this.sweeper) clearInterval(this.sweeper);
     for (const [, preview] of this.previews) preview.child.kill('SIGTERM');
     this.previews.clear();
   }
