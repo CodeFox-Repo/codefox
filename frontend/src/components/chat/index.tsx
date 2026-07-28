@@ -190,10 +190,6 @@ export default function Chat() {
     refetchChats();
   }, [refetchChats]);
 
-  // Callback to switch to the settings view
-  const updateSetting = () => setChatId(EventEnum.SETTING);
-  const updateProject = () => setChatId(EventEnum.NEW_PROJECT);
-
   // Effect to initialize chat ID and refresh the chat list based on URL parameters
   useEffect(() => {
     const newChatId = urlParams.get('id') || '';
@@ -207,13 +203,9 @@ export default function Chat() {
   useEffect(() => {
     window.addEventListener(EventEnum.CHAT, updateChatId);
     window.addEventListener(EventEnum.NEW_CHAT, cleanChatId);
-    window.addEventListener(EventEnum.SETTING, updateSetting);
-    window.addEventListener(EventEnum.NEW_PROJECT, updateProject);
     return () => {
       window.removeEventListener(EventEnum.CHAT, updateChatId);
-      window.removeEventListener(EventEnum.NEW_PROJECT, updateProject);
       window.removeEventListener(EventEnum.NEW_CHAT, cleanChatId);
-      window.removeEventListener(EventEnum.SETTING, updateSetting);
     };
   }, [updateChatId]);
 

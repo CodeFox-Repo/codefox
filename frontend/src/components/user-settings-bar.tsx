@@ -16,7 +16,6 @@ import { GearIcon } from '@radix-ui/react-icons';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, memo, useEffect } from 'react';
-import { EventEnum } from '../const/EventEnum';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { LogOut } from 'lucide-react';
 import { mediaUrl } from '@/lib/media';
@@ -60,14 +59,7 @@ export const UserSettingsBar = ({ isSimple }: UserSettingsProps) => {
   }, [user?.avatarUrl]);
 
   const handleSettingsClick = () => {
-    // First navigate using Next.js router
     router.push('/settings');
-
-    // Then dispatch the event
-    setTimeout(() => {
-      const event = new Event(EventEnum.SETTING);
-      window.dispatchEvent(event);
-    }, 0);
   };
 
   const avatarButton = useMemo(() => {
