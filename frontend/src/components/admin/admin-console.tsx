@@ -7,6 +7,7 @@ import {
   ADMIN_DELETE_PROJECT,
   ADMIN_OVERVIEW,
   ADMIN_PROJECTS,
+  ADMIN_SET_PROJECT_PUBLIC,
   ADMIN_SET_USER_ACTIVE,
   ADMIN_STOP_PREVIEW,
   ADMIN_SWEEP_ORPHANS,
@@ -179,6 +180,7 @@ export default function AdminConsole() {
   };
 
   const [deleteProject] = useMutation(ADMIN_DELETE_PROJECT);
+  const [setProjectPublic] = useMutation(ADMIN_SET_PROJECT_PUBLIC);
   const [setUserActive] = useMutation(ADMIN_SET_USER_ACTIVE);
   const [stopPreview] = useMutation(ADMIN_STOP_PREVIEW);
   const [sweepOrphans] = useMutation(ADMIN_SWEEP_ORPHANS);
@@ -352,7 +354,27 @@ export default function AdminConsole() {
                   <td className={`${cell} text-muted-foreground`}>
                     {day(p.createdAt)}
                   </td>
-                  <td className={`${cell} text-right`}>
+                  <td className={`${cell} space-x-2 text-right`}>
+                    <Action
+                      busy={pending === `pub-${p.id}`}
+                      onClick={() =>
+                        run(
+                          `pub-${p.id}`,
+                          () =>
+                            setProjectPublic({
+                              variables: {
+                                projectId: p.id,
+                                isPublic: !p.isPublic,
+                              },
+                            }),
+                          p.isPublic
+                            ? 'Project made private'
+                            : 'Project made public'
+                        )
+                      }
+                    >
+                      {p.isPublic ? 'make private' : 'make public'}
+                    </Action>
                     <Action
                       danger
                       busy={pending === p.id}

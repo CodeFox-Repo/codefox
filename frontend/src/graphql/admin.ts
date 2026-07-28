@@ -67,6 +67,12 @@ export const ADMIN_DELETE_PROJECT = gql`
   }
 `;
 
+export const ADMIN_SET_PROJECT_PUBLIC = gql`
+  mutation AdminSetProjectPublic($projectId: String!, $isPublic: Boolean!) {
+    adminSetProjectPublic(projectId: $projectId, isPublic: $isPublic)
+  }
+`;
+
 export const ADMIN_SET_USER_ACTIVE = gql`
   mutation AdminSetUserActive($userId: String!, $isActive: Boolean!) {
     adminSetUserActive(userId: $userId, isActive: $isActive)

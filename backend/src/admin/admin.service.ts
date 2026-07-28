@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { Chat } from 'src/chat/chat.model';
 import { User } from 'src/user/user.model';
 import { getProjectsDir } from '../common/utils/common-path';
+import { sandboxMode } from '../chat/sandbox-provider';
 import { DEFAULT_MODEL } from '../common/constants/ai.constants';
 import { Project } from '../project/project.model';
 import { PreviewService } from '../project/preview.service';
@@ -162,11 +163,17 @@ export class AdminService {
         chats: await this.chats.count({
           where: { project: { id: project.id }, isDeleted: false },
         }),
+        // In sandbox mode the files live in a remote microVM, not under
+        // `base` — stat()ing the host path branded every healthy project
+        // "no files". A workspace name is the honest signal there; probing
+        // each sandbox would cost one API round trip per row.
         onDisk: project.projectPath
-          ? await fs
-              .stat(path.join(base, project.projectPath))
-              .then(() => true)
-              .catch(() => false)
+          ? sandboxMode() === 'host'
+            ? await fs
+                .stat(path.join(base, project.projectPath))
+                .then(() => true)
+                .catch(() => false)
+            : true
           : false,
         createdAt: project.createdAt,
       })),
@@ -176,6 +183,25 @@ export class AdminService {
   /** Same path the product uses, so files and chats go with the row. */
   deleteProject(projectId: string): Promise<boolean> {
     return this.projectService.deleteProject(projectId);
+  }
+
+  /**
+   * The owner-facing mutation checks ownership, so an operator moderating
+   * someone else's gallery entry was told "no permission". This is the
+   * role-gated path for that.
+   */
+  async setProjectPublic(
+    projectId: string,
+    isPublic: boolean,
+  ): Promise<boolean> {
+    const project = await this.projects.findOne({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('No such project');
+    project.isPublic = isPublic;
+    await this.projects.save(project);
+    this.logger.log(
+      `Project ${project.projectName} set ${isPublic ? 'public' : 'private'}`,
+    );
+    return true;
   }
 
   async setUserActive(userId: string, isActive: boolean): Promise<boolean> {

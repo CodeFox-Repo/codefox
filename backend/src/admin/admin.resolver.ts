@@ -45,6 +45,14 @@ export class AdminResolver {
   }
 
   @Mutation(() => Boolean)
+  adminSetProjectPublic(
+    @Args('projectId') projectId: string,
+    @Args('isPublic') isPublic: boolean,
+  ): Promise<boolean> {
+    return this.admin.setProjectPublic(projectId, isPublic);
+  }
+
+  @Mutation(() => Boolean)
   adminSetUserActive(
     @Args('userId') userId: string,
     @Args('isActive') isActive: boolean,
