@@ -19,7 +19,8 @@
     "fix": "eslint . --ext .js,.ts,.tsx --fix",
     "start": "turbo start",
     "start:frontend": "turbo start:frontend",
-    "start:backend": "turbo start:backend"
+    "start:backend": "turbo start:backend",
+    "e2e": "node scripts/e2e-nodes.mjs"
   },
   "keywords": [],
   "author": "",
