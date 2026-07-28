@@ -200,14 +200,10 @@ export default function ChatList({
 
                 <div className="flex w-full flex-col gap-2">
                   <div className="flex flex-col gap-2">
-                    <div
-                      className={cn(
-                        'rounded-lg break-words',
-                        !isUser
-                          ? 'bg-card px-4 py-3 text-card-foreground'
-                          : 'px-1 py-0.5 text-foreground'
-                      )}
-                    >
+                    {/* No bubble for the agent: the sender row already says
+                        who is talking, and a tinted box just double-framed
+                        anything with its own border (the question card). */}
+                    <div className="break-words px-1 py-0.5 text-foreground">
                       {isUser || !message.steps ? (
                         <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-2 prose-ul:my-2 prose-li:my-1 prose-headings:mb-2 prose-headings:mt-4 prose-pre:my-3">
                           {renderMessageContent(

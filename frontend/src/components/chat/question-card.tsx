@@ -119,7 +119,7 @@ export function QuestionCard({
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-border bg-background/60 p-4">
+    <div className="mt-3 rounded-xl border border-border bg-card p-4">
       <p className="mb-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-primary">
         <Sparkles className="h-3.5 w-3.5" />
         Before building
