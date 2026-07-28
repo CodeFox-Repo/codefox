@@ -1,6 +1,6 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, symlink, unlink, writeFile } from 'node:fs/promises';
 import { createServer, AddressInfo } from 'node:net';
 import * as path from 'node:path';
 import { Readable } from 'node:stream';
@@ -254,13 +254,27 @@ export const createLocalSandbox = ({
       await freePort(),
     ]);
 
-    if (options.sessionId) {
-      const composed = path.join(root, `${harnessId}-${options.sessionId}`);
-      await symlink(workingDirectory, composed, 'dir').catch(() => {
-        // Already present (resumed session) — nothing to do.
-      });
-    }
+    if (!options.sessionId) return session;
 
-    return session;
+    const composed = path.join(root, `${harnessId}-${options.sessionId}`);
+    await symlink(workingDirectory, composed, 'dir').catch(() => {
+      // Already present (resumed session) — nothing to do.
+    });
+
+    // Take the link back out when the session ends. It used to be left
+    // behind, so the projects directory collected one dangling `codex-*`
+    // entry per turn, forever. Only the link goes — `unlink` never follows it,
+    // so the project it points at is untouched.
+    const { stop } = session;
+    return {
+      ...session,
+      stop: async () => {
+        await stop();
+        await unlink(composed).catch(() => {
+          // Gone already, or never created — either way there is nothing left
+          // to clean up, and a failure here must not fail the turn.
+        });
+      },
+    };
   },
 });
