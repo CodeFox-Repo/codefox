@@ -87,6 +87,9 @@ function HtmlPreview({ project }: { project: any }) {
           </p>
         </div>
       ) : (
+        // Ceiling: srcdoc has no base URL, so a relative style.css/script.js
+        // would 404. The agent is instructed (and E2E-checked) to keep pages
+        // self-contained; a raw-file route is the upgrade path if that changes.
         <iframe
           title="preview"
           srcDoc={html}

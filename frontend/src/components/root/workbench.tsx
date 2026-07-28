@@ -196,6 +196,9 @@ export function Workbench({
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-muted-foreground">
                       {relativeTime(chat.createdAt)}
+                      <span className="mx-1.5 opacity-40">·</span>
+                      {/* Projects from before the template column are Next apps. */}
+                      {chat.project?.template === 'html' ? 'Page' : 'Next.js'}
                     </span>
                     <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/card:opacity-100" />
                   </div>

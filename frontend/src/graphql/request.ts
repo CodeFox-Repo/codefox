@@ -77,6 +77,10 @@ export const GET_USER_CHATS = gql`
       id
       title
       createdAt
+      project {
+        id
+        template
+      }
     }
   }
 `;

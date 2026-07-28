@@ -27,7 +27,9 @@ export class UserService {
   async getUserChats(userId: string): Promise<User | null> {
     const user = await this.userRepository.findOne({
       where: { id: userId, isDeleted: false },
-      relations: ['chats'], // Load 'chats' relation, even though it's lazy
+      // 'chats.project' rides along so the home cards can label each
+      // project's kind without a per-card query.
+      relations: ['chats', 'chats.project'],
     });
 
     if (user) {
