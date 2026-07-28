@@ -10,6 +10,9 @@ import ConsoleTab from './tabs/console-tab';
 import ResponsiveToolbar from './responsive-toolbar';
 import SaveChangesBar from './save-changes-bar';
 import { logger } from '@/app/log/logger';
+// These routes check ownership now, so they need the bearer token — a bare
+// fetch got a 401 and the file tree retried it forever.
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 export function CodeEngine({
   chatId,
@@ -122,7 +125,9 @@ export function CodeEngine({
 
     try {
       setIsFileStructureLoading(true);
-      const response = await fetch(`/api/project?path=${projectPath}`);
+      const response = await authenticatedFetch(
+        `/api/project?path=${projectPath}`
+      );
       if (!response.ok) {
         throw new Error(`Failed to fetch file structure: ${response.status}`);
       }
@@ -234,7 +239,7 @@ export function CodeEngine({
     if (!projectPath || !filePath) return;
 
     try {
-      const response = await fetch('/api/file', {
+      const response = await authenticatedFetch('/api/file', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -300,7 +305,7 @@ export function CodeEngine({
       if (isFolder) return;
 
       try {
-        const res = await fetch(
+        const res = await authenticatedFetch(
           `/api/file?path=${encodeURIComponent(`${projectPath}/${filePath}`)}`
         );
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 interface LogLine {
   at: number;
@@ -27,7 +28,7 @@ const ConsoleTab = ({ project }: { project?: { projectPath?: string } }) => {
 
     const poll = async () => {
       try {
-        const res = await fetch(
+        const res = await authenticatedFetch(
           `/api/preview/logs?projectPath=${encodeURIComponent(projectPath)}`
         );
         if (!res.ok) throw new Error(`${res.status}`);
