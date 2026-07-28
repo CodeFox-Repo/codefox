@@ -34,3 +34,6 @@ dist/
 
 # Local agent tooling config
 .claude/
+
+# QA screenshots dropped at the repo root during agent sessions
+/*.png
