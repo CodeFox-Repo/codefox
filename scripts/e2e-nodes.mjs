@@ -694,6 +694,23 @@ await node('33 a published page is a link anyone can open', async () => {
   if ((await share('not-a-uuid')).status !== 404)
     throw new Error('garbage id not refused');
 
+  // Pasted into a chat app the link has to preview as something. The tags are
+  // injected server-side, addressed at the host the visitor actually used.
+  const crawled = await fetch(`${BASE}/share/${shareId}`, {
+    headers: { 'x-forwarded-host': 'codefox.example', 'x-forwarded-proto': 'https' },
+  });
+  const card = await crawled.text();
+  if (!/<meta property="og:title"/.test(card))
+    throw new Error('no link preview title');
+  if (!/<meta name="twitter:card"/.test(card))
+    throw new Error('no twitter card');
+  // Addressed at the product's domain, not the API host behind the rewrite.
+  const image = card.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+  if (image && !image.startsWith('https://codefox.example/'))
+    throw new Error(`card image points at ${image}`);
+  // The page itself must survive the injection untouched.
+  if (!card.includes('</body>')) throw new Error('page mangled by injection');
+
   return `${live.body.length}B served anonymously`;
 });
 

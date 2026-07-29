@@ -5,6 +5,7 @@ import type { Request, Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { Project } from './project.model';
 import { WorkspaceService } from './workspace.service';
+import { withSocialCard } from './social-card';
 
 /**
  * Serves a public page project as a real, linkable page.
@@ -85,7 +86,7 @@ export class ShareController {
     // Short: the owner keeps editing, and a shared link showing yesterday's
     // page would look broken to them.
     res.setHeader('Cache-Control', 'public, max-age=60');
-    return res.send(html);
+    return res.send(withSocialCard(html, project, req));
   }
 
   private notFound(res: Response, message: string) {

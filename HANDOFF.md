@@ -745,6 +745,31 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 01:50 (7-29) — 分享链接在生产验证 + 有了链接预览
+
+**先确认上一轮的分享功能在生产上是活的**:Jackson 的真实页面
+`codefox.sma1lboy.me/share/2fc8ed27-…` 匿名 200、3296 字节真页面,CSP
+sandbox 穿过 Vercel rewrite 完好,一个 Next 项目的 id 正确回 404。
+
+然后补上它缺的一半:**链接贴进 Slack / iMessage / 推特是一条光秃秃的 url**
+——生成的页面只有 agent 写的 `<title>`,没有名字、没有描述、没有图。而封面
+截图**本来就存在、本来就公开可取**(`/api/media/...` 实测 200),纯粹是没接。
+
+`social-card.ts`:服务时往 `<head>` 顶部注入 og / twitter 标签。
+- **不覆盖页面已经声明的**:agent 可能自己写了 og:tag,那是作者的意图。
+- og: 和 twitter: 视为同一件事的两种拼写——写这个测试时抓到一个真 bug:
+  页面只声明了 `og:title` 时,我们仍然注入了 `twitter:title`,于是**同一个
+  链接在 Slack 显示作者的标题、在推特显示项目行名**。现在互为孪生的标签
+  任一被声明,两个都跳过。
+- 图片地址用 `x-forwarded-host`(访客真正访问的域名),不是后端自己的
+  hostname——后者在 rewrite 之后是 Railway 子域。这个 header 会决定一个进
+  公开页面的 url,所以只接受 host 形状的值。
+- 项目名是用户输入且进 HTML 属性,转义(`"><script>` 有专门的测试)。
+- 没有 `<head>` 的页面原样返回,不围绕假设去重建它。
+
+验证:11 个单测 + 真实路由实测(标签只注入一次、页面 body 和 luxury token
+完好);节点 33 扩展为同时守卫预览卡片和"卡片图片必须指向产品域名"。
+
 ## 01:25 (7-29) — 生成的页面终于可以给别人看了
 
 之前一个 public 项目只能被 **fork**,不能被**看**:gallery 上是一张截图,
