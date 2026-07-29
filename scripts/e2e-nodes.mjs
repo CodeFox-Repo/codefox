@@ -790,6 +790,138 @@ await node('34 both gallery strategies answer with the same wall', async () => {
   return `${latest.length} latest, ${trending.length} trending`;
 });
 
+await node('36 a hand edit is the user’s own version, not the agent’s', async () => {
+  const versions = async () =>
+    (
+      await rest(
+        `/api/project/versions?path=${state.htmlPath}`,
+        {},
+        state.token,
+      ).then((r) => r.json())
+    ).versions;
+
+  const mine = '<p>typed by hand, not by the agent</p>';
+  await rest(
+    '/api/file',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        filePath: `${state.htmlPath}/by-hand.html`,
+        newContent: mine,
+      }),
+    },
+    state.token,
+  );
+  // Editing does not commit — only turns do — so nothing is a version yet.
+  const before = await versions();
+  if (before.some((v) => v.label === 'Your edits'))
+    throw new Error('an edit committed itself');
+
+  await turn(state.htmlChatId, '把首页标题改成 Hand Edit Check', state.token);
+
+  const after = await versions();
+  // The turn used to fold the hand edit into its own commit, under the
+  // agent's prompt: restoring to before that turn threw away work the user
+  // did themselves, and the history credited it to the agent.
+  const own = after.find((v) => v.label === 'Your edits');
+  if (!own) throw new Error('the hand edit was swept into the agent’s commit');
+  if (after.indexOf(own) === 0)
+    throw new Error('the agent’s turn left no version of its own');
+
+  await rest(
+    '/api/project/restore',
+    {
+      method: 'POST',
+      body: JSON.stringify({ path: state.htmlPath, versionId: own.id }),
+    },
+    state.token,
+  );
+  const back = await rest(
+    `/api/file?path=${encodeURIComponent(`${state.htmlPath}/by-hand.html`)}`,
+    {},
+    state.token,
+  ).then((r) => r.json());
+  if (back.content !== mine)
+    throw new Error('the user’s own work did not come back');
+
+  return after.map((v) => v.label.slice(0, 14)).join(' | ');
+});
+
+await node('37 the agent hears about a hand edit, the chat does not', async () => {
+  // Its own project and its own chat. Sharing node 36's would poison this:
+  // that project holds a file called by-hand.html and that chat's history
+  // talks about editing it, so "which file did I edit by hand" has a
+  // convincing wrong answer sitting in plain sight.
+  const made = await gqlOrThrow(
+    'mutation($i:CreateProjectInput!){createProject(createProjectInput:$i){id}}',
+    {
+      i: {
+        description: 'context wire check',
+        public: false,
+        model: state.model,
+        template: 'html',
+      },
+    },
+    state.token,
+  );
+  const chatId = made.data.createProject.id;
+  let projectPath = null;
+  for (let i = 0; i < 12 && !projectPath; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const d = await gql(
+      'query($c:String!){getChatDetails(chatId:$c){project{projectPath}}}',
+      { c: chatId },
+      state.token,
+    );
+    projectPath = d.data?.getChatDetails?.project?.projectPath;
+  }
+  if (!projectPath) throw new Error('project never bound');
+
+  // A name that answers nothing on its own — the only way to know it is to
+  // have been told.
+  const marker = `zq7-${ts}.html`;
+  const written = await rest(
+    '/api/file',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        filePath: `${projectPath}/${marker}`,
+        newContent: '<!doctype html><title>hand</title><p>by hand</p>',
+      }),
+    },
+    state.token,
+  );
+  if (!written.ok) throw new Error(`could not write the hand edit: ${written.status}`);
+
+  const { text } = await turn(
+    chatId,
+    'Do not read, list or change any file. From what you were told at the ' +
+      'start of this message, answer in one line with the exact filename I ' +
+      'edited by hand just now.',
+    state.token,
+  );
+  if (!text.includes(marker))
+    throw new Error(`the agent was not told: ${text.slice(0, 120)}`);
+
+  // The note is prompt-only. It must never become part of the conversation
+  // the user reads back.
+  const history = await gqlOrThrow(
+    'query($c:String!){getChatHistory(chatId:$c){content}}',
+    { c: chatId },
+    state.token,
+  );
+  const said = history.data.getChatHistory.map((m) => m.content).join('\n');
+  if (said.includes('edited these files themselves'))
+    throw new Error('bookkeeping leaked into the chat');
+
+  await gqlOrThrow(
+    'mutation($c:String!){deleteChat(chatId:$c)}',
+    { c: chatId },
+    state.token,
+  );
+  return marker;
+});
+
 await node('35 a page prints to a real PDF', async () => {
   const r = await rest(
     `/api/pdf?projectPath=${encodeURIComponent(state.htmlPath)}`,

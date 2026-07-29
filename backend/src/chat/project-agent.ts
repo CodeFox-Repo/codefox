@@ -196,6 +196,9 @@ const HISTORY_CHARS = 2000;
  * resumable session lives in a bridge process that does not survive a deploy,
  * and this server redeploys constantly.
  */
+/** Enough to point the agent at the work; a rewrite of 200 files is noise. */
+const HAND_EDIT_FILES = 20;
+
 const retell = (history: PriorTurn[]): string => {
   const recent = history.slice(-HISTORY_TURNS);
   if (recent.length === 0) return '';
@@ -212,12 +215,42 @@ const retell = (history: PriorTurn[]): string => {
   return `Earlier in this conversation:\n\n${lines.join('\n\n')}\n\n---\n\n`;
 };
 
+/**
+ * Tell the agent what the user changed by hand since the last turn.
+ *
+ * Without it the agent works from the project as it remembers it and
+ * cheerfully rewrites a file the user just fixed themselves — the edits are
+ * on disk, but nothing pointed at them, so nothing read them.
+ *
+ * Paths and statuses rather than a diff: the agent has read tools and the
+ * files are right there, so naming them is enough to make it look, and a
+ * large hand edit cannot crowd out the actual request.
+ *
+ * Prompt-only by design. This never becomes a message, so the chat shows the
+ * conversation the user had rather than bookkeeping addressed to the model.
+ */
+const handEditNote = (edits: { path: string; status: string }[]): string => {
+  if (!edits.length) return '';
+  const lines = edits
+    .slice(0, HAND_EDIT_FILES)
+    .map((edit) => `- ${edit.path} (${edit.status} by the user)`);
+  const more = edits.length - lines.length;
+  return (
+    `The user edited these files themselves since your last turn:\n${lines.join('\n')}` +
+    `${more > 0 ? `\n- …and ${more} more` : ''}\n\n` +
+    'Read them before you change anything, and keep what they did unless ' +
+    'this message asks you to undo it.\n\n---\n\n'
+  );
+};
+
 export interface ProjectAgentOptions {
   /** Project directory name under .codefox/projects. */
   projectPath: string;
   message: string;
   /** Earlier turns of this chat, oldest first, excluding the current message. */
   history?: PriorTurn[];
+  /** Files the user edited by hand since the last turn. */
+  handEdits?: { path: string; status: string }[];
   /** Pasted or attached images, as `data:<mime>;base64,<data>` URLs. */
   images?: string[];
   /** Model id for the underlying claude CLI. Unset defers to its default. */
@@ -336,6 +369,7 @@ export const runProjectAgent = async ({
   message,
   images,
   history,
+  handEdits,
   model,
   template,
 }: ProjectAgentOptions) => {
@@ -354,7 +388,7 @@ export const runProjectAgent = async ({
   const asked = staged.length
     ? `${message}\n\nThe user attached ${staged.length === 1 ? 'this image' : 'these images'} — read ${staged.length === 1 ? 'it' : 'them'} before answering:\n${staged.map((f) => `- ${f}`).join('\n')}`
     : message;
-  const prompt = `${retell(history ?? [])}${asked}`;
+  const prompt = `${retell(history ?? [])}${handEditNote(handEdits ?? [])}${asked}`;
 
   const agent = new HarnessAgent({
     harness: harnessFor(model),

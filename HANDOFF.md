@@ -757,6 +757,25 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 08:50 (7-29) — 你亲手改的代码,被记成了 agent 的功劳(而且会被一起回滚)
+
+编辑器里手改文件不提交任何东西 —— **只有 turn 会提交**。于是下一次 turn
+的 snapshot 把用户手打的东西一起扫进 agent 那个 commit 里,label 用的是
+agent 的 prompt。两个后果:
+1. 回滚到"这一轮之前"会**连用户自己写的东西一起扔掉**;
+2. 历史把这份工作记在 agent 名下。
+
+实测确认:先手写一个文件,再让 agent 跑一轮 —— 版本历史里只有两条
+(baseline + agent 那轮),手写的内容藏在 agent 的 commit 里。
+
+turn 开始前先 `snapshot('Your edits')`。工作区本来就干净时是 no-op(常见
+情况),有待提交内容时就把它变成用户自己的一条版本。实测:手写文件 → 让
+agent「重写 index.html **并删掉其他 html 文件**」→ 历史变成三条,回滚到
+"Your edits" 后那个文件**逐字回来了**。
+
+新节点 36 守这条路:先断言"编辑本身不会自己提交",再断言 turn 之后手写内容
+是独立的一条版本、agent 那轮也还有自己的一条,最后回滚验证内容逐字一致。
+
 ## 08:20 (7-29) — 沙箱配额用尽,却告诉用户"模型账户没钱了"
 
 这轮查 turn 失败时用户到底看到什么。`explain()` 按状态码分类,但**沙箱错误
@@ -1269,3 +1288,15 @@ Full suite re-run against HEAD (6098f38 + this doc commit): **32/32 green**,
 including the newest nodes — versions/restore/undo-the-undo, restore refusing
 a non-version, the anonymous share link (7603B served with no token), and the
 html cover shooting a 137KB png.
+
+手改同时作为 context 喂给 agent —— 但**只进 prompt,不进消息**:提交那条
+快照*之前*先读出改了哪些文件,把清单(路径 + 新增/修改/删除)拼进 prompt,
+附一句"先读它们,除非这条消息要求撤销,否则保留用户做的"。不存库、不流式
+输出,所以聊天记录里看不见。给清单而不是 diff:agent 手上有读文件工具、
+文件就在那儿,点名足够让它去看,而一次大规模手改也挤不掉真正的请求;超过
+20 个文件折叠成 "…and N more"。
+
+节点 37 守这条,**在自己的项目和自己的对话里**跑:节点 36 那个项目里有个
+文件就叫 by-hand.html,而那段历史还在聊天里——"我刚手改了哪个文件"于是有
+一个非常可信的错误答案摆在眼前,模型两次都答了它。换成干净项目 + 一个本身
+不含任何提示的文件名后,断言才真的在测 wire 而不是测模型的联想能力。

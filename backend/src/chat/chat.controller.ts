@@ -11,6 +11,7 @@ import { runProjectAgent } from './project-agent';
 import { explain } from './explain-error';
 import { MessageRole, TurnStep } from './message.model';
 import { WorkspaceService } from '../project/workspace.service';
+import type { ChangedFile } from '../project/workspace';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -66,6 +67,32 @@ export class ChatController {
       await workspace.snapshot(label || 'Agent turn');
     } catch (error) {
       this.logger.warn(`[${projectPath}] snapshot failed: ${error}`);
+    }
+  }
+
+  /**
+   * Give the user's own edits a version before the agent runs.
+   *
+   * Files edited by hand in the editor are not committed by anything — only
+   * turns commit. So a turn's snapshot swept whatever the user had typed into
+   * the agent's commit, under the agent's prompt as its label: restoring to
+   * "before that turn" threw away work the user did themselves, and the
+   * history credited it to the agent. A no-op when the tree is already clean,
+   * which is the common case.
+   */
+  private async snapshotPendingEdits(
+    projectPath: string,
+  ): Promise<ChangedFile[]> {
+    try {
+      const workspace = await this.workspaces.for(projectPath);
+      // Read the list before committing it — afterwards the tree is clean and
+      // there is nothing left to tell the agent about.
+      const edited = (await workspace.changedFiles()) ?? [];
+      if (edited.length) await workspace.snapshot('Your edits');
+      return edited;
+    } catch (error) {
+      this.logger.warn(`[${projectPath}] pre-turn snapshot failed: ${error}`);
+      return [];
     }
   }
 
@@ -180,11 +207,18 @@ export class ChatController {
       history.pop();
     }
 
+    // Before the agent touches anything, so hand edits stay the user's own
+    // version rather than being folded into the agent's commit. The list also
+    // becomes context: an agent that does not know the user just rewrote a
+    // file will happily rewrite it back.
+    const handEdits = await this.snapshotPendingEdits(project.projectPath);
+
     const { result, session } = await runProjectAgent({
       projectPath: project.projectPath,
       message: chatDto.message,
       images: chatDto.images,
       history,
+      handEdits,
       model: chatDto.model,
       template: project.template,
     });
