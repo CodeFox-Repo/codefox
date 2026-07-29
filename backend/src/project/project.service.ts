@@ -463,8 +463,14 @@ export class ProjectService {
         // source lives in a microVM, the host directory is empty, and the
         // "no files" fallback silently handed every fork a fresh template
         // instead of the project being forked.
+        //
+        // html is the exception in *both* modes, exactly as WorkspaceService
+        // decides it: those files never leave the host. Branching on the mode
+        // alone unpacked an html fork into a microVM that nothing would ever
+        // read — the fork's own workspace is a host directory that was never
+        // created, so it opened with no files at all.
         savedProject.projectPath =
-          sandboxMode() === 'host'
+          sandboxMode() === 'host' || savedProject.template === 'html'
             ? await copyProject(sourceProject.projectPath, savedProject.id)
             : await this.copySandboxProject(
                 sourceProject.projectPath,

@@ -80,6 +80,8 @@ const portAccepts = (port: number): Promise<boolean> =>
 export class PreviewService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PreviewService.name);
   private readonly previews = new Map<string, Preview>();
+  /** Starts that have not landed in `previews` yet, keyed by project. */
+  private readonly starting = new Map<string, Promise<{ port: number }>>();
   private sweeper?: NodeJS.Timeout;
 
   onModuleInit() {
@@ -113,6 +115,22 @@ export class PreviewService implements OnModuleInit, OnModuleDestroy {
       return { port: existing.port };
     }
 
+    // Nothing is in the map until the spawn below returns, and the awaits
+    // before it yield the event loop — so two requests arriving together both
+    // missed the check above and each booted a dev server. The second one
+    // overwrote the first in the map, orphaning a Next process that nothing
+    // could ever stop: not the idle sweep, not delete, not module destroy.
+    const pending = this.starting.get(projectPath);
+    if (pending) return pending;
+
+    const attempt = this.spawnPreview(projectPath).finally(() =>
+      this.starting.delete(projectPath),
+    );
+    this.starting.set(projectPath, attempt);
+    return attempt;
+  }
+
+  private async spawnPreview(projectPath: string): Promise<{ port: number }> {
     const cwd = path.join(getProjectsDir(), projectPath);
     if (!existsSync(path.join(cwd, 'package.json'))) {
       throw new Error(`No project at ${projectPath}`);
@@ -144,7 +162,13 @@ export class PreviewService implements OnModuleInit, OnModuleDestroy {
     child.stderr?.on('data', capture('err'));
     child.on('exit', (code) => {
       this.logger.log(`[${projectPath}] dev server exited (${code})`);
-      this.previews.delete(projectPath);
+      // Only if the map still points at *this* child. A restart replaces the
+      // entry before the old process is done dying, and an unconditional
+      // delete then dropped the fresh dev server out of the map — leaving it
+      // running with nothing able to stop or find it.
+      if (this.previews.get(projectPath)?.child === child) {
+        this.previews.delete(projectPath);
+      }
     });
 
     // A dev server that dies during boot should surface now, not after the
@@ -163,7 +187,20 @@ export class PreviewService implements OnModuleInit, OnModuleDestroy {
       lastUsed: Date.now(),
     });
 
-    await ready;
+    try {
+      await ready;
+    } catch (error) {
+      // A start that never became ready must not be left in the map: `ready`
+      // is permanently rejected, so every later start() short-circuited on it
+      // and the preview stayed broken until the process restarted — even
+      // though the dev server was often up moments later. Kill it and let the
+      // next request boot a fresh one.
+      if (this.previews.get(projectPath)?.child === child) {
+        this.previews.delete(projectPath);
+      }
+      child.kill('SIGTERM');
+      throw error;
+    }
     return { port };
   }
 

@@ -86,10 +86,10 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
         <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-14 text-center">
           <p className="font-medium text-foreground">Nothing published yet</p>
           <p className="mx-auto mt-2 max-w-[52ch] text-pretty text-sm leading-relaxed text-muted-foreground">
-            A project appears here once it is public and has a cover. The
-            cover is a shot of the page itself, taken the first time its
-            preview renders — so make one of yours public, open it, and it
-            joins the wall.
+            A project appears here once it is public and has a cover. The cover
+            is a shot of the page itself, taken the first time its preview
+            renders — so make one of yours public, open it, and it joins the
+            wall.
           </p>
         </div>
       ) : (
