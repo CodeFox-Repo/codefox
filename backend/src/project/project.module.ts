@@ -17,6 +17,7 @@ import { DownloadController } from './downloadController';
 import { PreviewController } from './preview.controller';
 import { PreviewService } from './preview.service';
 import { WorkspaceService } from './workspace.service';
+import { ShareController } from './share.controller';
 // import { GitHubService } from 'src/github/github.service';
 import { UserService } from 'src/user/user.service';
 
@@ -34,6 +35,7 @@ import { UserService } from 'src/user/user.service';
     PreviewController,
     FilesController,
     ScreenshotController,
+    ShareController,
   ],
   providers: [
     ChatService,

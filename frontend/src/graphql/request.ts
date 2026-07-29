@@ -28,7 +28,11 @@ export const FETCH_PUBLIC_PROJECTS = gql`
     fetchPublicProjects(input: $input) {
       id
       projectName
-      projectPath
+      # The share id, not projectPath: this query is public, and projectPath
+      # is the directory name every authenticated file route keys on. Nothing
+      # here used it.
+      uniqueProjectId
+      template
       userId
       createdAt
       user {
@@ -276,6 +280,9 @@ export const GET_PROJECT = gql`
       id
       projectName
       isPublic
+      # For the share link: /share/<uniqueProjectId>, pages only.
+      uniqueProjectId
+      template
     }
   }
 `;

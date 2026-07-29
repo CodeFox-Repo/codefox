@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { GET_PROJECT } from '../../../graphql/request';
 import { ProjectContext } from './project-context';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
+import { shareUrl } from '@/lib/share';
 
 interface ResponsiveToolbarProps {
   isLoading: boolean;
@@ -85,6 +86,10 @@ const ResponsiveToolbar = ({
   // Undefined until the query resolves. Do NOT default to false: the button
   // toggles to `!isPublic`, so an unknown state would publish the project.
   const isPublic: boolean | undefined = projectData?.getProject?.isPublic;
+
+  // A page anyone can open, once it is public. Private projects and Next apps
+  // have no such link — Next has no single file to serve.
+  const share = isPublic ? shareUrl(projectData?.getProject ?? {}) : null;
 
   const handleDownload = async () => {
     // If projectId is available, initiate download
@@ -254,6 +259,25 @@ const ResponsiveToolbar = ({
                     ? 'Public'
                     : 'Private'}
               </Button>
+              {/* The published page's own url. Only shown when there is one
+                  to copy — publishing is what creates it. */}
+              {share && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                  title="Copy a link anyone can open"
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `${window.location.origin}${share}`
+                    );
+                    toast.success('Share link copied — anyone can open it');
+                  }}
+                >
+                  <Share2 className="w-3 h-3 mr-1" />
+                  Share
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

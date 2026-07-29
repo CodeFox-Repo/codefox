@@ -652,6 +652,51 @@ await node('31 restore refuses what is not a version', async () => {
   if (anon.status !== 401) throw new Error(`anonymous -> ${anon.status}`);
 });
 
+await node('33 a published page is a link anyone can open', async () => {
+  const share = async (id) => {
+    // No token on purpose: a share link that needs a login is not one.
+    const r = await fetch(`${BASE}/share/${id}`);
+    return { status: r.status, body: await r.text(), headers: r.headers };
+  };
+
+  const detail = await gqlOrThrow(
+    'query($c:String!){getChatDetails(chatId:$c){project{id uniqueProjectId}}}',
+    { c: state.htmlChatId },
+    state.token,
+  );
+  const project = detail.data.getChatDetails.project;
+  const shareId = project.uniqueProjectId;
+  if (!shareId) throw new Error('project has no share id');
+
+  // Private first: publishing is what creates the link.
+  if ((await share(shareId)).status !== 404)
+    throw new Error('a private project was served to a stranger');
+
+  await gqlOrThrow(
+    'mutation($p:ID!,$v:Boolean!){updateProjectPublicStatus(projectId:$p,isPublic:$v){id}}',
+    { p: project.id, v: true },
+    state.token,
+  );
+
+  const live = await share(shareId);
+  if (live.status !== 200) throw new Error(`published page -> ${live.status}`);
+  if (!live.body.toLowerCase().includes('<!doctype html'))
+    throw new Error('did not serve the page itself');
+  // Untrusted HTML on this origin: without the sandbox a shared page could
+  // read the session of whoever opens it.
+  const csp = live.headers.get('content-security-policy') ?? '';
+  if (!csp.includes('sandbox')) throw new Error(`unsandboxed: "${csp}"`);
+
+  // The directory name is what the authenticated file routes key on; it must
+  // not double as a public identifier.
+  if ((await share(state.htmlPath)).status !== 404)
+    throw new Error('projectPath worked as a share id');
+  if ((await share('not-a-uuid')).status !== 404)
+    throw new Error('garbage id not refused');
+
+  return `${live.body.length}B served anonymously`;
+});
+
 await node('32 html cover shoots the file', async () => {
   // No dev server exists for an html project — the controller must fall
   // back to shooting the file itself.

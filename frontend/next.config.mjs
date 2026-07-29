@@ -51,6 +51,13 @@ const nextConfig = {
           source: '/api/:path*',
           destination: `${backend}/api/:path*`,
         },
+        // Published pages are served by the backend but linked on the
+        // product's own domain — a share link pointing at the Railway host
+        // is not one anybody would send.
+        {
+          source: '/share/:id',
+          destination: `${backend}/share/:id`,
+        },
       ],
     };
   },

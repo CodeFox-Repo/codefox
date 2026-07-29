@@ -19,7 +19,7 @@ export const PREVIEW_COOKIE = 'codefox_preview';
  * has its own API routes, and those are the preview's to serve.
  */
 const OURS =
-  /^\/(graphql|health|download|api\/(chat|project|file|media|preview|screenshot))(\/|\?|$)/;
+  /^\/(graphql|health|download|share|api\/(chat|project|file|media|preview|screenshot))(\/|\?|$)/;
 
 const logger = new Logger('PreviewProxy');
 

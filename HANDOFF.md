@@ -745,6 +745,34 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 01:25 (7-29) — 生成的页面终于可以给别人看了
+
+之前一个 public 项目只能被 **fork**,不能被**看**:gallery 上是一张截图,
+预览是 srcdoc iframe,连"在新标签打开"都是 blob url——关掉就没了。**没有
+任何一个链接能发给别人。** 而"把做出来的东西发出去"基本上就是人做它的理由。
+
+- 新的 `GET /share/:id`(`share.controller.ts`),`@Public()`,匿名可读。
+- **id 用 `uniqueProjectId` 而不是 `projectPath`**:目录名是所有需要鉴权的
+  文件路由的 key,把它印在公开 url 里等于邀请别人去试那些路由。这个 uuid
+  本来就在行上,而且对文件 API 毫无意义。顺手把 gallery 查询里的
+  `projectPath` 换掉——它一直被取出来发给匿名访客,却没有任何地方用它。
+- **页面是这个 origin 上的不可信 HTML**(模型按陌生人的 prompt 写的),响应
+  带 `Content-Security-Policy: sandbox allow-scripts allow-forms`——脚本能跑
+  (那是产品本身),但拿不到打开它的人的 cookie 和 storage。
+- 只服务 html 项目:Next 应用没有单个可服务的文件,给它一个 share 链接只能
+  404。不存在 / 非 public / 非 html 全部回同一句"This page is not shared."
+  ——能区分它们的错误页就是一个探测私有项目是否存在的接口。
+- `next.config` 把 `/share` 也 rewrite 到后端,所以链接穿产品自己的域名,
+  而不是 Railway 的子域。preview proxy 的 `OURS` 正则也补上了 share
+  ——它跑在 Nest 之前,不加就会在带 preview cookie 时被吞掉(HANDOFF 记过
+  的老坑)。
+- UI:gallery 的封面变成指向真实页面的链接(Next 项目保持普通 tile,不给
+  死链);工具栏在项目 public 且是 html 时出现 Share 按钮,复制完整 url。
+
+验证(节点 33 + 手工全覆盖):私有 404 → 发布后匿名 200 且是真页面 →
+neon token 还在 → CSP sandbox 就位 → 拿 projectPath 当 id 404 → 乱码 404 →
+未知 uuid 404 → public 的 Next 项目 404。
+
 ## 01:05 (7-29) — E2E 补到 32 节点,并因此抓到一个竞态
 
 给套件补上新功能的守卫节点(28 设计系统、29 版本、30 回滚、31 回滚拒绝

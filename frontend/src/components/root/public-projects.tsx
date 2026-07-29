@@ -10,14 +10,48 @@ import { FETCH_PUBLIC_PROJECTS } from '@/graphql/request';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { mediaUrl } from '@/lib/media';
+import { shareUrl } from '@/lib/share';
 
 interface PublicProject {
   id: string;
   projectName: string;
+  /** The share id — what /share/<id> serves. */
+  uniqueProjectId?: string | null;
+  template?: string | null;
   userId?: string | null;
   photoUrl?: string | null;
   subNumber?: number | null;
   user?: { username?: string | null } | null;
+}
+
+/**
+ * The cover, as a link when the project is a page anyone can open. Next apps
+ * have no shareable url, so theirs stays a plain tile rather than a link that
+ * goes nowhere.
+ */
+function ShareLink({
+  href,
+  className,
+  label,
+  children,
+}: {
+  href: string | null;
+  className: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  if (!href) return <div className={className}>{children}</div>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      aria-label={label}
+      className={className}
+    >
+      {children}
+    </a>
+  );
 }
 
 /**
@@ -99,7 +133,11 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
               key={p.id}
               className="group/card overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/45"
             >
-              <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
+              <ShareLink
+                href={shareUrl(p)}
+                className="relative block aspect-[16/10] overflow-hidden bg-secondary"
+                label={`Open ${p.projectName}`}
+              >
                 {p.photoUrl ? (
                   <Image
                     src={mediaUrl(p.photoUrl)}
@@ -122,7 +160,7 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
                     </p>
                   </div>
                 )}
-              </div>
+              </ShareLink>
 
               <div className="flex items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
