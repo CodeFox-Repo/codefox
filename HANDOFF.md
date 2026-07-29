@@ -757,6 +757,26 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 05:20 (7-29) — 同一个项目上并发两个 turn,会静默吞掉一整轮工作
+
+同一个 chat 上同时发两条消息,**两个 agent 会同时在同一个工作目录里跑**。
+没有任何东西串行化它们。
+
+实测(两条"把整个页面重写成…"同时发出):两个 turn 都回 201、都向用户报告
+成功,但**版本历史里只有一个** —— 后完成的那个提交的是一棵已经被覆盖过的
+树,另一整轮的工作凭空消失,没有任何错误、任何日志、任何提示。用户被告知
+两次都成功了。
+
+- `pipeAgent` 现在按 projectPath 排队:新 turn 挂在该项目队列的尾部。存进
+  map 的那个 promise 永不 reject,所以一个失败的 turn 不会把整个项目的队列
+  卡死;队列排空后条目会被删掉,不会每个项目永远留一个已 settle 的 promise。
+- 排队时会先给客户端写一行"正在等这个项目当前的 turn 结束",而不是让用户
+  盯着一个安静的流。`runTurn` 里的 setHeader 因此加了 `headersSent` 判断。
+- 排队期间客户端挂断的话不再启动 agent。
+
+验证:同一个探针,修复前 = 2 个 turn / 1 个版本(丢了一轮);修复后 =
+第二个 turn 报告 `queued: true`,**3 个版本全在**(baseline + 两轮)。
+
 ## 04:50 (7-29) — 聊天附件走的是另一条路,而那条路没有任何检查
 
 头像上传会限制 5MB 并**嗅探magic bytes**(客户端唯一无法撒谎的东西)。

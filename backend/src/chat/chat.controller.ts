@@ -110,6 +110,59 @@ export class ChatController {
   private async pipeAgent(chatDto: ChatRestDto, res: Response) {
     const project = await this.chatService.getProjectByChatId(chatDto.chatId);
 
+    // One turn at a time per project. Two turns used to run against the same
+    // working directory at once: both agents rewrote the same files, both
+    // reported success, and whichever finished second committed a tree that
+    // had already been overwritten — so one whole turn's work vanished with
+    // no error anywhere. Observed directly: two concurrent rewrites produced
+    // one version, and the other turn's changes were simply gone.
+    const path = project.projectPath;
+    const ahead = ChatController.turns.get(path);
+
+    // Chain onto whatever is already queued. The stored promise never
+    // rejects, so one failed turn cannot wedge the project's queue.
+    const mine = (ahead ?? Promise.resolve()).then(() => {
+      // A client that hung up while waiting should not start an agent.
+      if (res.writableEnded || res.destroyed) return;
+      return this.runTurn(chatDto, res, project);
+    });
+    const tail = mine.catch(() => undefined);
+    ChatController.turns.set(path, tail);
+
+    // Say so rather than leave the user watching a silent stream: a queued
+    // turn can wait as long as the one ahead of it takes.
+    if (ahead) {
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.write(
+        `${JSON.stringify({ t: 'text', v: 'Waiting for this project’s current turn to finish…\n\n' })}\n`,
+      );
+    }
+
+    // Forget the project once its queue drains, so the map does not keep a
+    // settled promise per project forever.
+    void tail.then(() => {
+      if (ChatController.turns.get(path) === tail) {
+        ChatController.turns.delete(path);
+      }
+    });
+
+    return mine;
+  }
+
+  /**
+   * The tail of each project's turn queue, keyed by project path. Static: one
+   * controller instance serves every request, and the invariant is per
+   * project rather than per request.
+   */
+  private static readonly turns = new Map<string, Promise<void>>();
+
+  private async runTurn(
+    chatDto: ChatRestDto,
+    res: Response,
+    project: { projectPath: string; template?: string | null },
+  ) {
     // The client saves the user's message before it calls this, so the stored
     // history already ends with the very message being asked now. Replaying it
     // would show the agent the question twice.
@@ -136,9 +189,12 @@ export class ChatController {
       template: project.template,
     });
 
-    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('X-Accel-Buffering', 'no');
+    // Already sent when this turn waited in the queue and said so.
+    if (!res.headersSent) {
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('X-Accel-Buffering', 'no');
+    }
 
     const send = (event: Record<string, unknown>) =>
       res.write(`${JSON.stringify(event)}\n`);
