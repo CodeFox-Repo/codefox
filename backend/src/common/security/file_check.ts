@@ -19,7 +19,12 @@ const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
  * script renamed `evil.png` was stored and then served from this origin.
  * Returns undefined when the header matches no image this service accepts.
  */
-function sniff(buffer: Buffer): string | undefined {
+/**
+ * What a buffer actually is, by its magic bytes — the one thing a client
+ * cannot lie about. Exported because chat attachments arrive by a different
+ * road (base64 data URLs, not multipart) and need the same answer.
+ */
+export function sniff(buffer: Buffer): string | undefined {
   if (
     buffer.length >= 8 &&
     buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
@@ -35,6 +40,11 @@ function sniff(buffer: Buffer): string | undefined {
     buffer.subarray(8, 12).toString('ascii') === 'WEBP'
   ) {
     return 'image/webp';
+  }
+  // GIF87a / GIF89a. Not accepted for avatars or covers, but the agent can
+  // be handed one, so the sniffer has to be able to name it.
+  if (buffer.length >= 6 && buffer.subarray(0, 3).toString('ascii') === 'GIF') {
+    return 'image/gif';
   }
   return undefined;
 }
@@ -86,8 +96,11 @@ export async function validateAndBufferFile(
   // The decisive check, and the only one the client cannot lie about. The
   // sniffed type is also what gets returned, so the stored file's extension
   // describes what is actually in it.
+  // Checked against the allow-list, not merely for being recognisable: the
+  // sniffer also knows GIF, which chat attachments accept and this path does
+  // not — otherwise a .gif renamed .png would pass here.
   const actual = sniff(buffer);
-  if (!actual) {
+  if (!actual || !ALLOWED_MIME_TYPES.includes(actual)) {
     throw new BadRequestException(
       'That file is not a JPEG, PNG, or WebP image.',
     );

@@ -6,6 +6,7 @@ import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
+import { sniff } from '../common/security/file_check';
 import {
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
@@ -241,6 +242,9 @@ const EXTENSIONS: Record<string, string> = {
  * inline image part is not.
  */
 /** A data URL turned into the bytes and file name it should be saved under. */
+/** Same ceiling the avatar and cover paths enforce. */
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
 function decodeImage(
   image: string,
 ): { name: string; bytes: Buffer } | undefined {
@@ -250,14 +254,33 @@ function decodeImage(
     return undefined;
   }
   const [, mime, data] = match;
-  const extension = EXTENSIONS[mime];
-  if (!extension) {
+  if (!EXTENSIONS[mime]) {
     logger.warn(`Skipping attachment of unsupported type ${mime}`);
     return undefined;
   }
+
+  // Base64 is 4 characters per 3 bytes; measuring before decoding means a
+  // huge attachment is refused without first materialising it in memory.
+  if ((data.length * 3) / 4 > MAX_ATTACHMENT_BYTES) {
+    logger.warn('Skipping attachment over 5MB');
+    return undefined;
+  }
+
+  const bytes = Buffer.from(data, 'base64');
+
+  // The declared type decided the extension and nothing looked at the bytes,
+  // so anything at all could be written to disk as a .png and handed to the
+  // agent as an image. Name the file after what it actually is — the same
+  // rule uploads follow, by the same sniffer.
+  const actual = sniff(bytes);
+  if (!actual || !EXTENSIONS[actual]) {
+    logger.warn('Skipping attachment that is not an image');
+    return undefined;
+  }
+
   return {
-    name: `${randomUUID()}.${extension}`,
-    bytes: Buffer.from(data, 'base64'),
+    name: `${randomUUID()}.${EXTENSIONS[actual]}`,
+    bytes,
   };
 }
 

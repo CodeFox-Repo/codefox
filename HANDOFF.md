@@ -757,6 +757,27 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 04:50 (7-29) — 聊天附件走的是另一条路,而那条路没有任何检查
+
+头像上传会限制 5MB 并**嗅探magic bytes**(客户端唯一无法撒谎的东西)。
+聊天里贴的图片走的是完全不同的一条路——base64 data URL 而不是 multipart
+——那条路**两样都没有**:扩展名直接取自客户端声称的 mime,字节从来没人看过。
+
+实测:发 6MB 的 `AAAA…` 并声称 `image/png`,HTTP 201,**文件以 .png 落盘,
+6144KB**,然后 agent 被告知"读这张图片"。数量上限是 4 张,单张没有上限,
+25MB 的 body 上限装得下四张 6MB。
+
+- `sniff` 从 file_check 导出(聊天附件走另一条路,但需要同一个答案),
+  补上 GIF ——聊天允许 gif,嗅探器得能叫出它的名字。
+- `decodeImage` 现在:**先按 base64 长度估算大小再解码**(超限的附件不必
+  先在内存里materialise出来),然后嗅探,文件名按**实际类型**取扩展名。
+- 顺带把导出 sniff 带来的口子堵上:头像路径原本只要"能认出来"就放行,
+  加了 GIF 之后一个改名成 .png 的 gif 就会通过——现在改成对照白名单校验。
+
+验证:4 个 sniff 单测(含 6MB 单字节 blob、`<script>`、PDF 头、太短的
+buffer、RIFF/WAVE 不能冒充 WebP);真实 API 四发四态——6MB blob 和伪装成
+png 的脚本都没有落盘,真 png 落盘,声称是 png 的 gif 以 **.gif** 落盘。
+
 ## 04:20 (7-29) — 停用账号此前只是一句建议
 
 admin 控制台有个 "set user active" 开关。登录会检查 `isActive`,**但别的
