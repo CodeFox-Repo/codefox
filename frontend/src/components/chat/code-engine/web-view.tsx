@@ -14,6 +14,7 @@ import {
 import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
+import { capturePageConsole } from '@/lib/page-console';
 
 /**
  * An html project previews by rendering its file — no dev server, no
@@ -89,6 +90,10 @@ function HtmlPreview({ project }: { project: any }) {
   const followLinks = (frame: HTMLIFrameElement | null) => {
     const doc = frame?.contentDocument;
     if (!doc) return;
+    // Same-origin, so the page's own console is readable — which is the only
+    // console an html project has. Hooked here, on every load, because the
+    // errors worth seeing usually happen before anyone opens that tab.
+    if (project?.projectPath) capturePageConsole(frame, project.projectPath);
     doc.addEventListener('click', (event) => {
       const anchor = (event.target as HTMLElement | null)?.closest?.('a');
       const href = anchor?.getAttribute('href');

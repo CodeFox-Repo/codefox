@@ -757,6 +757,31 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 03:20 (7-29) — Console 标签页对默认项目类型不再说谎
+
+Console 标签页显示的是 **dev server** 的输出,但 html 项目没有 dev server
+也永远不会有。于是对**产品的默认类型**,这个标签页只会说"打开 Preview 标签
+页来启动 dev server"——一个不存在的服务器。实测:`/api/preview/logs` 对
+html 项目回 200 但永远是空的。
+
+与此同时 agent 会写内联 `<script>`,那些脚本抛错时用户完全看不到。
+
+- 新 `lib/page-console.ts`:预览 iframe 是 same-origin,所以页面自己的
+  console 可以从父窗口读到。包裹 frame 的 console 方法而不是只听 error
+  事件——未捕获错误有 `onerror`,但 `console.log` 没有任何事件,而"页面
+  打印了什么"正是打开这个标签页的主要理由。同时接 `error` 和
+  `unhandledrejection`。原始 console 照常收到输出:devtools 仍是更全的视图,
+  在这里吞掉会让这个标签页变成降级。
+- 存在模块级 store 而不是 React state:写入方(预览面板)和读取方
+  (Console 标签页)从来不在同一棵子树里,而且值得看的错误通常发生在有人
+  打开那个标签页**之前**。上限 300 行——渲染死循环的页面不能把它撑爆。
+- Console 标签页按项目类型分支:html 显示 "Page console" 并带 Clear;
+  空态文案说的是实话("这个页面打印的东西和它的脚本抛的错会出现在这里")。
+
+验证:puppeteer 实测同构场景(父窗口 + same-origin srcdoc iframe),
+`console.log` / `console.error` / setTimeout 里抛出的未捕获 TypeError
+三者全部捕获到。这类行为 curl 看不见——HANDOFF 记过这个教训。
+
 ## 02:50 (7-29) — 多页站点:agent 被要求建的链接,产品终于能打开了
 
 agent 的 instructions 明确写着"页面需要更多结构就加一个 .html 文件并链
