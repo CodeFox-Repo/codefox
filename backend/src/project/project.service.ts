@@ -15,7 +15,7 @@ import {
 } from './dto/project.input';
 import { generateText } from 'ai';
 import { copyProject, scaffoldHtmlProject, scaffoldProject } from './scaffold';
-import { staleCoverPath } from './cover';
+import { staleMediaPath } from './media-file';
 import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
@@ -340,7 +340,7 @@ export class ProjectService {
         const users = await this.projectsRepository.count({
           where: { photoUrl: previous, isDeleted: false },
         });
-        const stale = staleCoverPath(previous, users);
+        const stale = staleMediaPath(previous, users);
         if (stale) {
           await fs.promises.unlink(stale).catch(() => undefined);
         }

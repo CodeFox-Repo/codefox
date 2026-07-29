@@ -12,6 +12,8 @@ import type { LogLine, PreviewService } from './preview.service';
 import {
   ChangedFile,
   IGNORED_ENTRIES,
+  mergeChanges,
+  parseNameStatus,
   parsePorcelain,
   parseVersionLog,
   ProjectWorkspace,
@@ -83,12 +85,25 @@ export class HostWorkspace implements ProjectWorkspace {
   async changedFiles(): Promise<ChangedFile[] | null> {
     if (!existsSync(path.join(this.root, '.git'))) return null;
     try {
-      const { stdout } = await execFileAsync(
-        'git',
-        ['-C', this.root, 'status', '--porcelain'],
-        { maxBuffer: 4 * 1024 * 1024 },
+      // Against the starter, not against HEAD: turns commit, so HEAD moves
+      // with the agent and "what changed" would empty itself after the very
+      // turn that filled it. Uncommitted work is added on top.
+      const { stdout: baseline } = await this.git(
+        'rev-list',
+        '--max-parents=0',
+        'HEAD',
       );
-      return parsePorcelain(stdout);
+      const root = baseline.trim().split('\n')[0];
+      const [committed, working] = await Promise.all([
+        root
+          ? this.git('diff', '--name-status', root, 'HEAD')
+          : Promise.resolve({ stdout: '' }),
+        this.git('status', '--porcelain'),
+      ]);
+      return mergeChanges(
+        parseNameStatus(committed.stdout),
+        parsePorcelain(working.stdout),
+      );
     } catch {
       return null;
     }
@@ -157,6 +172,9 @@ export class HostWorkspace implements ProjectWorkspace {
     }
     // Whatever is in the tree right now becomes its own version first, so
     // restoring is undoable rather than a way to lose the current state.
+    // Usually a no-op — turns commit, so the current state is already the
+    // HEAD version — and it earns its keep when the user has edited a file
+    // in the editor since the last turn.
     await this.snapshot('Before restore');
     // `checkout <sha> -- .` moves the files while leaving HEAD where it is,
     // so the restore lands as a normal change the user can review and the

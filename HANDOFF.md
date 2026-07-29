@@ -745,6 +745,38 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 01:05 (7-29) — E2E 补到 32 节点,并因此抓到一个竞态
+
+给套件补上新功能的守卫节点(28 设计系统、29 版本、30 回滚、31 回滚拒绝
+非法输入),**第一次跑就抓到一个真 bug**:
+
+- **snapshot 发生在 `res.end()` 之后**,所以客户端在流关闭那一刻去查历史
+  ——而这正是 UI 刷新的时机——会看不到刚结束的那一轮。节点 29 读到 1 个
+  版本,而我事后手动探测同一个项目是 2 个,时间戳证实 commit 写在节点
+  29/30 查询之后。现在 snapshot 排在 `endSession` 之后、`res.end()` 之前。
+- 节点 28 的价值:它验证的是**风格能活过 agent 的重写**——节点 25 的真实
+  turn 把页面整个改掉之后,neon 的 `#070711` 仍在页面里。
+- **第二次跑又抓到一个我自己引入的回归**:每轮 turn 提交之后,Changes 面板
+  空了——"改了什么"一直是拿工作区和 HEAD 比,而现在 HEAD 跟着 agent 走,
+  于是刚填满面板的那一轮把它自己清空了。改成跟**第一个 commit**(starter)
+  比:`git diff --name-status <root> HEAD` 得到已提交的偏离,再并上
+  porcelain 的未提交部分(`parseNameStatus` + `mergeChanges`,9 个单测)。
+  一个文件如果是 agent 新建的、后来又改过,相对 starter 仍然算 added。
+- 节点 30 也顺势加强了:原本断言存在 "Before restore" 这个 label——这是实现
+  细节,而且 turn 会提交之后它通常是 no-op。现在改成**验证往返**:回滚后
+  再滚回去,文件内容必须逐字回到回滚前。
+- 顺手修掉套件自己的环境依赖:节点 19 原本借用部署的 admin 账号来当"另一
+  个用户",于是任何没有 seed 该账号的数据库上,19/20/23 三个节点全挂。
+  19 现在自己注册第二个账号;23 是唯一真正需要 admin 的,它先验证非
+  admin 被拒(这本来就是它该测的一半),admin 那一半在没有该账号时明确
+  跳过而不是让整轮失败。
+
+**媒体文件删除统一到一处**(`cover.ts` → `media-file.ts`):头像换新时的
+unlink 既没有共享检查(两个用户指向同一 url 时会删掉对方的),也没有目录
+约束——url 反推成路径,而"删掉这一列里的路径"离"删掉磁盘上任何东西"只差
+一个坏掉的列。`staleMediaPath` 现在同时负责两件事:别的行还指着就不删,
+解析结果必须落在 media 目录内(5 个单测覆盖 `../` 穿越)。
+
 ## 00:45 (7-29) — 版本历史与回滚
 
 agent 走错一步之前没有任何退路:每个项目只有一个 commit(它的 baseline),

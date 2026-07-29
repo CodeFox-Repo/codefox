@@ -143,6 +143,67 @@ export function parseVersionLog(output: string, head: string): Version[] {
   return versions;
 }
 
+/** True for paths that are never the user's code. */
+const ignored = (file: string): boolean =>
+  IGNORED_ENTRIES.some((name) => file === name || file.startsWith(`${name}/`));
+
+/**
+ * `git diff --name-status <baseline>` lines into ChangedFile records.
+ *
+ * Changes are measured against the project's first commit, not against HEAD:
+ * every turn commits now, so HEAD moves with the agent and a working tree
+ * that matched it read as "no changes at all" — the Changes panel emptied
+ * itself after the very turn that filled it.
+ */
+export function parseNameStatus(output: string): ChangedFile[] {
+  const changes: ChangedFile[] = [];
+  for (const line of output.split('\n')) {
+    if (!line.trim()) continue;
+    const [flag, ...paths] = line.split('\t');
+    if (!flag || paths.length === 0) continue;
+    // A rename is reported as `R100 old new`; the new path is the one that
+    // exists to open.
+    const file = (paths[paths.length - 1] ?? '').trim();
+    if (!file || ignored(file)) continue;
+    const letter = flag[0];
+    changes.push({
+      path: file,
+      status:
+        letter === 'D'
+          ? 'deleted'
+          : letter === 'A' || letter === 'R' || letter === 'C'
+            ? 'added'
+            : 'modified',
+    });
+  }
+  return changes;
+}
+
+/**
+ * The union of two views, one file per path — what the baseline diff says,
+ * plus anything not committed yet. A path in both keeps the working tree's
+ * verdict, which is the newer one.
+ */
+export function mergeChanges(
+  committed: ChangedFile[],
+  working: ChangedFile[],
+): ChangedFile[] {
+  const byPath = new Map<string, ChangedFile>();
+  for (const change of committed) byPath.set(change.path, change);
+  for (const change of working) {
+    const before = byPath.get(change.path);
+    // A file the agent added and then edited again is still an addition
+    // relative to the starter — the baseline's verdict is the honest one.
+    byPath.set(
+      change.path,
+      before?.status === 'added' && change.status === 'modified'
+        ? before
+        : change,
+    );
+  }
+  return [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
+}
+
 /**
  * `git status --porcelain` lines into ChangedFile records. Renames report the
  * new path; the ignore list keeps agent scratch out of the view.
@@ -156,12 +217,7 @@ export function parsePorcelain(output: string): ChangedFile[] {
     const arrow = file.indexOf(' -> ');
     if (arrow !== -1) file = file.slice(arrow + 4);
     file = file.replace(/^"|"$/g, '');
-    if (
-      IGNORED_ENTRIES.some(
-        (name) => file === name || file.startsWith(`${name}/`),
-      )
-    )
-      continue;
+    if (ignored(file)) continue;
     const status: ChangedFile['status'] = flags.includes('D')
       ? 'deleted'
       : flags === '??' || flags.includes('A')

@@ -11,7 +11,7 @@ import { UploadService } from '../upload/upload.service';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { validateAndBufferFile } from 'src/common/security/file_check';
-import { getMediaDir } from 'src/common/utils/common-path';
+import { staleMediaPath } from 'src/project/media-file';
 // import { GitHubService } from 'src/github/github.service';
 
 @Injectable()
@@ -92,8 +92,13 @@ export class UserService {
     // nothing left pointing at it.
     const previous = user.avatarUrl;
     if (previous && previous !== result.url) {
-      const stale = path.join(getMediaDir(), previous.replace(/^\/media\//, ''));
-      await fs.unlink(stale).catch(() => undefined);
+      // Same rule as project covers: never unlink a file another row still
+      // points at, and never resolve outside the media directory.
+      const users = await this.userRepository.count({
+        where: { avatarUrl: previous },
+      });
+      const stale = staleMediaPath(previous, users);
+      if (stale) await fs.unlink(stale).catch(() => undefined);
     }
 
     user.avatarUrl = result.url;

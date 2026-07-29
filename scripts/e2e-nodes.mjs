@@ -359,12 +359,28 @@ await node('18 trailing reply can be dropped', async () => {
 });
 
 await node('19 ownership guard denies strangers', async () => {
-  const admin = await gql(
-    'mutation($i:LoginUserInput!){login(input:$i){accessToken}}',
-    { i: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } }
+  // Its own second account rather than the deployment's admin: the point is
+  // "another signed-in user", and borrowing the admin made this node — and
+  // the two after it, which reuse the token — fail on any database that does
+  // not happen to have that seeded account.
+  const strangerEmail = `e2e-stranger-${ts}@codefox.test`;
+  await gqlOrThrow(
+    'mutation($i:RegisterUserInput!){registerUser(input:$i){id}}',
+    {
+      i: {
+        username: `stranger${ts}`,
+        email: strangerEmail,
+        password: PASSWORD,
+        confirmPassword: PASSWORD,
+      },
+    }
   );
-  state.adminToken = admin.data?.login?.accessToken;
-  if (!state.adminToken) throw new Error('admin login failed');
+  const stranger = await gql(
+    'mutation($i:LoginUserInput!){login(input:$i){accessToken}}',
+    { i: { email: strangerEmail, password: PASSWORD } }
+  );
+  state.adminToken = stranger.data?.login?.accessToken;
+  if (!state.adminToken) throw new Error('stranger login failed');
   const r = await gql(
     'query($c:String!){getChatHistory(chatId:$c){content}}',
     { c: state.chatId },
@@ -425,10 +441,29 @@ await node('22 chat deletes', async () => {
 });
 
 await node('23 admin overview answers', async () => {
+  // The one node that genuinely needs the deployment's admin account. A
+  // stranger's token must be refused first — that is half of what this
+  // checks — and the admin half is skipped, loudly, where no such account
+  // exists rather than failing a suite run on a fresh database.
+  const denied = await gql(
+    'query{adminOverview{counts{users}}}',
+    undefined,
+    state.adminToken
+  );
+  if (typeof denied.data?.adminOverview?.counts?.users === 'number')
+    throw new Error('a non-admin read the admin overview');
+
+  const admin = await gql(
+    'mutation($i:LoginUserInput!){login(input:$i){accessToken}}',
+    { i: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } }
+  );
+  const adminToken = admin.data?.login?.accessToken;
+  if (!adminToken) return `non-admin denied; no ${ADMIN_EMAIL} here to check`;
+
   const r = await gql(
     'query{adminOverview{counts{users projects}}}',
     undefined,
-    state.adminToken
+    adminToken
   );
   if (typeof r.data?.adminOverview?.counts?.users !== 'number')
     throw new Error(JSON.stringify(r.errors?.[0]?.message));
@@ -438,7 +473,17 @@ await node('23 admin overview answers', async () => {
 await node('24 html project scaffolds instantly', async () => {
   const r = await gqlOrThrow(
     'mutation($i:CreateProjectInput!){createProject(createProjectInput:$i){id}}',
-    { i: { description: '一个双语打招呼页面', public: false, model: state.model, template: 'html' } },
+    {
+      i: {
+        description: '一个双语打招呼页面',
+        public: false,
+        model: state.model,
+        template: 'html',
+        // Not the default one, so node 28 can tell a real choice from a
+        // fallback.
+        style: 'neon',
+      },
+    },
     state.token,
   );
   state.htmlChatId = r.data.createProject.id;
@@ -467,11 +512,10 @@ await node('24 html project scaffolds instantly', async () => {
 });
 
 await node('25 html turn edits the page, nothing else', async () => {
-  const { tools } = await turn(
-    state.htmlChatId,
-    '把页面做成中英双语的打招呼页,深色背景',
-    state.token,
-  );
+  // Kept: node 29 expects this prompt to be a version's label, and node 30
+  // restores back to it.
+  state.htmlPrompt = '把页面做成中英双语的打招呼页,深色背景';
+  const { tools } = await turn(state.htmlChatId, state.htmlPrompt, state.token);
   if (tools < 1) throw new Error('no tools ran');
   const f = await rest(
     `/api/file?path=${encodeURIComponent(`${state.htmlPath}/index.html`)}`,
@@ -490,7 +534,125 @@ await node('26 html changes are exactly the page', async () => {
   if (!changes?.some((c) => c.path === 'index.html')) throw new Error('index.html not listed');
 });
 
-await node('27 html cover shoots the file', async () => {
+await node('28 the chosen design system is in the page', async () => {
+  const r = await gqlOrThrow('query{designSystems{id name bg accent}}');
+  const neon = r.data.designSystems.find((s) => s.id === 'neon');
+  if (!neon) throw new Error('neon not offered');
+  if (!/^#/.test(neon.bg)) throw new Error(`swatch unparsed: ${neon.bg}`);
+
+  const f = await rest(
+    `/api/file?path=${encodeURIComponent(`${state.htmlPath}/index.html`)}`,
+    {},
+    state.token,
+  );
+  const { content } = await f.json();
+  // The tokens are baked into the page at scaffold time, and node 25's turn
+  // has already rewritten it — the style has to survive the agent.
+  if (!content.includes(neon.bg))
+    throw new Error(`page lost its ${neon.name} canvas (${neon.bg})`);
+  if (!content.includes('--accent'))
+    throw new Error('page has no token contract');
+  return `${neon.name} ${neon.bg}`;
+});
+
+await node('29 each turn left a version', async () => {
+  const r = await rest(`/api/project/versions?path=${state.htmlPath}`, {}, state.token);
+  if (!r.ok) throw new Error(`versions ${r.status}`);
+  const { versions } = await r.json();
+  if (!versions?.length) throw new Error('no history at all');
+  if (!versions.some((v) => v.label === 'starter baseline'))
+    throw new Error('baseline missing');
+  // Node 25 ran a real turn against this project, so its prompt is a version.
+  if (versions.length < 2)
+    throw new Error(`turn was not snapshotted (${versions.length} versions)`);
+  if (versions.filter((v) => v.current).length !== 1)
+    throw new Error('exactly one version must be current');
+  state.baselineId = versions[versions.length - 1].id;
+  return versions.map((v) => v.label).join(' | ');
+});
+
+await node('30 restore puts the files back, and is itself undoable', async () => {
+  const before = await rest(
+    `/api/file?path=${encodeURIComponent(`${state.htmlPath}/index.html`)}`,
+    {},
+    state.token,
+  ).then((r) => r.json());
+
+  const r = await rest(
+    '/api/project/restore',
+    {
+      method: 'POST',
+      body: JSON.stringify({ path: state.htmlPath, versionId: state.baselineId }),
+    },
+    state.token,
+  );
+  if (!r.ok) throw new Error(`restore ${r.status}`);
+
+  const after = await rest(
+    `/api/file?path=${encodeURIComponent(`${state.htmlPath}/index.html`)}`,
+    {},
+    state.token,
+  ).then((r) => r.json());
+  if (after.content === before.content) throw new Error('files did not move');
+  if (after.content.length > 3000)
+    throw new Error('did not go back to the starter');
+
+  // The state that was replaced has to still be reachable, or restore is a
+  // way to lose work rather than to undo it. It is normally already a
+  // version — turns commit — so what matters is that some version still
+  // holds the replaced content, not which label it wears.
+  const { versions } = await rest(
+    `/api/project/versions?path=${state.htmlPath}`,
+    {},
+    state.token,
+  ).then((r) => r.json());
+  if (!versions.some((v) => v.label.includes('Restored to')))
+    throw new Error('the restore itself was not recorded');
+
+  const undo = versions.find(
+    (v) => v.label === 'Before restore' || v.label === state.htmlPrompt,
+  );
+  if (!undo) throw new Error('nothing to undo the restore with');
+  const back = await rest(
+    '/api/project/restore',
+    { method: 'POST', body: JSON.stringify({ path: state.htmlPath, versionId: undo.id }) },
+    state.token,
+  );
+  if (!back.ok) throw new Error(`undo ${back.status}`);
+  const restored = await rest(
+    `/api/file?path=${encodeURIComponent(`${state.htmlPath}/index.html`)}`,
+    {},
+    state.token,
+  ).then((r) => r.json());
+  if (restored.content !== before.content)
+    throw new Error('the replaced state was not recoverable');
+  return `${before.content.length}B -> ${after.content.length}B -> back`;
+});
+
+await node('31 restore refuses what is not a version', async () => {
+  const bad = async (versionId) =>
+    (
+      await rest(
+        '/api/project/restore',
+        { method: 'POST', body: JSON.stringify({ path: state.htmlPath, versionId }) },
+        state.token,
+      )
+    ).status;
+
+  // This string reaches a command line.
+  if ((await bad('; rm -rf /')) !== 400) throw new Error('injection not refused');
+  if ((await bad('')) !== 400) throw new Error('empty id not refused');
+  // Well-formed but not in this project.
+  const absent = await bad('0123456789abcdef0123456789abcdef01234567');
+  if (absent !== 404 && absent !== 400) throw new Error(`absent sha -> ${absent}`);
+
+  const anon = await fetch(
+    `${BASE}/api/project/versions?path=${state.htmlPath}`,
+  );
+  if (anon.status !== 401) throw new Error(`anonymous -> ${anon.status}`);
+});
+
+await node('32 html cover shoots the file', async () => {
   // No dev server exists for an html project — the controller must fall
   // back to shooting the file itself.
   const r = await rest(

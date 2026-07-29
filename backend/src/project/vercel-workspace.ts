@@ -9,6 +9,8 @@ import type { LogLine } from './preview.service';
 import {
   ChangedFile,
   IGNORED_ENTRIES,
+  mergeChanges,
+  parseNameStatus,
   parsePorcelain,
   parseVersionLog,
   ProjectWorkspace,
@@ -46,14 +48,29 @@ export class VercelWorkspace implements ProjectWorkspace {
   }
 
   async changedFiles(): Promise<ChangedFile[] | null> {
+    // Against the starter, not against HEAD: turns commit, so HEAD moves with
+    // the agent and "what changed" would empty itself after the very turn
+    // that filled it. Uncommitted work is added on top. One round trip; the
+    // two views are separated by a marker line.
     const result = await this.sandbox.runCommand({
       cmd: 'sh',
-      args: ['-lc', 'git status --porcelain 2>/dev/null || echo __NO_GIT__'],
+      args: [
+        '-lc',
+        `git rev-parse --git-dir >/dev/null 2>&1 || { echo __NO_GIT__; exit 0; }
+         root=$(git rev-list --max-parents=0 HEAD | head -1)
+         [ -n "$root" ] && git diff --name-status "$root" HEAD
+         echo __WORKING__
+         git status --porcelain`,
+      ],
       cwd: ROOT,
     });
     const out = await result.stdout();
     if (out.includes('__NO_GIT__')) return null;
-    return parsePorcelain(out);
+    const [committed, working] = out.split('__WORKING__');
+    return mergeChanges(
+      parseNameStatus(committed ?? ''),
+      parsePorcelain(working ?? ''),
+    );
   }
 
   /** One shell round trip in the project root. */

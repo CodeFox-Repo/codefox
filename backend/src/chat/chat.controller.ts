@@ -248,14 +248,16 @@ export class ChatController {
       // Set before `end()`: the close handler must be able to tell a finished
       // turn from an abandoned one, and it runs after this.
       finished = true;
-      res.end();
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
       await endSession('stop', false);
-      // After the session ends, so the agent's last writes are on disk. A
-      // turn that failed part-way still snapshots — those edits are real and
-      // are exactly what someone would want to undo.
+      // Before `end()`, and after the session so the agent's last writes have
+      // landed. A client that asks for the history the moment the stream
+      // closes — which is exactly when the UI refreshes — must not see the
+      // turn missing from it. A turn that failed part-way still snapshots:
+      // those edits are real, and are the ones someone wants to undo.
       await this.snapshotTurn(project.projectPath, chatDto.message);
+      res.end();
     }
   }
 
