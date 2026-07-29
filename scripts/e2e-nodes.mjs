@@ -749,6 +749,34 @@ await node('33 a published page is a link anyone can open', async () => {
   return `${live.body.length}B served anonymously`;
 });
 
+await node('34 both gallery strategies answer with the same wall', async () => {
+  const wall = async (strategy, size = 6) => {
+    const r = await gqlOrThrow(
+      'query($i:FetchPublicProjectsInputs!){fetchPublicProjects(input:$i){projectName subNumber}}',
+      { i: { size, strategy } },
+    );
+    return r.data.fetchPublicProjects;
+  };
+
+  const latest = await wall('latest');
+  const trending = await wall('trending');
+  // `trending` used to take ceil(total * 0.01) of the public projects, so it
+  // returned exactly one at every catalogue size the product has ever had —
+  // it only stopped being degenerate past 600 projects.
+  if (trending.length !== latest.length)
+    throw new Error(
+      `trending returned ${trending.length} where latest returned ${latest.length}`,
+    );
+  // Ranked by forks, most first.
+  const forks = trending.map((p) => p.subNumber ?? 0);
+  if (forks.some((n, i) => i > 0 && n > forks[i - 1]))
+    throw new Error(`trending is not ordered by forks: ${forks.join(',')}`);
+  // The size the caller asked for is the only limit.
+  if (trending.length > 6) throw new Error('trending ignored size');
+
+  return `${latest.length} latest, ${trending.length} trending`;
+});
+
 await node('32 html cover shoots the file', async () => {
   // No dev server exists for an html project — the controller must fall
   // back to shooting the file itself.

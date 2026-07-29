@@ -282,6 +282,21 @@ export class ProjectService {
           );
       }
 
+      // The cover outlived its project: deleting reclaimed the files and the
+      // chats but never the screenshot, so every delete left a PNG on the
+      // volume with nothing left pointing at it. Same rule as replacing one —
+      // a fork inherits photoUrl, so never unlink a file another row still
+      // uses. The row above is already marked deleted, so it excludes itself.
+      if (project.photoUrl) {
+        // This project is already marked deleted, so the count is of *other*
+        // rows; staleMediaPath counts the caller too, hence the +1.
+        const others = await this.projectsRepository.count({
+          where: { photoUrl: project.photoUrl, isDeleted: false },
+        });
+        const stale = staleMediaPath(project.photoUrl, others + 1);
+        if (stale) await fs.promises.unlink(stale).catch(() => undefined);
+      }
+
       // Going through the relation returns nothing here — it is lazy, and the
       // save above has already left it unpopulated — so ask for the rows by
       // their foreign key instead.
@@ -552,15 +567,15 @@ export class ProjectService {
         relations: ['user'],
       });
     } else if (input.strategy === 'trending') {
-      const totalCount = await this.projectsRepository.count({
-        where: whereCondition,
-      });
-      const topCount = Math.max(1, Math.ceil(totalCount * 0.01));
-      const take = Math.min(limit, topCount);
+      // Was `ceil(total * 0.01)` capped against the caller's size, which
+      // meant asking for six of 48 public projects returned exactly one —
+      // trending only stopped being degenerate past 600 projects, so it read
+      // as broken at every size the product has ever had. Rank by forks, then
+      // recency; the caller's size is the only limit.
       return this.projectsRepository.find({
         where: whereCondition,
         order: { subNumber: 'DESC', createdAt: 'DESC' },
-        take,
+        take: limit,
         relations: ['user'],
       });
     }

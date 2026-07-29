@@ -757,6 +757,27 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 03:50 (7-29) — trending 一直只返回一个;删除项目会永久漏一张封面
+
+**gallery 的 trending 策略在生产上是坏的。** 它取
+`ceil(总数 * 0.01)` 再和调用方要求的 size 取小 —— 生产上 48 个公开项目,
+`ceil(0.48)` = 1,所以**要 6 个只回 1 个**。实测生产:latest 回 5、
+trending 回 1。这个公式要到 600 个项目以上才不再退化,也就是说它在产品
+存在过的每一个规模上都是坏的。前端因此从来没用过 trending(grep 无结果)
+——一个从来不返回有用结果的策略,自然没人接。改成按 fork 数、再按时间
+排序,size 就是唯一上限。
+
+**删除项目永久泄漏它的封面。** 删除会回收文件(~1GB 的依赖树)和聊天,
+但从不 unlink 那张截图 PNG,于是每次删除都在卷上留下一个再也没人指向的
+文件。复用换封面时那条规则(`staleMediaPath`):fork 会继承 photoUrl,
+所以只在没有别的行指着它时才删。注意这里的算术 —— 项目行此时已经被标记
+删除,所以 count 数的是**其他**行,而 `staleMediaPath` 把调用者也算进去,
+因此传 `others + 1`。
+
+验证:新节点 34 守卫 trending(和 latest 返回同样数量、按 fork 数降序、
+不超过 size);删除路径的算术直接实测(无人共享 → 删,一个 fork 共享 →
+留,两个 → 留,没有封面 → 不动,traversal → 拒绝)。
+
 ## 03:20 (7-29) — Console 标签页对默认项目类型不再说谎
 
 Console 标签页显示的是 **dev server** 的输出,但 html 项目没有 dev server
