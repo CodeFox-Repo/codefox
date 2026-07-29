@@ -74,7 +74,7 @@ const FloatingNavbar = ({
           backdrop blur so the painted hero reads through it. */}
       <div className={`sticky top-4 z-50 px-4 pt-4 ${className}`}>
         <div
-          className={`mx-auto flex w-full max-w-[1040px] items-center justify-between gap-4 rounded-2xl border border-border/60 bg-background/55 px-4 py-2.5 shadow-lg shadow-black/20 backdrop-blur-xl sm:px-6 ${containerClassName}`}
+          className={`mx-auto flex w-full max-w-[880px] items-center justify-between gap-4 rounded-full border border-white/[0.07] bg-background/30 px-3 py-2 pl-5 backdrop-blur-2xl backdrop-saturate-150 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.25),0_10px_36px_-14px_rgba(0,0,0,0.55)] ${containerClassName}`}
         >
           {/* Left side - terminal prompt wordmark, always a way home */}
           <div className={`flex items-center ${logoContainerClassName}`}>
@@ -83,12 +83,12 @@ const FloatingNavbar = ({
             </Link>
           </div>
 
-          <div className="flex flex-1 items-center justify-end gap-3">
+          <div className="flex flex-1 items-center justify-end gap-1">
             <a
               href="https://github.com/Sma1lboy/codefox"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center rounded-lg border border-border px-3 py-1.5 font-mono text-sm text-foreground transition-all duration-200 hover:border-primary/45 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="flex items-center rounded-full px-2.5 py-1.5 font-mono text-sm text-muted-foreground transition-colors duration-200 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Github size={18} className="mr-1.5" />
               <Star
@@ -111,7 +111,7 @@ const FloatingNavbar = ({
 
             <button
               onClick={toggleTheme}
-              className="rounded-lg border border-transparent p-2 text-muted-foreground transition-all duration-200 hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="rounded-full p-2 text-muted-foreground transition-colors duration-200 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Toggle theme"
             >
               <SunMoon size={20} />
@@ -119,10 +119,10 @@ const FloatingNavbar = ({
 
             {/* Authentication Buttons */}
             {!isAuthorized && (
-              <div className="flex items-center gap-3">
+              <div className="ml-1 flex items-center gap-1">
                 <button
                   onClick={() => setShowSignIn(true)}
-                  className="rounded-lg border border-border px-4 py-2 font-mono text-sm text-foreground transition-all duration-200 hover:border-primary/45 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="rounded-full px-3 py-1.5 font-mono text-sm text-muted-foreground transition-colors duration-200 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Sign In
                 </button>
@@ -130,7 +130,7 @@ const FloatingNavbar = ({
                 {canSignUp && (
                   <button
                     onClick={() => setShowSignUp(true)}
-                    className="rounded-lg bg-primary px-4 py-2 font-mono text-sm font-semibold text-primary-foreground transition-all duration-200 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="rounded-full bg-primary px-4 py-1.5 font-mono text-sm font-semibold text-primary-foreground transition-all duration-200 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Sign Up
                   </button>

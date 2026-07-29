@@ -129,7 +129,7 @@ export default function HomePage() {
             paper-light it would sit like a hole in the page. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 hidden h-[1200px] bg-[url(/hero-canvas.jpg)] bg-cover bg-[position:62%_38%] opacity-80 dark:block
+          className="pointer-events-none absolute inset-x-0 -top-32 hidden h-[1330px] bg-[url(/hero-canvas.jpg)] bg-cover bg-[position:62%_38%] opacity-80 dark:block
                      [mask-image:linear-gradient(180deg,#000_0%,#000_48%,transparent_96%)]"
         />
         <div
