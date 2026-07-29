@@ -44,15 +44,30 @@ export function extractQuestions(content: string): {
   if (!match) return { block: null, rest: content };
   try {
     const parsed = JSON.parse(match[1]);
-    const questions = Array.isArray(parsed?.questions)
-      ? parsed.questions.filter(
-          (q: AgentQuestion) =>
-            q &&
-            typeof q.label === 'string' &&
-            Array.isArray(q.options) &&
-            q.options.length > 0
-        )
-      : [];
+    const seen = new Set<string>();
+    const questions: AgentQuestion[] = (
+      Array.isArray(parsed?.questions)
+        ? parsed.questions.filter(
+            (q: AgentQuestion) =>
+              q &&
+              typeof q.label === 'string' &&
+              Array.isArray(q.options) &&
+              q.options.length > 0
+          )
+        : []
+    ).map((q: AgentQuestion, index: number) => {
+      // Every answer is stored under `q.id`, so a missing or repeated id made
+      // two questions share one slot: picking an option in the first one
+      // filled in the second, and both rendered under the same React key. The
+      // model writes this JSON, so the id is a suggestion — the position is
+      // what is actually unique.
+      const id =
+        typeof q.id === 'string' && q.id && !seen.has(q.id)
+          ? q.id
+          : `q${index}`;
+      seen.add(id);
+      return { ...q, id };
+    });
     if (questions.length === 0) return { block: null, rest: content };
     return {
       block: { intro: parsed.intro, questions },

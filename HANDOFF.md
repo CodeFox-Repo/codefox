@@ -757,6 +757,26 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 07:50 (7-29) — 问题卡片:模型漏了 id,回答一题就等于回答了全部
+
+planner 的问题卡片是产品的第一印象,但从没验证过。先实测三种 prompt
+(中/英/中),**agent 三次都产出了合法、本地化正确的卡片**(各 4 题),
+这条链路本身是好的。
+
+问题在解析器:它不要求 `id` 字段,但组件里**所有答案都存在 `choices[q.id]`
+下面**,`key={q.id}` 也用它。模型漏写 id 时两题的 id 都是 `undefined` ——
+**选了第一题的选项,第二题也跟着被填上**,React key 还会撞。这份 JSON 是
+模型写的,id 是建议而不是契约。
+
+解析时改成:模型给的 id 只在"是字符串、非空、且没重复过"时才采用,否则用
+位置 `q${index}` —— 位置才是真正唯一的东西。实测五种形状(无 id / 重复 id
+/ 空字符串 id / 数字 id / 正常 id)现在都是唯一且互相隔离的。
+
+`scripts/check-question-card.mjs`:9 种模型可能写出的形状的自检(含半截
+流式块、malformed JSON、选项为空)。**验证过它会失败** —— 把 fix 还原后
+脚本报错退出 1,恢复后通过。前端没有测试框架,为一个纯函数立一套 runner
+比这个函数本身还重,所以用可直接运行的脚本。
+
 ## 07:20 (7-29) — 页面可以导出成 PDF 了
 
 并发那条线挖干净了,这轮换新需求。open-design 主打 "real files, HTML/PDF
