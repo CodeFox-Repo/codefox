@@ -15,6 +15,7 @@ import {
 } from './dto/project.input';
 import { generateText } from 'ai';
 import { copyProject, scaffoldHtmlProject, scaffoldProject } from './scaffold';
+import { staleCoverPath } from './cover';
 import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
@@ -327,13 +328,22 @@ export class ProjectService {
 
       // Drop the cover this one replaces. Previews re-shoot on every open, so
       // without this every visit leaks another PNG into the media directory.
+      //
+      // A fork inherits the source's photoUrl, so the same file can back two
+      // projects. Deleting it on the first re-shoot broke the other one's
+      // cover — the gallery card 404s and the project drops off the wall,
+      // which requires a cover. Only unlink a file nothing else points at.
       const previous = project.photoUrl;
       if (previous && previous !== uploadResult.url) {
-        const stale = path.join(
-          getMediaDir(),
-          previous.replace(/^\/media\//, ''),
-        );
-        await fs.promises.unlink(stale).catch(() => undefined);
+        // The row is not saved yet, so this project is still counted: one
+        // means nobody else points at the file.
+        const users = await this.projectsRepository.count({
+          where: { photoUrl: previous, isDeleted: false },
+        });
+        const stale = staleCoverPath(previous, users);
+        if (stale) {
+          await fs.promises.unlink(stale).catch(() => undefined);
+        }
       }
 
       // Update the project with the new URL
@@ -471,7 +481,11 @@ export class ProjectService {
         // created, so it opened with no files at all.
         savedProject.projectPath =
           sandboxMode() === 'host' || savedProject.template === 'html'
-            ? await copyProject(sourceProject.projectPath, savedProject.id)
+            ? await copyProject(
+                sourceProject.projectPath,
+                savedProject.id,
+                savedProject.template,
+              )
             : await this.copySandboxProject(
                 sourceProject.projectPath,
                 savedProject.id,

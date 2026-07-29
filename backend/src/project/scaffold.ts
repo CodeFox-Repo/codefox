@@ -108,6 +108,8 @@ export async function scaffoldProject(projectId: string): Promise<string> {
 export async function copyProject(
   fromProjectPath: string,
   toProjectId: string,
+  /** The fork's kind, so an empty source falls back to the right starter. */
+  template?: string | null,
 ): Promise<string> {
   const from = path.join(getProjectsDir(), fromProjectPath);
   const to = path.join(getProjectsDir(), toProjectId);
@@ -120,7 +122,12 @@ export async function copyProject(
 
   if (!copyable) {
     logger.warn(`Source ${fromProjectPath} has no files; scaffolding instead`);
-    return scaffoldProject(toProjectId);
+    // The fork keeps the source's kind, so the fallback has to match it. A
+    // Next starter under template:'html' renders as a blank srcdoc preview —
+    // it looks for an index.html the Next scaffold does not have.
+    return template === 'html'
+      ? scaffoldHtmlProject(toProjectId)
+      : scaffoldProject(toProjectId);
   }
 
   await copy(from, to, { filter: (src) => !SKIP.has(path.basename(src)) });

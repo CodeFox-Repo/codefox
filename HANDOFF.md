@@ -798,6 +798,19 @@ WorkspaceService 的判断。于是 html fork 被解包进一个没人会读的 
 自己的 host 目录压根没建,打开就是没有文件。现在 fork 的分支条件跟
 WorkspaceService 对齐。
 
+**fork 一个空的 html 项目会拿到 Next 脚手架**(`scaffold.ts`):`copyProject`
+在源目录没有可拷贝内容时回落到 `scaffoldProject`——那是 **Next** 的脚手架,
+而 fork 继承了源的 `template: 'html'`。于是 srcdoc 预览去找一个 Next 脚手架里
+根本没有的 index.html,永远白屏。实测确认(修前 fork 得到 21 个 Next 文件、
+无 index.html;修后就是一个 index.html)。`copyProject` 现在收 template 参数,
+回落到对应的脚手架。
+
+**fork 和源项目共享一张封面文件,谁先重拍谁就删掉对方的**
+(`project.service.ts` + 新 `cover.ts`):fork 直接继承 `photoUrl`,而换封面时
+会 unlink 被替换的那个文件。于是重拍其中一个,另一个的卡片 404——而 gallery
+要求有封面,那个项目就从墙上掉下去了。现在只在没有别的项目指向该文件时才删
+(`staleCoverPath`,3 个单测)。
+
 ## 14:40 — 灰带删除 + gallery 的封面门槛
 
 - The "one real turn" band is gone entirely. `--secondary` in dark is a
