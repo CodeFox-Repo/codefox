@@ -757,6 +757,29 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 06:50 (7-29) — 同时到达的消息会互相覆盖(丢的是用户的对话本身)
+
+沿着上一轮的线索继续查"两个人同时做同一件事":一个 chat 的 messages 是
+**一个 JSON 列**,追加一条消息 = 读出整个数组、push、写回整个数组。
+
+实测:**并发保存 6 条消息,存下 2 条**,另外 4 条消失 —— 而且每一次调用都
+返回了 `true`。丢的不是计数器,是用户真实的对话内容。
+
+JSON 列没有原子追加,所以写必须排队。`ChatService.serialise(chatId, …)`
+把这些全部串起来:
+- `saveMessage` —— 读改写,是主犯。
+- `dropLastAssistantReply` —— 同一列的读改写。
+- `clearChatHistory` —— 它自己不读旧数组,但一个**先开始**的追加会在它之后
+  把旧数组写回去,把"清空"撤销掉。
+- `updateChatModel` / `updateChatTitle` —— 这两个看起来无关,但它们
+  `findOne` 拿的是整行(**包含 messages**)再整行 save,所以 turn 进行中改
+  模型或改标题,会把这次读之后到达的所有消息写没。
+
+存进 map 的 promise 永不 reject(一个失败的写不会卡死这个 chat),队列排空
+后条目删除。
+
+验证:同一个探针 —— 修复前 6 发 2 存,修复后 **6 发 6 存、无重复 id**。
+
 ## 06:20 (7-29) — 同时 fork 的人越多,fork 数记得越少
 
 `forkProject` 用 `sourceProject.subNumber += 1` 然后 save —— 这是对内存里

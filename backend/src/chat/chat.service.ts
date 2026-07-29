@@ -16,6 +16,41 @@ export class ChatService {
     private userRepository: Repository<User>,
   ) {}
 
+  /**
+   * The tail of each chat's write queue.
+   *
+   * A chat's messages are one JSON column, so appending means read the array,
+   * push, write the array back. Concurrent appends each read the same array
+   * and the last write wins: six messages saved at once stored two, and the
+   * other four were gone with every call having returned success. There is no
+   * atomic append for a JSON column — the writes have to take turns.
+   *
+   * Static because the invariant is per chat, not per injected instance.
+   */
+  private static readonly writes = new Map<string, Promise<unknown>>();
+
+  /** Run `write` after any write already queued for this chat. */
+  private static serialise<T>(
+    chatId: string,
+    write: () => Promise<T>,
+  ): Promise<T> {
+    const ahead = ChatService.writes.get(chatId) ?? Promise.resolve();
+    const mine = ahead.then(write, write);
+    // The stored promise never rejects, so one failed write cannot wedge the
+    // chat; the entry is dropped once the queue drains.
+    const tail = mine.then(
+      () => undefined,
+      () => undefined,
+    );
+    ChatService.writes.set(chatId, tail);
+    void tail.then(() => {
+      if (ChatService.writes.get(chatId) === tail) {
+        ChatService.writes.delete(chatId);
+      }
+    });
+    return mine;
+  }
+
   async getChatHistory(chatId: string) {
     const chat = await this.chatRepository.findOne({
       where: { id: chatId, isDeleted: false },
@@ -140,16 +175,21 @@ export class ChatService {
   }
 
   async clearChatHistory(chatId: string): Promise<boolean> {
-    const chat = await this.chatRepository.findOne({
-      where: { id: chatId, isDeleted: false },
+    // Queued with the appends: clearing does not read the array first, but an
+    // append that started before the clear would write its stale copy back
+    // afterwards and undo it.
+    return ChatService.serialise(chatId, async () => {
+      const chat = await this.chatRepository.findOne({
+        where: { id: chatId, isDeleted: false },
+      });
+      if (chat) {
+        chat.messages = [];
+        chat.updatedAt = new Date();
+        await this.chatRepository.save(chat);
+        return true;
+      }
+      return false;
     });
-    if (chat) {
-      chat.messages = [];
-      chat.updatedAt = new Date();
-      await this.chatRepository.save(chat);
-      return true;
-    }
-    return false;
   }
 
   /**
@@ -158,45 +198,62 @@ export class ChatService {
    * conversation every later turn was built on.
    */
   async dropLastAssistantReply(chatId: string): Promise<boolean> {
-    const chat = await this.chatRepository.findOne({
-      where: { id: chatId, isDeleted: false },
+    // Same column as saveMessage, so the same queue: dropping a reply while
+    // one is being appended would otherwise write back an array that never
+    // saw the append.
+    return ChatService.serialise(chatId, async () => {
+      const chat = await this.chatRepository.findOne({
+        where: { id: chatId, isDeleted: false },
+      });
+      if (!chat?.messages?.length) return false;
+
+      const live = chat.messages.filter((m) => !m.isDeleted);
+      const last = live[live.length - 1];
+      if (!last || String(last.role).toLowerCase() !== 'assistant') {
+        return false;
+      }
+
+      last.isDeleted = true;
+      last.updatedAt = new Date();
+      await this.chatRepository.save(chat);
+      return true;
     });
-    if (!chat?.messages?.length) return false;
-
-    const live = chat.messages.filter((m) => !m.isDeleted);
-    const last = live[live.length - 1];
-    if (!last || String(last.role).toLowerCase() !== 'assistant') return false;
-
-    last.isDeleted = true;
-    last.updatedAt = new Date();
-    await this.chatRepository.save(chat);
-    return true;
   }
 
   async updateChatModel(chatId: string, model: string): Promise<Chat | null> {
-    const chat = await this.chatRepository.findOne({
-      where: { id: chatId, isDeleted: false },
+    // Loads the whole row, messages included, and saves it back — so without
+    // the queue, changing the model mid-turn writes back an array that never
+    // saw the turn's replies.
+    return ChatService.serialise(chatId, async () => {
+      const chat = await this.chatRepository.findOne({
+        where: { id: chatId, isDeleted: false },
+      });
+      if (!chat) return null;
+      chat.model = model;
+      chat.updatedAt = new Date();
+      return this.chatRepository.save(chat);
     });
-    if (!chat) return null;
-    chat.model = model;
-    chat.updatedAt = new Date();
-    return this.chatRepository.save(chat);
   }
 
   async updateChatTitle(
     updateChatTitleInput: UpdateChatTitleInput,
   ): Promise<Chat> {
-    const chat = await this.chatRepository.findOne({
-      where: { id: updateChatTitleInput.chatId, isDeleted: false },
+    // Queued for the same reason as updateChatModel: this saves the whole
+    // row, so renaming a chat mid-turn would write back its messages as they
+    // looked when this read them.
+    return ChatService.serialise(updateChatTitleInput.chatId, async () => {
+      const chat = await this.chatRepository.findOne({
+        where: { id: updateChatTitleInput.chatId, isDeleted: false },
+      });
+      if (chat) {
+        chat.title = updateChatTitleInput.title;
+        chat.updatedAt = new Date();
+        return await this.chatRepository.save(chat);
+      }
+      return null;
     });
-    new Logger('chat').log('chat', chat);
-    if (chat) {
-      chat.title = updateChatTitleInput.title;
-      chat.updatedAt = new Date();
-      return await this.chatRepository.save(chat);
-    }
-    return null;
   }
+
 
   async saveMessage(
     chatId: string,
@@ -204,30 +261,34 @@ export class ChatService {
     role: MessageRole,
     steps?: TurnStep[],
   ) {
-    const chat = await this.chatRepository.findOne({ where: { id: chatId } });
-    if (!chat) {
-      return null;
-    }
+    // Queued: the whole read-push-write below has to be one turn, or a
+    // concurrent append overwrites it. See ChatService.writes.
+    return ChatService.serialise(chatId, async () => {
+      const chat = await this.chatRepository.findOne({ where: { id: chatId } });
+      if (!chat) {
+        return null;
+      }
 
-    if (!chat.messages) {
-      chat.messages = [];
-    }
+      if (!chat.messages) {
+        chat.messages = [];
+      }
 
-    // Create new message with the chat's ID as a prefix
-    const message = {
-      id: `${chat.id}/${chat.messages.length}`,
-      content: messageContent,
-      role: role,
-      ...(steps?.length ? { steps } : {}),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isActive: true,
-      isDeleted: false,
-    };
+      // Create new message with the chat's ID as a prefix
+      const message = {
+        id: `${chat.id}/${chat.messages.length}`,
+        content: messageContent,
+        role: role,
+        ...(steps?.length ? { steps } : {}),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: true,
+        isDeleted: false,
+      };
 
-    chat.messages.push(message);
-    await this.chatRepository.save(chat);
-    return message;
+      chat.messages.push(message);
+      await this.chatRepository.save(chat);
+      return message;
+    });
   }
 
   async getChatWithUser(chatId: string): Promise<Chat | null> {
