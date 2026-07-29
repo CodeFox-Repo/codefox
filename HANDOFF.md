@@ -757,6 +757,30 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 07:20 (7-29) — 页面可以导出成 PDF 了
+
+并发那条线挖干净了,这轮换新需求。open-design 主打 "real files, HTML/PDF
+export",CodeFox 只有 zip —— 而一份 HTML 的 zip 不是任何人会拿去交付的东西。
+
+**这不是新增机器,是复用**:拍封面的 puppeteer 已经在跑,连"这个项目唯一
+合法的渲染地址"的推导、浏览器复用、target closed 后重启浏览器的恢复逻辑
+全都现成。抽出 `renderTarget()` 和 `withPage()` 两个私有方法后,PDF 就是
+同一条管线换最后一步 `page.pdf()`。
+
+- `GET /api/pdf?projectPath=…`,**读权限**(截图是写权限——截图会覆盖封面,
+  打印什么都不改,所以公开项目谁都能打印)。
+- `printBackground: true` 是关键:不加的话打印样式表会丢掉所有背景,一个
+  深色设计打出来就是白纸。实测渲染出来的 PDF 保留了 luxury 的黑金和 Didot
+  衬线。
+- 只对 html 项目开放:Next 应用打印的是它 dev server 当时恰好在服务的东西,
+  那不是任何人要的交付物。
+- **preview proxy 的 `OURS` 正则加了 `pdf`** —— 它跑在 Nest 之前,不加就会
+  在带 preview cookie 时被吞掉(这个坑这轮是第二次踩到了,share 那次一样)。
+
+验证:owner 200 拿到 12.5KB 真 PDF(`%PDF-` 魔数、2 页、有 content stream)、
+陌生人 403、匿名 401、项目转公开后陌生人 200;把 PDF 渲染成图确认不是白纸。
+新节点 35 守卫这条路。
+
 ## 06:50 (7-29) — 同时到达的消息会互相覆盖(丢的是用户的对话本身)
 
 沿着上一轮的线索继续查"两个人同时做同一件事":一个 chat 的 messages 是

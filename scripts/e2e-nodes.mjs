@@ -790,6 +790,32 @@ await node('34 both gallery strategies answer with the same wall', async () => {
   return `${latest.length} latest, ${trending.length} trending`;
 });
 
+await node('35 a page prints to a real PDF', async () => {
+  const r = await rest(
+    `/api/pdf?projectPath=${encodeURIComponent(state.htmlPath)}`,
+    {},
+    state.token,
+  );
+  if (!r.ok) throw new Error(`pdf ${r.status}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (buf.subarray(0, 5).toString() !== '%PDF-')
+    throw new Error(`not a pdf (${buf.length} bytes)`);
+  // A blank A4 is about 1KB; the page's own design has to survive printing,
+  // which is what printBackground buys.
+  if (buf.length < 3000) throw new Error(`suspiciously small: ${buf.length}B`);
+  if (!/filename=".*\.pdf"/.test(r.headers.get('content-disposition') ?? ''))
+    throw new Error('no download filename');
+
+  // Printing reads; it must still refuse someone with no claim on the
+  // project, and anyone at all before signing in.
+  const anon = await fetch(
+    `${BASE}/api/pdf?projectPath=${encodeURIComponent(state.htmlPath)}`,
+  );
+  if (anon.status !== 401) throw new Error(`anonymous pdf -> ${anon.status}`);
+
+  return `${Math.round(buf.length / 1024)} KB pdf`;
+});
+
 await node('32 html cover shoots the file', async () => {
   // No dev server exists for an html project — the controller must fall
   // back to shooting the file itself.

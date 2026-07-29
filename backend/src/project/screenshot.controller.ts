@@ -52,62 +52,48 @@ export class ScreenshotController {
     return this.browser;
   }
 
-  @Get('screenshot')
-  async screenshot(
-    @Req() req: Request,
-    @Query('projectPath') projectPath: string,
-    @Res() res: Response,
-  ) {
-    // Only ever the caller's own preview. This used to take any `url` and
-    // fetch it from inside the container, which made it a working proxy into
-    // anything the box could reach — its own API on loopback included. A
-    // project the caller owns has exactly one legitimate target, so the
-    // address is derived here rather than accepted from the request.
-    await assertProjectAccess({
-      projects: this.projects,
-      req,
-      projectPath,
-      write: true,
-    });
-
+  /**
+   * The one address this project may legitimately be rendered from.
+   *
+   * Derived, never accepted from the request: this used to take any `url` and
+   * fetch it from inside the container, which made it a working proxy into
+   * anything the box could reach — its own API on loopback included.
+   */
+  private async renderTarget(projectPath: string): Promise<string> {
     const workspace = await this.workspaces.for(projectPath);
-    let url = await workspace.internalPreviewUrl();
-    if (!url) {
-      // An html project has no server to shoot — its page is a file on this
-      // machine (html projects live on the host in every mode), and the
-      // browser can open a file directly.
-      const project = await this.projects.findOne({ where: { projectPath } });
-      if (project?.template === 'html') {
-        url = `file://${path.join(getProjectsDir(), projectPath, 'index.html')}`;
-      }
-    }
-    if (!url) {
-      throw new BadRequestException('No preview is running for this project');
-    }
+    const running = await workspace.internalPreviewUrl();
+    if (running) return running;
 
+    // An html project has no server to render — its page is a file on this
+    // machine (html projects live on the host in every mode), and the browser
+    // can open a file directly.
+    const project = await this.projects.findOne({ where: { projectPath } });
+    if (project?.template === 'html') {
+      return `file://${path.join(getProjectsDir(), projectPath, 'index.html')}`;
+    }
+    throw new BadRequestException('No preview is running for this project');
+  }
+
+  /** Open the page, hand it to `render`, and always close the tab. */
+  private async withPage<T>(
+    url: string,
+    what: string,
+    render: (page: Awaited<ReturnType<Browser['newPage']>>) => Promise<T>,
+  ): Promise<T> {
     let page: Awaited<ReturnType<Browser['newPage']>> | null = null;
     try {
       const browser = await this.getBrowser();
       page = await browser.newPage();
       await page.setViewport({ width: 1600, height: 900 });
-      await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 60_000,
-      });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
-      // Give the app a moment to paint. A cover of a blank frame is worse
-      // than no cover at all.
+      // Give the app a moment to paint. A capture of a blank frame is worse
+      // than no capture at all.
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const shot = await page.screenshot({ type: 'png', fullPage: true });
-      res.setHeader('Content-Type', 'image/png');
-      res.setHeader('Cache-Control', 's-maxage=3600');
-      // Puppeteer hands back a Uint8Array, which Express does not recognise as
-      // a body it should send verbatim — it JSON-encodes it into an object of
-      // numbered bytes, so the cover arrived as text that no decoder accepts.
-      res.send(Buffer.from(shot));
+      return await render(page);
     } catch (error) {
-      this.logger.error(`Screenshot of ${url} failed: ${error}`);
+      this.logger.error(`${what} of ${url} failed: ${error}`);
       // A browser that lost its target stays broken for every later request,
       // so drop it and let the next call launch a fresh one.
       if (
@@ -116,9 +102,76 @@ export class ScreenshotController {
         await this.browser?.close().catch(() => undefined);
         this.browser = null;
       }
-      throw new InternalServerErrorException('Failed to capture screenshot');
+      throw new InternalServerErrorException(`Failed to capture ${what}`);
     } finally {
       await page?.close().catch(() => undefined);
     }
+  }
+
+  @Get('screenshot')
+  async screenshot(
+    @Req() req: Request,
+    @Query('projectPath') projectPath: string,
+    @Res() res: Response,
+  ) {
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath,
+      write: true,
+    });
+
+    const url = await this.renderTarget(projectPath);
+    const shot = await this.withPage(url, 'screenshot', (page) =>
+      page.screenshot({ type: 'png', fullPage: true }),
+    );
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 's-maxage=3600');
+    // Puppeteer hands back a Uint8Array, which Express does not recognise as
+    // a body it should send verbatim — it JSON-encodes it into an object of
+    // numbered bytes, so the cover arrived as text that no decoder accepts.
+    res.send(Buffer.from(shot));
+  }
+
+  /**
+   * The page as a PDF — what someone sends to a client or prints.
+   *
+   * A generated page is a deliverable, and a zip of HTML is not what anyone
+   * hands over. The browser that already takes covers can print, so this is
+   * the same pipeline with a different final call.
+   */
+  @Get('pdf')
+  async pdf(
+    @Req() req: Request,
+    @Query('projectPath') projectPath: string,
+    @Res() res: Response,
+  ) {
+    // Read access: unlike a screenshot, printing changes nothing, so a public
+    // project can be printed by anyone who can already read it.
+    const project = await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath,
+      write: false,
+    });
+
+    const url = await this.renderTarget(projectPath);
+    const pdf = await this.withPage(url, 'pdf', (page) =>
+      page.pdf({
+        format: 'A4',
+        // The page's own colours are the point — without this the print
+        // stylesheet drops every background and a dark design comes out
+        // blank.
+        printBackground: true,
+        margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      }),
+    );
+
+    const name =
+      (project.projectName || 'project').replace(/[^a-z0-9]+/gi, '_') || 'page';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${name}.pdf"`);
+    res.send(Buffer.from(pdf));
   }
 }

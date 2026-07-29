@@ -283,6 +283,8 @@ export const GET_PROJECT = gql`
       # For the share link: /share/<uniqueProjectId>, pages only.
       uniqueProjectId
       template
+      # The PDF route renders the project by its directory name.
+      projectPath
     }
   }
 `;

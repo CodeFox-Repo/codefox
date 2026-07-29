@@ -10,6 +10,7 @@ import {
   Eye,
   GitFork,
   Share2,
+  FileText,
   Terminal,
   Loader,
 } from 'lucide-react';
@@ -90,6 +91,36 @@ const ResponsiveToolbar = ({
   // A page anyone can open, once it is public. Private projects and Next apps
   // have no such link — Next has no single file to serve.
   const share = isPublic ? shareUrl(projectData?.getProject ?? {}) : null;
+
+  // A page prints to a PDF; a Next app would print whatever its dev server is
+  // serving, which is not a deliverable anyone asked for.
+  const isPage = projectData?.getProject?.template === 'html';
+  const projectPath: string | undefined = projectData?.getProject?.projectPath;
+  const [printing, setPrinting] = useState(false);
+
+  const handlePrint = async () => {
+    if (!projectPath || printing) return;
+    setPrinting(true);
+    try {
+      const res = await authenticatedFetch(
+        `/api/pdf?projectPath=${encodeURIComponent(projectPath)}`
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(projectData?.getProject?.projectName ?? 'page').replace(/[^a-z0-9]+/gi, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      logger.error('PDF export failed:', error);
+      toast.error('Could not make a PDF of this page');
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   const handleDownload = async () => {
     // If projectId is available, initiate download
@@ -292,6 +323,26 @@ const ResponsiveToolbar = ({
                 )}
                 Download
               </Button>
+              {/* Pages only: printing a Next app means printing whatever its
+                  dev server happens to be serving, which is not a
+                  deliverable anyone asked for. */}
+              {isPage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                  disabled={isLoading || !projectPath || printing}
+                  onClick={handlePrint}
+                  title="Download this page as a PDF"
+                >
+                  {printing ? (
+                    <Loader className="w-3 h-3 mr-1 animate-spin" />
+                  ) : (
+                    <FileText className="w-3 h-3 mr-1" />
+                  )}
+                  PDF
+                </Button>
+              )}
             </>
           )}
           {compactIcons && (
