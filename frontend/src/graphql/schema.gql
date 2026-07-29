@@ -189,6 +189,7 @@ type Mutation {
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
   updateProjectPhoto(input: UpdateProjectPhotoInput!): Project!
   updateProjectPublicStatus(isPublic: Boolean!, projectId: ID!): Project!
+  updateUsername(username: String!): User!
   uploadAvatar(file: Upload!): AvatarUploadResponse!
 }
 

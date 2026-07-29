@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../user.model';
 import { UserService } from '../user.service';
+import { UploadService } from '../../upload/upload.service';
 
 describe('UserService', () => {
   let service: UserService;
@@ -32,6 +33,15 @@ describe('UserService', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn(),
+          },
+        },
+        // The service took this dependency when avatars moved to the upload
+        // service; the module here was never updated, so it failed to compile
+        // and this suite has been red since.
+        {
+          provide: UploadService,
+          useValue: {
+            upload: jest.fn(),
           },
         },
       ],

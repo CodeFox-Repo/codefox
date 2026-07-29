@@ -241,6 +241,7 @@ export type Mutation = {
   updateChatTitle?: Maybe<Chat>;
   updateProjectPhoto: Project;
   updateProjectPublicStatus: Project;
+  updateUsername: User;
   uploadAvatar: AvatarUploadResponse;
 };
 
@@ -334,6 +335,10 @@ export type MutationUpdateProjectPhotoArgs = {
 export type MutationUpdateProjectPublicStatusArgs = {
   isPublic: Scalars['Boolean']['input'];
   projectId: Scalars['ID']['input'];
+};
+
+export type MutationUpdateUsernameArgs = {
+  username: Scalars['String']['input'];
 };
 
 export type MutationUploadAvatarArgs = {
@@ -1050,6 +1055,12 @@ export type MutationResolvers<
       MutationUpdateProjectPublicStatusArgs,
       'isPublic' | 'projectId'
     >
+  >;
+  updateUsername?: Resolver<
+    ResolversTypes['User'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationUpdateUsernameArgs, 'username'>
   >;
   uploadAvatar?: Resolver<
     ResolversTypes['AvatarUploadResponse'],

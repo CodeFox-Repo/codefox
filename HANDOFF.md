@@ -745,6 +745,36 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 02:20 (7-29) — 用户名可以改了(设置页自己承认的半成品)
+
+设置页上写着 "Username — Not editable yet",代码注释也直说 API 还没有这个
+mutation。这是产品里唯一一个自己承认没做完的地方,也是 HANDOFF 早前记过的
+待办方向。
+
+- 新 `updateUsername`(guarded)。用户名会出现在 gallery 的公开卡片上,所以
+  校验是认真做的:折叠空白后 3–32 字符、拒绝 `< > / \ @ ' " \``
+  和控制字符、拒绝已被别人占用的名字。
+- **列上没有 unique 约束,而且从来没有过**,所以这里不假装能保证唯一性
+  ——加约束的 migration 会在现存重复数据上直接失败。它保证的是:一次改名
+  绝不会**新造**一个与他人重名的冲突,这才是真会撞到的情况。
+- 改自己已有的名字不走占用检查(否则"保存我现在的名字"会报"已被占用")。
+- UI:设置页那个 read-only chip 换成可编辑输入框,失焦或回车即存,Esc 还原
+  ——一个字段配一个 Save 按钮比这次改动本身还重。错误直接显示服务端说的话,
+  不在前端复制一份规则(那注定会漂移)。
+
+验证:9 个单测 + 真实 API 全流程(改名生效并持久化、另一用户抢同名被拒、
+改回自己的名字通过、过短/markup/纯空白被拒、首尾空白被折叠、匿名 401)。
+
+**顺手把长期红着的 3 个单测修好了,后端套件首次全绿 67/67**(此前只有跑
+`jest src/project/` 才是绿的,跑全量一直是 3 红):
+- `user.service.spec.ts` 的测试模块缺 `UploadService`——头像上传搬进
+  upload service 时服务多了这个依赖,测试模块没跟着改,于是它编译失败、
+  这个套件一直红。
+- `register-user.input.spec.ts` 的四个用例都写在 `confirmPassword` 加进
+  DTO 之前:不设这个字段,它永远第一个报错,所以"合法输入"用例从来就不
+  合法,而 email 用例断言的 `errors[0]` 实际是 confirmPassword 的错误。
+  顺便把 `errors[0]` 改成按 property 查找——字段校验顺序不是 DTO 的契约。
+
 ## 01:50 (7-29) — 分享链接在生产验证 + 有了链接预览
 
 **先确认上一轮的分享功能在生产上是活的**:Jackson 的真实页面

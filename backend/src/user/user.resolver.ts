@@ -96,6 +96,16 @@ export class UserResolver {
     return this.userService.getUser(id);
   }
 
+  /** Rename yourself. The settings page called this "not editable yet". */
+  @Mutation(() => User)
+  @UseGuards(JWTAuthGuard)
+  async updateUsername(
+    @GetUserIdFromToken() userId: string,
+    @Args('username') username: string,
+  ): Promise<User> {
+    return this.userService.updateUsername(userId, username);
+  }
+
   /**
    * Upload a new avatar for the authenticated user
    * Uses validateAndBufferFile to ensure the image meets requirements

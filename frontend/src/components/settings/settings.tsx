@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ModeToggle } from '../mode-toggle';
 import { AvatarUploader } from '../avatar-uploader';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { gql, useMutation } from '@apollo/client';
+import { toast } from 'sonner';
 
 /**
  * Section shell shared by every block on this page, matching the rule-and-label
@@ -47,6 +49,73 @@ function Row({
       </div>
       {children}
     </div>
+  );
+}
+
+const UPDATE_USERNAME = gql`
+  mutation UpdateUsername($username: String!) {
+    updateUsername(username: $username) {
+      id
+      username
+    }
+  }
+`;
+
+/**
+ * The name shown next to this user's projects, editable in place.
+ *
+ * Saves on blur or Enter rather than behind a button: one field with its own
+ * Save is more chrome than the change deserves. Escape puts the old name
+ * back, which is the only way out of a half-typed edit.
+ */
+function UsernameField({ current }: { current?: string | null }) {
+  const { refreshUserInfo } = useAuthContext();
+  const [value, setValue] = useState(current ?? '');
+  const [saving, setSaving] = useState(false);
+  const [update] = useMutation(UPDATE_USERNAME);
+
+  // The field is uncontrolled by the server while typing, but a refresh
+  // elsewhere (or the first load) has to land in it.
+  useEffect(() => setValue(current ?? ''), [current]);
+
+  const commit = async () => {
+    const next = value.trim();
+    if (saving || !next || next === current) {
+      setValue(current ?? '');
+      return;
+    }
+    setSaving(true);
+    try {
+      await update({ variables: { username: next } });
+      await refreshUserInfo();
+      toast.success('Username updated');
+    } catch (error: any) {
+      // The server owns the rules (length, characters, already taken), so
+      // show what it said rather than guessing at a second copy of them.
+      toast.error(error?.message ?? 'Could not update your username');
+      setValue(current ?? '');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <input
+      value={value}
+      disabled={saving}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+        if (e.key === 'Escape') {
+          setValue(current ?? '');
+          e.currentTarget.blur();
+        }
+      }}
+      maxLength={32}
+      aria-label="Username"
+      className="w-56 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-sm text-foreground transition-colors hover:border-primary/60 focus:border-primary focus:outline-none disabled:opacity-60"
+    />
   );
 }
 
@@ -100,9 +169,11 @@ export default function UserSetting() {
             />
           </Row>
 
-          {/* Read-only: the API exposes no mutation to change either yet. */}
-          <Row title="Username" hint="Not editable yet.">
-            <ReadOnlyValue value={user?.username} />
+          <Row
+            title="Username"
+            hint="Shown next to your projects in the gallery."
+          >
+            <UsernameField current={user?.username} />
           </Row>
 
           <Row title="Email" hint="The address you signed in with.">
