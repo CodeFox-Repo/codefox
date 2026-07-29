@@ -23,10 +23,9 @@ interface PublicProject {
 /**
  * Projects other people published.
  *
- * A cover is a screenshot of a running preview, so a published project may
- * legitimately not have one yet. The backend stopped filtering those out —
- * hiding them published people's work into a gallery that never showed it —
- * which means the card has to stand on its own without an image.
+ * The backend only serves projects that have a cover, so the coverless
+ * branch below is a fallback for a photoUrl that 404s rather than the normal
+ * case — a wall of "no preview yet" tiles showcases nothing.
  */
 export function PublicProjects({ limit = 6 }: { limit?: number }) {
   const router = useRouter();
@@ -87,9 +86,10 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
         <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-14 text-center">
           <p className="font-medium text-foreground">Nothing published yet</p>
           <p className="mx-auto mt-2 max-w-[52ch] text-pretty text-sm leading-relaxed text-muted-foreground">
-            Projects show up here as soon as they are public. Make one of yours
-            public from its toolbar — its cover fills in on its own once the
-            preview has run, since the cover is a shot of the app itself.
+            A project appears here once it is public and has a cover. The
+            cover is a shot of the page itself, taken the first time its
+            preview renders — so make one of yours public, open it, and it
+            joins the wall.
           </p>
         </div>
       ) : (

@@ -24,14 +24,24 @@ function HtmlPreview({ project }: { project: any }) {
   const [loaded, setLoaded] = useState(false);
   const { takeProjectScreenshot } = useContext(ProjectContext);
   // Covers come from the preview, and this preview never touches the
-  // dev-server path that captures them — fire the capture once the page
-  // exists. Once per mount: the next visit refreshes an outdated cover.
-  const coverRequested = useRef(false);
+  // dev-server path that captures them. Shoot whenever the page's contents
+  // change — that is what keeps a cover showing the latest version rather
+  // than whatever the project looked like the first time it was opened.
+  const shotOf = useRef('');
 
   useEffect(() => {
-    if (!html || coverRequested.current || !project?.id) return;
-    coverRequested.current = true;
-    takeProjectScreenshot(project.id, '', project.projectPath)?.catch(() => {});
+    if (!html || !project?.id || shotOf.current === html) return;
+    shotOf.current = html;
+    // A second of quiet first: mid-turn the agent rewrites the file several
+    // times, and every intermediate state is not worth a screenshot.
+    const timer = setTimeout(
+      () =>
+        takeProjectScreenshot(project.id, '', project.projectPath)?.catch(
+          () => {}
+        ),
+      1500
+    );
+    return () => clearTimeout(timer);
   }, [html, project?.id, project?.projectPath, takeProjectScreenshot]);
 
   const load = async () => {

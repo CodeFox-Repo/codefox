@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { Project } from './project.model';
 import {
   CreateProjectInput,
@@ -509,13 +509,16 @@ export class ProjectService {
   ): Promise<Project[]> {
     const limit = input.size > 50 ? 50 : input.size;
 
-    // No cover requirement. Covers are screenshots taken from a running
-    // preview, so any project whose screenshot did not land — and none did
-    // while the browser was missing — was published into an empty gallery
-    // with nothing to say why. The card already renders coverless.
+    // A cover is the entry fee. This filter was dropped once, correctly, when
+    // capture was broken in three places and requiring a cover emptied the
+    // gallery — but a wall of "no preview yet" tiles sells nothing either.
+    // Capture works now (html projects shoot their file, app projects their
+    // dev server), so a project with no cover is one nobody has opened yet,
+    // and it can wait for its first visit before being showcased.
     const whereCondition = {
       isPublic: true,
       isDeleted: false,
+      photoUrl: Not(IsNull()),
     };
 
     if (input.strategy === 'latest') {

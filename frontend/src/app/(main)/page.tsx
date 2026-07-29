@@ -252,14 +252,13 @@ export default function HomePage() {
       </section>
 
       {/* ---------- one real turn ----------
-          Separated by a step in surface, not by inverting it. Flipping to
-          `bg-foreground` dropped a light slab into a dark page — a hard value
-          jump that reads as a copy-paste accident — and it broke its own
-          contents: `primary` is a value rather than a hue now, so nine
-          `text-primary` children rendered near-white on near-white. A
-          neighbouring surface from the same palette separates the band and
-          leaves every token inside it working. */}
-      <section className="bg-[linear-gradient(180deg,transparent,hsl(var(--secondary))_140px,hsl(var(--secondary))_calc(100%-140px),transparent)] py-24">
+          Separated by air and typography, not by a band. Two earlier attempts
+          failed the same way: `bg-foreground` dropped a light slab into a dark
+          page (and broke every `text-primary` child inside it), and
+          `bg-secondary` is a near-neutral grey that reads as dirt under the
+          warm painted hero. The label, the display heading and the bordered
+          cards do the separating. */}
+      <section className="py-28">
         <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-10">
           <p className="mb-6 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">
             One turn, start to finish
