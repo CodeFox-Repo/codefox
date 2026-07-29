@@ -757,6 +757,24 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 06:20 (7-29) — 同时 fork 的人越多,fork 数记得越少
+
+`forkProject` 用 `sourceProject.subNumber += 1` 然后 save —— 这是对内存里
+那行的读改写。**四个人同时 fork 同一个项目:四次都成功,计数记录为 1。**
+丢了三个。
+
+这不只是个数字不好看:上一轮刚把 gallery 的 trending 改成按 `subNumber`
+排序,所以一个被少算的项目正是那面墙永远不会展示的项目 —— 越受欢迎、
+同时 fork 的人越多、少算得越厉害。
+
+改成 `repository.increment()`,让数据库做原子自增。实测:修复前 4 次
+fork → 计数 1;修复后 4 → 4。
+
+顺手 grep 了仓库里别的 `+= 1` / `-= 1`,只剩 admin 里一个本地循环计数器,
+不是数据库字段,不受影响。
+
+节点 20 现在顺带断言"一次 fork 记一次"。
+
 ## 05:50 (7-29) — 首页那九个"最近"项目其实是最旧的九个
 
 `getUserChats` 没有 `ORDER BY`,而首页把返回的前九个当作 "recent" 展示

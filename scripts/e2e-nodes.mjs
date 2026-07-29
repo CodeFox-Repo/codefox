@@ -413,6 +413,19 @@ await node('20 fork carries the real files', async () => {
   const { content } = await r.json();
   if (!content?.includes(`e2e-marker-${ts}`))
     throw new Error('fork missing the marker file');
+
+  // The fork counter is what the gallery's trending strategy ranks by. It
+  // used to be a read-modify-write on the in-memory row, so simultaneous
+  // forks overwrote each other's count — four at once recorded one.
+  const counted = await gql(
+    'query($id:String!){getProject(projectId:$id){subNumber}}',
+    { id: state.projectId },
+    state.token,
+  );
+  if (counted.data?.getProject?.subNumber !== 1)
+    throw new Error(
+      `one fork counted as ${counted.data?.getProject?.subNumber}`,
+    );
 });
 
 await node('21 history clears', async () => {

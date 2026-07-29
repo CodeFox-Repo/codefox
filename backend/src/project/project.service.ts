@@ -512,9 +512,16 @@ export class ProjectService {
         );
       }
 
-      // Increment the source project's subscription count
-      sourceProject.subNumber += 1;
-      await this.projectsRepository.save(sourceProject);
+      // Atomic, in the database. Read-modify-write on the in-memory row lost
+      // forks whenever two people forked at once: each read the same value
+      // and each wrote value+1, so four simultaneous forks counted as one.
+      // The gallery's trending strategy ranks by this field, so an
+      // undercounted project is one the wall never surfaces.
+      await this.projectsRepository.increment(
+        { id: sourceProject.id },
+        'subNumber',
+        1,
+      );
 
       // Bind chat to the new project
       await this.bindProjectAndChat(savedProject, defaultChat);
