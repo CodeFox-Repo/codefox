@@ -757,6 +757,28 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 05:50 (7-29) — 首页那九个"最近"项目其实是最旧的九个
+
+`getUserChats` 没有 `ORDER BY`,而首页把返回的前九个当作 "recent" 展示
+(第十个之后收进 "Show all N")。实测确认返回顺序是**最旧在前** —— 也就是
+说一旦你有第十个项目,**新建的那个反而看不见了**,而每张卡片还写着
+"2h ago"。改成 `createdAt DESC`。
+
+同一个查询还把**已删除的 chat 从数据库捞出来再用 JS 过滤掉**。删过一百个
+项目的用户,此后每次打开首页都要把这一百行重新加载一遍。改成在 where 里
+过滤。
+
+这个改动有个陷阱值得记:一旦对关联加了过滤条件,一个所有 chat 都被删掉的
+用户就**不匹配任何行**,`findOne` 会返回 null —— 而它以前返回的是"用户 +
+空列表"。所以补了一条不带关联过滤的回查。实测三种情况:新用户 `[]`、
+有一个 chat 时返回它、删掉之后仍然是 `[]`(而不是 null)。
+
+本轮另外两条线是死胡同,记下来免得后面重复走:
+- 下载 zip 里"少了 notes.md" —— 是我解析 `unzip -l` 时把最后一行切掉了,
+  实际文件都在。archiver 的 glob 和 ignore 列表都正确。
+- `archive()` 里 `finalize()` 在挂 close 监听器之前 await —— 看着像竞态,
+  实测 close 总在 finalize 之后才触发,监听器接得住。
+
 ## 05:20 (7-29) — 同一个项目上并发两个 turn,会静默吞掉一整轮工作
 
 同一个 chat 上同时发两条消息,**两个 agent 会同时在同一个工作目录里跑**。
