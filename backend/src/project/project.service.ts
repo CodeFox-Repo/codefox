@@ -206,7 +206,10 @@ export class ProjectService {
         // microVM until the agent runs. The Next starter keeps its old paths:
         // host copy locally, template clone inside the sandbox.
         if (savedProject.template === 'html') {
-          savedProject.projectPath = await scaffoldHtmlProject(savedProject.id);
+          savedProject.projectPath = await scaffoldHtmlProject(
+            savedProject.id,
+            input.style,
+          );
         } else {
           savedProject.projectPath =
             sandboxMode() === 'host'

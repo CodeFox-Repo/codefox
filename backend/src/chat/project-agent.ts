@@ -129,6 +129,15 @@ page. Edit them in place. Everything stays in the HTML files: Tailwind via
 the CDN script tag that is already there, inline <script> for behavior. No
 package.json, no build step, no framework — if a page needs more structure,
 add another .html file and link to it.
+
+index.html carries a design system in its <style> :root block — colors,
+type scale, radii, spacing, motion. That block is the page's style
+contract. Build against the variables (var(--accent), var(--surface),
+var(--text-3xl), var(--radius-md)) instead of picking your own colors,
+fonts or sizes, and give every new page you add the same :root block so
+the site stays one design. Change a token's VALUE only when the user asks
+for a different look — then change it in :root, where it restyles
+everything at once, never by hardcoding a hex somewhere in the markup.
 `;
 
 const INSTRUCTIONS = `You are CodeFox, building a Next.js 15 + Tailwind + shadcn/ui app.

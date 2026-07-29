@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useModels } from '@/hooks/useModels';
-import { gql, useMutation } from '@apollo/client';
+import { gql, useMutation, useQuery } from '@apollo/client';
 import { logger } from '@/app/log/logger';
 
 export interface PromptFormRef {
@@ -28,8 +28,18 @@ export interface PromptFormRef {
     isPublic: boolean;
     model: string;
     template: string;
+    style: string;
   };
   clearMessage: () => void;
+}
+
+interface DesignSystemChoice {
+  id: string;
+  name: string;
+  blurb: string;
+  bg: string;
+  fg: string;
+  accent: string;
 }
 
 interface PromptFormProps {
@@ -48,6 +58,36 @@ const REGENERATE_DESCRIPTION = gql`
   }
 `;
 
+const DESIGN_SYSTEMS = gql`
+  query DesignSystems {
+    designSystems {
+      id
+      name
+      blurb
+      bg
+      fg
+      accent
+    }
+  }
+`;
+
+/** A style, shown as itself: canvas, text, accent. */
+function Swatch({ system }: { system?: DesignSystemChoice }) {
+  if (!system) return null;
+  return (
+    <span
+      aria-hidden
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/60"
+      style={{ background: system.bg }}
+    >
+      <span
+        className="h-2 w-2 rounded-full"
+        style={{ background: system.accent }}
+      />
+    </span>
+  );
+}
+
 export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
   function PromptForm(
     { isAuthorized, onSubmit, onAuthRequired, isLoading = false, compact },
@@ -57,6 +97,16 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
     // Light by default: a page, not a toolchain. The full Next starter is
     // the plug-in choice for when a real app is the goal.
     const [template, setTemplate] = useState<'html' | 'next'>('html');
+    const [style, setStyle] = useState('');
+
+    // The list is public and static; the picker only shows for page projects,
+    // but fetching unconditionally keeps it warm for the moment it appears.
+    const { data: styleData } = useQuery<{
+      designSystems: DesignSystemChoice[];
+    }>(DESIGN_SYSTEMS);
+    const designSystems = styleData?.designSystems ?? [];
+    const chosenStyle =
+      designSystems.find((s) => s.id === style) ?? designSystems[0];
     const [visibility, setVisibility] = useState<'public' | 'private'>(
       'public'
     );
@@ -128,6 +178,8 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         isPublic: visibility === 'public',
         model: selectedModel,
         template,
+        // Only pages carry a design system; the Next starter has its own.
+        style: template === 'html' ? (chosenStyle?.id ?? '') : '',
       }),
       clearMessage: () => setMessage(''),
     }));
@@ -318,6 +370,51 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                 </SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Style: the page's design system. Pages only — the Next
+                starter ships with its own. Swatches over names: the point
+                of a style is what it looks like. */}
+            {template === 'html' && designSystems.length > 0 && (
+              <Select
+                value={chosenStyle?.id ?? ''}
+                onValueChange={(value) =>
+                  !isLoading && !isRegenerating && setStyle(value)
+                }
+                disabled={isLoading || isRegenerating}
+              >
+                <SelectTrigger
+                  className={cn(
+                    'h-9 px-3 text-sm font-medium border border-border',
+                    'bg-secondary text-foreground',
+                    'rounded-lg focus:outline-none hover:bg-accent',
+                    'transition-all duration-200 active:scale-[0.98]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    (isLoading || isRegenerating) &&
+                      'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <Swatch system={chosenStyle} />
+                    <span>{chosenStyle?.name}</span>
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  {designSystems.map((system) => (
+                    <SelectItem key={system.id} value={system.id}>
+                      <div className="flex items-center gap-2.5">
+                        <Swatch system={system} />
+                        <div className="flex flex-col items-start">
+                          <span className="font-semibold">{system.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {system.blurb}
+                          </span>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

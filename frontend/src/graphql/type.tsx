@@ -155,6 +155,18 @@ export type CreateProjectInput = {
   model?: InputMaybe<Scalars['String']['input']>;
   projectName?: InputMaybe<Scalars['String']['input']>;
   public?: InputMaybe<Scalars['Boolean']['input']>;
+  style?: InputMaybe<Scalars['String']['input']>;
+  template?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type DesignSystemChoice = {
+  __typename: 'DesignSystemChoice';
+  accent: Scalars['String']['output'];
+  bg: Scalars['String']['output'];
+  blurb: Scalars['String']['output'];
+  fg: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
 };
 
 export type EmailConfirmationResponse = {
@@ -353,6 +365,7 @@ export type Project = {
   subNumber: Scalars['Float']['output'];
   /** Projects that are copies of this project */
   subscribers?: Maybe<Array<Project>>;
+  template?: Maybe<Scalars['String']['output']>;
   uniqueProjectId: Scalars['String']['output'];
   updatedAt: Scalars['Date']['output'];
   user: User;
@@ -365,6 +378,7 @@ export type Query = {
   adminProjects: Array<AdminProject>;
   adminUsers: Array<AdminUser>;
   checkToken: Scalars['Boolean']['output'];
+  designSystems: Array<DesignSystemChoice>;
   emailVerificationRequired: Scalars['Boolean']['output'];
   fetchPublicProjects: Array<Project>;
   getAvailableModelTags?: Maybe<Array<Scalars['String']['output']>>;
@@ -588,6 +602,7 @@ export type ResolversTypes = ResolversObject<{
   CheckTokenInput: CheckTokenInput;
   CreateProjectInput: CreateProjectInput;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
+  DesignSystemChoice: ResolverTypeWrapper<DesignSystemChoice>;
   EmailConfirmationResponse: ResolverTypeWrapper<EmailConfirmationResponse>;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
@@ -632,6 +647,7 @@ export type ResolversParentTypes = ResolversObject<{
   CheckTokenInput: CheckTokenInput;
   CreateProjectInput: CreateProjectInput;
   Date: Scalars['Date']['output'];
+  DesignSystemChoice: DesignSystemChoice;
   EmailConfirmationResponse: EmailConfirmationResponse;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
   Float: Scalars['Float']['output'];
@@ -822,6 +838,20 @@ export interface DateScalarConfig
   extends GraphQLScalarTypeConfig<ResolversTypes['Date'], any> {
   name: 'Date';
 }
+
+export type DesignSystemChoiceResolvers<
+  ContextType = any,
+  ParentType extends
+    ResolversParentTypes['DesignSystemChoice'] = ResolversParentTypes['DesignSystemChoice'],
+> = ResolversObject<{
+  accent?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  bg?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  blurb?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  fg?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
 
 export type EmailConfirmationResponseResolvers<
   ContextType = any,
@@ -1084,6 +1114,7 @@ export type ProjectResolvers<
     ParentType,
     ContextType
   >;
+  template?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   uniqueProjectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
   user?: Resolver<ResolversTypes['User'], ParentType, ContextType>;
@@ -1116,6 +1147,11 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryCheckTokenArgs, 'input'>
+  >;
+  designSystems?: Resolver<
+    Array<ResolversTypes['DesignSystemChoice']>,
+    ParentType,
+    ContextType
   >;
   emailVerificationRequired?: Resolver<
     ResolversTypes['Boolean'],
@@ -1257,6 +1293,7 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   ChatCompletionChoiceType?: ChatCompletionChoiceTypeResolvers<ContextType>;
   ChatCompletionDeltaType?: ChatCompletionDeltaTypeResolvers<ContextType>;
   Date?: GraphQLScalarType;
+  DesignSystemChoice?: DesignSystemChoiceResolvers<ContextType>;
   EmailConfirmationResponse?: EmailConfirmationResponseResolvers<ContextType>;
   LoginResponse?: LoginResponseResolvers<ContextType>;
   Menu?: MenuResolvers<ContextType>;

@@ -106,11 +106,21 @@ input CreateProjectInput {
   model: String
   projectName: String
   public: Boolean
+  style: String
   template: String
 }
 
 """Date custom scalar type"""
 scalar Date
+
+type DesignSystemChoice {
+  accent: String!
+  bg: String!
+  blurb: String!
+  fg: String!
+  id: String!
+  name: String!
+}
 
 type EmailConfirmationResponse {
   message: String!
@@ -219,6 +229,7 @@ type Query {
   adminProjects: [AdminProject!]!
   adminUsers: [AdminUser!]!
   checkToken(input: CheckTokenInput!): Boolean!
+  designSystems: [DesignSystemChoice!]!
   emailVerificationRequired: Boolean!
   fetchPublicProjects(input: FetchPublicProjectsInputs!): [Project!]!
   getAvailableModelTags: [String!]

@@ -58,6 +58,11 @@ export class CreateProjectInput {
   /** 'html' (light, default) or 'next' (full starter). */
   @Field(() => String, { nullable: true })
   template?: string;
+
+  /** Design system id for html projects; unknown ids fall back to the first.
+   *  Nothing stores it — it is baked into the scaffolded page's tokens. */
+  @Field(() => String, { nullable: true })
+  style?: string;
 }
 
 @InputType()

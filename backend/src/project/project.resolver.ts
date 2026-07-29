@@ -23,6 +23,10 @@ import { GetUserIdFromToken } from '../common/decorators/get-auth-token.decorato
 import { Chat } from 'src/chat/chat.model';
 import { User } from 'src/user/user.model';
 import { validateAndBufferFile } from 'src/common/security/file_check';
+import {
+  DesignSystemChoice,
+  designSystemChoices,
+} from './design-systems';
 
 @Resolver(() => Project)
 export class ProjectsResolver {
@@ -134,6 +138,14 @@ export class ProjectsResolver {
     @Args('input') input: FetchPublicProjectsInputs,
   ): Promise<Project[]> {
     return this.projectService.fetchPublicProjects(input);
+  }
+
+  /** The style choices for a new page project. Public: the composer on the
+   *  landing page renders before anyone signs in. */
+  @Query(() => [DesignSystemChoice])
+  @Public()
+  designSystems(): DesignSystemChoice[] {
+    return designSystemChoices();
   }
 
   // @Mutation(() => Project)

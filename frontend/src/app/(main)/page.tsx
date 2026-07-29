@@ -89,7 +89,7 @@ export default function HomePage() {
   const handleSubmit = async () => {
     if (!promptFormRef.current) return;
 
-    const { message, isPublic, model, template } =
+    const { message, isPublic, model, template, style } =
       promptFormRef.current.getPromptData();
     if (!message.trim()) return;
 
@@ -98,7 +98,8 @@ export default function HomePage() {
         message,
         isPublic,
         model,
-        template
+        template,
+        style
       );
       if (!chatId) return; // createProjectFromPrompt already surfaced the error
 

@@ -5,6 +5,7 @@ import { Logger } from '@nestjs/common';
 import fsExtra from 'fs-extra';
 import simpleGit from 'simple-git';
 import { getProjectsDir, getRootDir } from '../common/utils/common-path';
+import { DesignSystem, designSystem } from './design-systems';
 
 const { copy, existsSync, readdirSync, remove, symlink } = fsExtra;
 const exec = promisify(execFile);
@@ -133,19 +134,46 @@ export async function copyProject(
   return toProjectId;
 }
 
-/** The whole starter for an html project: one self-contained page. */
-const HTML_STARTER = `<!doctype html>
+/**
+ * The whole starter for an html project: one self-contained page, already
+ * wearing the chosen design system. The tokens are the page's style
+ * contract — the agent is told to build against the variables rather than
+ * pick colors, which is what keeps a generated page looking deliberate
+ * instead of like default Tailwind.
+ */
+const htmlStarter = (style: DesignSystem): string => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>New Project</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Design system: ${style.name} — ${style.blurb}.
+         Build against these variables; changing a value restyles the page. */
+      :root {
+${style.tokens}
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--font-body);
+        font-size: var(--text-base);
+        line-height: var(--leading-body);
+      }
+      h1, h2, h3 {
+        font-family: var(--font-display);
+        line-height: var(--leading-tight);
+        letter-spacing: var(--tracking-display);
+      }
+    </style>
   </head>
-  <body class="grid min-h-screen place-items-center bg-neutral-950 text-neutral-100">
+  <body class="grid min-h-screen place-items-center">
     <main class="text-center">
-      <h1 class="text-3xl font-bold">Hello.</h1>
-      <p class="mt-2 text-neutral-400">Tell the agent what this page should become.</p>
+      <h1 style="font-size: var(--text-2xl)">Hello.</h1>
+      <p style="color: var(--muted); margin-top: var(--space-2, 8px)">
+        Tell the agent what this page should become.
+      </p>
     </main>
   </body>
 </html>
@@ -155,10 +183,16 @@ const HTML_STARTER = `<!doctype html>
  * Scaffold the light kind: a directory with one index.html and a git
  * baseline. No dependencies, no dev server — the preview renders the file.
  */
-export async function scaffoldHtmlProject(projectId: string): Promise<string> {
+export async function scaffoldHtmlProject(
+  projectId: string,
+  style?: string | null,
+): Promise<string> {
   const target = path.join(getProjectsDir(), projectId);
   await fsExtra.ensureDir(target);
-  await fsExtra.writeFile(path.join(target, 'index.html'), HTML_STARTER);
+  await fsExtra.writeFile(
+    path.join(target, 'index.html'),
+    htmlStarter(designSystem(style)),
+  );
 
   try {
     const git = simpleGit(target);

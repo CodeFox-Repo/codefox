@@ -52,7 +52,8 @@ export interface ProjectContextType {
     prompt: string,
     isPublic: boolean,
     model?: string,
-    template?: string
+    template?: string,
+    style?: string
   ) => Promise<string | null>;
   /** Resolves to the new chat id so the caller can navigate into the fork. */
   forkProject: (projectId: string) => Promise<string | null>;
@@ -639,7 +640,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       // No default: the backend picks LLM_DEFAULT_MODEL, which is the one the
       // configured endpoint actually serves.
       model?: string,
-      template?: string
+      template?: string,
+      /** Design system id for page projects; the backend falls back on its
+       *  own for an unknown or missing one. */
+      style?: string
     ): Promise<string | null> => {
       if (!prompt.trim()) {
         if (isMounted.current) {
@@ -660,6 +664,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               public: isPublic,
               model: model,
               template: template,
+              style: style,
             },
           },
         });
