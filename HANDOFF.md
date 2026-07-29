@@ -1025,3 +1025,8 @@ WorkspaceService 对齐。
 - Leftover test data on the local DB: one public page project
   (d92ca790, "Warm Roast Landing Page") with no cover, invisible in the
   gallery by the cover rule. Harmless; delete whenever.
+
+Full suite re-run against HEAD (6098f38 + this doc commit): **32/32 green**,
+including the newest nodes — versions/restore/undo-the-undo, restore refusing
+a non-version, the anonymous share link (7603B served with no token), and the
+html cover shooting a 137KB png.
