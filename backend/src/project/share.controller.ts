@@ -6,6 +6,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { Project } from './project.model';
 import { WorkspaceService } from './workspace.service';
 import { withSocialCard } from './social-card';
+import { sharedPagePath } from './shared-page-path';
 
 /**
  * Serves a public page project as a real, linkable page.
@@ -42,7 +43,9 @@ export class ShareController {
     private readonly workspaces: WorkspaceService,
   ) {}
 
-  @Get(':id')
+  // `:id/*` as a second route rather than an optional segment: this is Nest
+  // 10 on Express 4, where the `*path` form silently matches nothing.
+  @Get([':id', ':id/*'])
   @Public()
   async page(
     @Param('id') id: string,
@@ -66,16 +69,30 @@ export class ShareController {
       return this.notFound(res, 'This page is not shared.');
     }
 
+    // A site is allowed more than one page — the agent is told to add
+    // `.html` files and link between them — so a shared link has to be able
+    // to follow those links. Without this, every `<a href="about.html">` the
+    // agent was instructed to write led to a 404.
+    const file = sharedPagePath(req.path, id);
+    if (!file) {
+      return this.notFound(res, 'That page is not part of this site.');
+    }
+
     let html: string | null = null;
     try {
       const workspace = await this.workspaces.for(project.projectPath);
-      html = await workspace.readFile('index.html');
+      html = await workspace.readFile(file);
     } catch (error) {
-      this.logger.warn(`Share ${id} could not be read: ${error}`);
+      this.logger.warn(`Share ${id}/${file} could not be read: ${error}`);
     }
 
     if (html === null) {
-      return this.notFound(res, 'This page has not been built yet.');
+      return this.notFound(
+        res,
+        file === 'index.html'
+          ? 'This page has not been built yet.'
+          : 'That page is not part of this site.',
+      );
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

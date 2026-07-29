@@ -711,6 +711,41 @@ await node('33 a published page is a link anyone can open', async () => {
   // The page itself must survive the injection untouched.
   if (!card.includes('</body>')) throw new Error('page mangled by injection');
 
+  // A site may be several linked pages — the agent is instructed to add
+  // them — so a shared link has to follow those links, and must not become
+  // a way to read the project's other files.
+  await rest(
+    '/api/file',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        filePath: `${state.htmlPath}/about.html`,
+        newContent: '<!doctype html><html><body>about page</body></html>',
+      }),
+    },
+    state.token,
+  );
+  await rest(
+    '/api/file',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        filePath: `${state.htmlPath}/notes.md`,
+        newContent: 'not for the public',
+      }),
+    },
+    state.token,
+  );
+
+  const about = await share(`${shareId}/about.html`);
+  if (about.status !== 200) throw new Error(`linked page -> ${about.status}`);
+  if (!about.body.includes('about page'))
+    throw new Error('linked page served the wrong file');
+  for (const path of ['notes.md', '../../etc/passwd', '..%2f..%2fx.html']) {
+    if ((await share(`${shareId}/${path}`)).status !== 404)
+      throw new Error(`${path} was served`);
+  }
+
   return `${live.body.length}B served anonymously`;
 });
 

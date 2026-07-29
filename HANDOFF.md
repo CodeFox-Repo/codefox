@@ -745,6 +745,31 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 02:50 (7-29) — 多页站点:agent 被要求建的链接,产品终于能打开了
+
+agent 的 instructions 明确写着"页面需要更多结构就加一个 .html 文件并链
+过去",但**分享路由和预览面板都写死只读 index.html** —— 于是 agent 照做
+写出的每一个 `<a href="about.html">` 都是死链。三个面(share / 预览 /
+封面截图)全都只认 index.html。实测确认:写一个 about.html,
+`/share/<id>/about.html` 回 404。
+
+- 分享路由改成 `@Get([':id', ':id/*'])`(Nest 10 + Express 4 下 `*path`
+  形式静默匹配不到任何东西,所以是两条路由而不是可选段)。
+- 新 `shared-page-path.ts` 把公开 url 解析成要读的文件。这是把**匿名的、
+  攻击者可控的 url 变成一次磁盘读取**,所以刻意收窄:
+  **只服务 `.html`** —— 这条路由以 text/html 回应且不需要会话,项目里
+  别的文件(agent 写的 .env、owner 留的笔记)不因为项目公开就一起公开;
+  最多一层目录;normalize 后越界直接拒绝而不是钳制;反斜杠、NUL、
+  双斜杠、`.`/`..`、畸形百分号编码全拒。8 个单测。
+- 预览面板现在跟随站内链接:iframe 是 sandbox 且没有 allow-top-navigation,
+  所以点相对链接**什么都不会发生**——以前看起来就是个死链。现在拦截点击
+  换页,顶栏显示当前页名并给出返回首页的箭头。绝对 url 和锚点不拦。
+  封面只在首页时拍(一张 "About" 的封面是错的)。
+
+验证:节点 33 扩展(写 about.html + notes.md → 链接页 200 且内容正确 →
+notes.md / `../../etc/passwd` / `..%2f..%2f` 全 404);另测嵌套页
+`pages/deep.html` 200、同项目里的 secret.md 404。
+
 ## 02:20 (7-29) — 用户名可以改了(设置页自己承认的半成品)
 
 设置页上写着 "Username — Not editable yet",代码注释也直说 API 还没有这个

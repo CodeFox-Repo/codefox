@@ -22,6 +22,11 @@ import { authenticatedFetch } from '@/lib/authenticatedFetch';
 function HtmlPreview({ project }: { project: any }) {
   const [html, setHtml] = useState('');
   const [loaded, setLoaded] = useState(false);
+  // Which page of the site is showing. A site may be several linked .html
+  // files — the agent is told to add them — and srcdoc has no base url, so
+  // an <a href="about.html"> inside the frame resolves to nothing. The
+  // click is caught below and answered by loading that file instead.
+  const [page, setPage] = useState('index.html');
   const { takeProjectScreenshot } = useContext(ProjectContext);
   // Covers come from the preview, and this preview never touches the
   // dev-server path that captures them. Shoot whenever the page's contents
@@ -47,7 +52,7 @@ function HtmlPreview({ project }: { project: any }) {
   const load = async () => {
     try {
       const res = await authenticatedFetch(
-        `/api/file?path=${encodeURIComponent(`${project.projectPath}/index.html`)}`
+        `/api/file?path=${encodeURIComponent(`${project.projectPath}/${page}`)}`
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -66,7 +71,38 @@ function HtmlPreview({ project }: { project: any }) {
     const timer = setInterval(load, 5000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.projectPath]);
+  }, [project.projectPath, page]);
+
+  // A sub-page is the agent's work too, but only the home page is what the
+  // project looks like — a cover shot of "About" would be wrong.
+  useEffect(() => {
+    if (page !== 'index.html') shotOf.current = '';
+  }, [page]);
+
+  /**
+   * Follow a link the page makes to another page of the same site.
+   *
+   * The iframe is sandboxed without allow-top-navigation, so a click on a
+   * relative href does nothing at all — it used to look like a dead link.
+   * Same-document anchors are left to the browser.
+   */
+  const followLinks = (frame: HTMLIFrameElement | null) => {
+    const doc = frame?.contentDocument;
+    if (!doc) return;
+    doc.addEventListener('click', (event) => {
+      const anchor = (event.target as HTMLElement | null)?.closest?.('a');
+      const href = anchor?.getAttribute('href');
+      if (!href || href.startsWith('#')) return;
+      // Anything absolute belongs to the wider web, not this project; it has
+      // nowhere to go inside the sandbox, so let it be rather than guess.
+      if (/^[a-z]+:/i.test(href) || href.startsWith('//')) return;
+      const file = href.split(/[?#]/)[0].replace(/^\.?\//, '');
+      if (!/\.html?$/i.test(file)) return;
+      event.preventDefault();
+      setLoaded(false);
+      setPage(file);
+    });
+  };
 
   const openInTab = () => {
     const blob = new Blob([html], { type: 'text/html' });
@@ -76,8 +112,24 @@ function HtmlPreview({ project }: { project: any }) {
   return (
     <div className="flex h-full w-full flex-col">
       <div className="flex h-9 items-center justify-between border-b border-border bg-muted px-3">
-        <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
-          index.html
+        <span className="flex min-w-0 items-center gap-1.5">
+          {page !== 'index.html' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 shrink-0"
+              onClick={() => {
+                setLoaded(false);
+                setPage('index.html');
+              }}
+              aria-label="Back to the home page"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <span className="truncate font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+            {page}
+          </span>
         </span>
         <div className="flex items-center gap-1">
           <Button
@@ -104,16 +156,20 @@ function HtmlPreview({ project }: { project: any }) {
       {loaded && !html ? (
         <div className="flex flex-1 items-center justify-center">
           <p className="font-mono text-xs text-muted-foreground">
-            No index.html yet — ask the agent to build the page.
+            {page === 'index.html'
+              ? 'No index.html yet — ask the agent to build the page.'
+              : `${page} is not in this project.`}
           </p>
         </div>
       ) : (
         // Ceiling: srcdoc has no base URL, so a relative style.css/script.js
         // would 404. The agent is instructed (and E2E-checked) to keep pages
         // self-contained; a raw-file route is the upgrade path if that changes.
+        // Links between the project's own pages are handled by onLoad.
         <iframe
           title="preview"
           srcDoc={html}
+          onLoad={(event) => followLinks(event.currentTarget)}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           className="w-full flex-1 border-none bg-white"
         />
