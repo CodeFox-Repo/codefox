@@ -3,30 +3,42 @@
 State of the product as of this session. Facts and open questions only; no
 proposed fixes.
 
-## Read this first — overnight loop summary (03:00–10:00)
+## Read this first — where the product stands (2026-07-29 03:00)
 
-Everything below deployed to prod (Railway + Vercel) and verified by the
-27-node E2E suite (`npm run e2e`, host mode, **27/27 green**).
+Two overnight sessions. Everything below is deployed (Railway + Vercel) and
+covered by the E2E suite (`npm run e2e`, host mode, 33 nodes).
 
-Shipped tonight, in rough order of weight:
-- **HTML light mode** is the default project kind: single-file scaffold, srcdoc
-  preview (no servers), agent on host, covers via puppeteer file:// fallback.
-- **Robustness**: harness reconnect notices no longer kill a recovering turn;
-  bad /chat?id= links say so instead of an empty composer; mid-turn failures
-  toast a readable sentence; the home grid refreshes itself (its invalidation
-  flag had died with the sidebar).
-- **UI truth & polish**: fox favicon; per-project tab titles; real user
-  avatars in chat; project-kind badges on home cards; "Show all N" past nine
-  projects; anonymous Fork explains sign-in; landing copy caught up with the
-  two-starter reality; one-model pickers hidden everywhere.
+**A project is a page you can send someone.** html is the default kind:
+single-file scaffold, srcdoc preview, no servers, no sandbox wait. A public
+page gets a real link — `/share/<uniqueProjectId>`, anonymous, served with a
+sandbox header because the HTML was written by a model following a
+stranger's prompt, and multi-page sites resolve their own relative links.
+Covers are screenshots of the page itself and follow the latest version; the
+gallery only shows projects that have one.
 
-Still waiting on Jackson:
-- **Vercel sandbox quota 402** — blocks prod Next-mode agent turns; raise the
-  cap in the Vercel console, then re-run the suite in vercel mode.
+**A turn is a version.** Every agent turn commits, the Changes panel reads
+git, and a wrong turn can be restored — the restore is itself a version, so
+undo is undoable. The composer stays live mid-turn: messages typed while the
+agent works queue and steer the next turn.
+
+**The planner asks first.** A vague prompt gets a question card (checkbox
+options, hidden composer) instead of a guessed build, and the answer picks a
+design system the agent then builds against.
+
+**Look.** Painted hero (canvas sky, light beam, paper foxes), glass capsule
+topbar, brand favicon, flat agent replies, sections that flow rather than
+stack. Dark theme is the designed one.
+
+### Still waiting on Jackson
+
+- **Vercel sandbox quota 402** — blocks prod Next-mode agent turns. Raise the
+  cap in the Vercel console, then re-run the suite in vercel mode. html
+  projects are unaffected (they live on the host by design).
 - `frontend/src/components/sidebar.tsx` is dead (no importers) — delete when
-  convenient (deletion needs your say-so).
-- Browser-based visual QA queue (agent-browser daemon wedged all night):
-  question card, changes panel, stacked messages, mobile switcher.
+  convenient; deletion needs your say-so.
+- Visual QA in a real browser: question card, changes panel, version history,
+  mobile switcher. The agent-browser daemon wedged both nights, so every
+  screenshot here is puppeteer against a production build on :3001.
 - Before opening registration: html projects run the agent on the host
   (documented tradeoff) — seed-a-sandbox is the prerequisite.
 
@@ -997,3 +1009,19 @@ WorkspaceService 对齐。
 - Covers follow the latest version: HtmlPreview re-shoots whenever the page
   content changes (1.5s debounce so mid-turn rewrites do not each get a
   screenshot), instead of once per mount.
+
+## 03:00 (7/29) — 部署与分享链路复核
+
+- Vercel Ready, Railway SUCCESS (285f07b3) — everything through 6098f38 is
+  live. `/share/<bogus>` on prod returns the branded "not shared" 404, so the
+  route is deployed rather than just built.
+- Share pipeline walked end to end locally: public html project → anonymous
+  `/share/<uniqueProjectId>` → 200 with the real page, `Content-Security-
+  Policy: sandbox allow-scripts allow-forms` and `X-Content-Type-Options:
+  nosniff`. og:title/description present; og:image only when a cover exists
+  (correct — no cover, no image tag).
+- Screenshot endpoint refuses a stranger's project (403), so covers cannot be
+  farmed for projects you do not own.
+- Leftover test data on the local DB: one public page project
+  (d92ca790, "Warm Roast Landing Page") with no cover, invisible in the
+  gallery by the cover rule. Harmless; delete whenever.
