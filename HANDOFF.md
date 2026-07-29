@@ -745,6 +745,37 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 00:45 (7-29) — 版本历史与回滚
+
+agent 走错一步之前没有任何退路:每个项目只有一个 commit(它的 baseline),
+之后所有轮次的改动全堆在同一个未提交的 diff 里。而项目本来就是 git 仓库
+(`changedFiles()` 一直在用 porcelain)——回滚是这套机器的自然延伸,不需要
+新的存储。
+
+- workspace 接口加三个方法:`snapshot(label)` / `versions()` / `restore(id)`,
+  host 和 vercel 两种实现都有(sandbox 侧用一次 shell round trip)。
+- **每轮 agent turn 结束后自动 snapshot**,label 就是用户自己的 prompt
+  (截断 72 字)。放在 session 结束之后,所以 agent 最后的写入已经落盘;
+  失败的 turn 也 snapshot——那些改动是真的,而且正是最想撤销的东西。
+  没有改动就不提交(返回 null)。
+- **restore 自身可撤销**:回滚前先把当前状态存成一个版本("Before restore"),
+  然后 `checkout <sha> -- .` —— 移动文件但不动 HEAD,历史保持线性,
+  detached HEAD 会让之后所有 snapshot 变成孤儿。
+- 新接口 `GET /api/project/versions` 和 `POST /api/project/restore`
+  (写权限:公开项目的只读访问者不能改别人的文件)。versionId 只接受 sha
+  正则——这个字符串会进命令行。
+- Code 面板第三个视图 History:每个版本一行(prompt + 相对时间),
+  hover 出 Restore。回滚后清空编辑器选中(文件内容已经不是它了)、刷新
+  changes 和历史,成功/失败都有 toast。
+
+验证:`versions.spec.ts` 6 个单测(含 label 里含分隔符、HEAD 带换行、
+畸形行不会凭空造版本);直接对 HostWorkspace 跑完整流程(两次 snapshot →
+restore → 文件确实回到第一版 → 历史多出 Restored 条目);**再通过真实 API 走
+一遍**(建 neon 项目 → 写文件 → restore 到 baseline → 文件回到 starter 且
+neon token 还在 → 历史 = Restored/Before restore/starter baseline);
+注入 `; rm -rf /` 得 400,缺 versionId 得 400,匿名得 401。
+backend tsc 干净、DI 启动干净、frontend build 干净、16 个测试全绿。
+
 ## 00:15 (7-29) — 页面有了设计系统(借 open-design 的 token 契约)
 
 生成的页面此前全部落在同一套默认深色 Tailwind 上——agent 没有任何风格锚点,

@@ -5,7 +5,7 @@ import {
   mkdirSync,
 } from 'node:fs';
 import * as path from 'node:path';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import archiver from 'archiver';
 import { getProjectsDir, getTempDir } from '../common/utils/common-path';
 import type { LogLine, PreviewService } from './preview.service';
@@ -13,7 +13,10 @@ import {
   ChangedFile,
   IGNORED_ENTRIES,
   parsePorcelain,
+  parseVersionLog,
   ProjectWorkspace,
+  Version,
+  VERSION_LOG_FORMAT,
 } from './workspace';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -31,6 +34,8 @@ const IGNORED = new Set(IGNORED_ENTRIES);
  * it is only appropriate when every user is trusted.
  */
 export class HostWorkspace implements ProjectWorkspace {
+  private readonly logger = new Logger(HostWorkspace.name);
+
   constructor(
     private readonly projectPath: string,
     private readonly previews: PreviewService,
@@ -87,6 +92,78 @@ export class HostWorkspace implements ProjectWorkspace {
     } catch {
       return null;
     }
+  }
+
+  /** git, in the project, never touching the user's own identity config. */
+  private git(...args: string[]) {
+    return execFileAsync('git', ['-C', this.root, ...args], {
+      maxBuffer: 4 * 1024 * 1024,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'CodeFox',
+        GIT_AUTHOR_EMAIL: 'bot@codefox.local',
+        GIT_COMMITTER_NAME: 'CodeFox',
+        GIT_COMMITTER_EMAIL: 'bot@codefox.local',
+      },
+    });
+  }
+
+  private get hasGit(): boolean {
+    return existsSync(path.join(this.root, '.git'));
+  }
+
+  async snapshot(label: string): Promise<string | null> {
+    if (!this.hasGit) return null;
+    try {
+      const changed = await this.changedFiles();
+      if (!changed?.length) return null;
+      await this.git('add', '-A');
+      await this.git('commit', '-m', label, '--no-gpg-sign');
+      const { stdout } = await this.git('rev-parse', 'HEAD');
+      return stdout.trim();
+    } catch (error) {
+      // A snapshot is bookkeeping around the user's real work — it must never
+      // be what fails a turn.
+      this.logger.warn(`Snapshot of ${this.projectPath} failed: ${error}`);
+      return null;
+    }
+  }
+
+  async versions(): Promise<Version[] | null> {
+    if (!this.hasGit) return null;
+    try {
+      const [log, head] = await Promise.all([
+        this.git('log', `--format=${VERSION_LOG_FORMAT}`, '--max-count=50'),
+        this.git('rev-parse', 'HEAD'),
+      ]);
+      return parseVersionLog(log.stdout, head.stdout);
+    } catch {
+      return null;
+    }
+  }
+
+  async restore(versionId: string): Promise<void> {
+    if (!this.hasGit) {
+      throw new BadRequestException('This project has no history to restore');
+    }
+    // A sha, nothing else: this string reaches a command line.
+    if (!/^[0-9a-f]{7,40}$/i.test(versionId)) {
+      throw new BadRequestException('Not a version id');
+    }
+    try {
+      await this.git('cat-file', '-e', `${versionId}^{commit}`);
+    } catch {
+      throw new NotFoundException('No such version in this project');
+    }
+    // Whatever is in the tree right now becomes its own version first, so
+    // restoring is undoable rather than a way to lose the current state.
+    await this.snapshot('Before restore');
+    // `checkout <sha> -- .` moves the files while leaving HEAD where it is,
+    // so the restore lands as a normal change the user can review and the
+    // history stays linear — a detached HEAD would strand every later
+    // snapshot.
+    await this.git('checkout', versionId, '--', '.');
+    await this.snapshot(`Restored to ${versionId.slice(0, 7)}`);
   }
 
   async listFiles(): Promise<string[]> {

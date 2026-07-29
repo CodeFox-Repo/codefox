@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ProjectModule } from 'src/project/project.module';
 import { ChatResolver } from './chat.resolver';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
@@ -10,18 +11,35 @@ import { AuthModule } from '../auth/auth.module';
 import { UserService } from 'src/user/user.service';
 import { JwtCacheModule } from 'src/jwt-cache/jwt-cache.module';
 import { UploadModule } from 'src/upload/upload.module';
+import { Project } from 'src/project/project.model';
+import { WorkspaceService } from 'src/project/workspace.service';
 // import { GitHubModule } from 'src/github/github.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Chat, User]),
+    // Project: the controller snapshots a turn's file changes, which needs a
+    // workspace, which resolves the project's kind.
+    TypeOrmModule.forFeature([Chat, User, Project]),
     AuthModule,
     JwtCacheModule,
     UploadModule,
+    // For the single PreviewService: a second instance would keep its own map
+    // of running dev servers, invisible to the proxy and the idle sweeper.
+    ProjectModule,
     // GitHubModule,
   ],
   controllers: [ChatController],
-  providers: [ChatResolver, ChatService, ChatGuard, UserService],
+  providers: [
+    ChatResolver,
+    ChatService,
+    ChatGuard,
+    UserService,
+    // Declared here rather than imported from ProjectModule, which already
+    // pulls ChatService in — importing it back would close the cycle. This
+    // provider is stateless; PreviewService, which is not, comes from the
+    // one instance ProjectModule owns.
+    WorkspaceService,
+  ],
   exports: [ChatService, ChatGuard],
 })
 export class ChatModule {}

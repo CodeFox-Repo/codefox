@@ -104,6 +104,51 @@ export class FilesController {
     return { changes };
   }
 
+  /**
+   * The points this project can be taken back to — one per agent turn, plus
+   * the starter baseline. `versions: null` means the project has no git
+   * history, which is what the client shows an empty state for.
+   */
+  @Get('project/versions')
+  @UseGuards(JWTAuthGuard)
+  async versions(@Req() req: Request, @Query('path') projectId?: string) {
+    if (!projectId) throw new BadRequestException('Missing path');
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath: projectId,
+      write: false,
+    });
+
+    const workspace = await this.workspaces.for(projectId);
+    return { versions: await workspace.versions() };
+  }
+
+  /**
+   * Put the files back to a version. Write access: this rewrites the user's
+   * project, so a read-only viewer of a public project must not reach it.
+   */
+  @Post('project/restore')
+  @UseGuards(JWTAuthGuard)
+  async restore(
+    @Req() req: Request,
+    @Body() body: { path?: string; versionId?: string },
+  ) {
+    const { path: projectId, versionId } = body ?? {};
+    if (!projectId) throw new BadRequestException('Missing path');
+    if (!versionId) throw new BadRequestException('Missing versionId');
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath: projectId,
+      write: true,
+    });
+
+    const workspace = await this.workspaces.for(projectId);
+    await workspace.restore(versionId);
+    return { changes: await workspace.changedFiles() };
+  }
+
   @Get('project')
   @UseGuards(JWTAuthGuard)
   async tree(@Req() req: Request, @Query('path') projectId?: string) {

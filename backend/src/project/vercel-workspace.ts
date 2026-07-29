@@ -10,7 +10,10 @@ import {
   ChangedFile,
   IGNORED_ENTRIES,
   parsePorcelain,
+  parseVersionLog,
   ProjectWorkspace,
+  Version,
+  VERSION_LOG_FORMAT,
 } from './workspace';
 
 /** Bounded so one enormous project cannot exhaust the backend's memory. */
@@ -51,6 +54,74 @@ export class VercelWorkspace implements ProjectWorkspace {
     const out = await result.stdout();
     if (out.includes('__NO_GIT__')) return null;
     return parsePorcelain(out);
+  }
+
+  /** One shell round trip in the project root. */
+  private async sh(script: string): Promise<{ out: string; code: number }> {
+    const result = await this.sandbox.runCommand({
+      cmd: 'sh',
+      args: ['-lc', script],
+      cwd: ROOT,
+    });
+    return { out: await result.stdout(), code: result.exitCode ?? 0 };
+  }
+
+  /**
+   * The sandbox has no committer identity configured, so every commit would
+   * fail with "Please tell me who you are". Passed per command rather than
+   * written into the clone's config, which the user's own git would inherit.
+   */
+  private static readonly AS_BOT =
+    'git -c user.name=CodeFox -c user.email=bot@codefox.local';
+
+  async snapshot(label: string): Promise<string | null> {
+    // Single quotes around the label: it is the user's prompt, and it reaches
+    // a shell. Any quote inside is escaped the POSIX way.
+    const quoted = `'${label.replace(/'/g, `'\\''`)}'`;
+    const { out, code } = await this.sh(
+      `git rev-parse --git-dir >/dev/null 2>&1 || exit 3
+       git status --porcelain | grep -q . || exit 4
+       ${VercelWorkspace.AS_BOT} add -A &&
+       ${VercelWorkspace.AS_BOT} commit -m ${quoted} --no-gpg-sign >/dev/null &&
+       git rev-parse HEAD`,
+    );
+    // 3 = no git, 4 = nothing changed. Neither is a failure worth surfacing;
+    // anything else is, but a snapshot must not be what fails a turn.
+    if (code === 3 || code === 4) return null;
+    if (code !== 0) {
+      this.logger.warn(`Snapshot in ${this.sandbox.name} failed: exit ${code}`);
+      return null;
+    }
+    return out.trim() || null;
+  }
+
+  async versions(): Promise<Version[] | null> {
+    const { out, code } = await this.sh(
+      `git rev-parse --git-dir >/dev/null 2>&1 || exit 3
+       git rev-parse HEAD
+       git log --format=${VERSION_LOG_FORMAT} --max-count=50`,
+    );
+    if (code !== 0) return null;
+    const [head, ...log] = out.split('\n');
+    return parseVersionLog(log.join('\n'), head ?? '');
+  }
+
+  async restore(versionId: string): Promise<void> {
+    if (!/^[0-9a-f]{7,40}$/i.test(versionId)) {
+      throw new BadRequestException('Not a version id');
+    }
+    await this.snapshot('Before restore');
+    const { code } = await this.sh(
+      `git cat-file -e ${versionId}^{commit} 2>/dev/null || exit 5
+       git checkout ${versionId} -- .`,
+    );
+    if (code === 5) {
+      throw new BadRequestException('No such version in this project');
+    }
+    if (code !== 0) {
+      throw new Error(`Restore failed in ${this.sandbox.name}: exit ${code}`);
+    }
+    await this.snapshot(`Restored to ${versionId.slice(0, 7)}`);
   }
 
   async listFiles(): Promise<string[]> {

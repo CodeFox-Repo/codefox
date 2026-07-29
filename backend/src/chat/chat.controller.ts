@@ -10,6 +10,7 @@ import { openrouter, DEFAULT_MODEL } from '../common/constants/ai.constants';
 import { runProjectAgent } from './project-agent';
 import { explain } from './explain-error';
 import { MessageRole, TurnStep } from './message.model';
+import { WorkspaceService } from '../project/workspace.service';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -45,7 +46,28 @@ const targetOf = (input: unknown): string | undefined => {
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly workspaces: WorkspaceService,
+  ) {}
+
+  /**
+   * Commit what the turn changed, labelled with the prompt that caused it.
+   *
+   * Without this a project has exactly one commit — its baseline — and every
+   * turn since piles into a single uncommitted diff, so there is nothing to
+   * go back to when the agent takes a wrong turn. Best effort by design:
+   * bookkeeping must never be what fails a turn the user's files already own.
+   */
+  private async snapshotTurn(projectPath: string, prompt: string) {
+    try {
+      const workspace = await this.workspaces.for(projectPath);
+      const label = prompt.trim().replace(/\s+/g, ' ').slice(0, 72);
+      await workspace.snapshot(label || 'Agent turn');
+    } catch (error) {
+      this.logger.warn(`[${projectPath}] snapshot failed: ${error}`);
+    }
+  }
 
   @Post()
   async chat(
@@ -230,6 +252,10 @@ export class ChatController {
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
       await endSession('stop', false);
+      // After the session ends, so the agent's last writes are on disk. A
+      // turn that failed part-way still snapshots — those edits are real and
+      // are exactly what someone would want to undo.
+      await this.snapshotTurn(project.projectPath, chatDto.message);
     }
   }
 

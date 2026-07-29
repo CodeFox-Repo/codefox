@@ -14,6 +14,7 @@ import FileExplorerButton from '../file-explorer-button';
 import FileStructure from '../file-structure';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 /** One file the agent has touched, relative to the template baseline. */
 interface ChangedFile {
@@ -26,6 +27,34 @@ const STATUS_TONE: Record<ChangedFile['status'], string> = {
   modified: 'text-amber-500',
   deleted: 'text-destructive line-through',
 };
+
+/** One point the project can be taken back to — a snapshot per agent turn. */
+interface Version {
+  id: string;
+  label: string;
+  at: string;
+  current: boolean;
+}
+
+const VIEWS = ['changes', 'all', 'history'] as const;
+type View = (typeof VIEWS)[number];
+
+const VIEW_LABEL: Record<View, string> = {
+  changes: 'Changes',
+  all: 'All files',
+  history: 'History',
+};
+
+/** "just now" / "14m ago" / "3h ago" / "2d ago". */
+function ago(iso: string): string {
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (!Number.isFinite(seconds) || seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 interface CodeTabProps {
   editorRef: MutableRefObject<any>;
@@ -54,9 +83,59 @@ const CodeTab = ({
   const [type, setType] = useState('javascript');
   // What the agent changed is the interesting set; the full tree is one
   // toggle away. Falls back to the tree when there is no git baseline.
-  const [view, setView] = useState<'changes' | 'all'>('changes');
+  const [view, setView] = useState<View>('changes');
   const [changes, setChanges] = useState<ChangedFile[] | null>(null);
   const [changesLoading, setChangesLoading] = useState(true);
+  const [versions, setVersions] = useState<Version[] | null>(null);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+
+  // Loaded when the tab is first opened rather than with the panel: most
+  // sessions never look at history, and it is a git log per project.
+  const loadVersions = async () => {
+    if (!projectPath) return;
+    try {
+      setVersionsLoading(true);
+      const res = await authenticatedFetch(
+        `/api/project/versions?path=${encodeURIComponent(projectPath)}`
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      setVersions(data.versions ?? null);
+    } catch {
+      setVersions(null);
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
+
+  const restore = async (versionId: string) => {
+    if (!projectPath || restoring) return;
+    try {
+      setRestoring(versionId);
+      const res = await authenticatedFetch('/api/project/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: projectPath, versionId }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      // The restore rewrote the files, so the open editor and the changes
+      // list are both stale. Drop the selection rather than show contents
+      // that no longer match the file.
+      setChanges(data.changes ?? null);
+      setFilePath(null);
+      await loadVersions();
+      toast.success('Files restored to that version');
+    } catch {
+      // A restore that silently did nothing would read as "the button is
+      // broken" — and the files are still whatever they were, so saying so
+      // is the honest state.
+      toast.error('Could not restore that version — the files are unchanged');
+    } finally {
+      setRestoring(null);
+    }
+  };
 
   useEffect(() => {
     if (!projectPath) return;
@@ -134,11 +213,16 @@ const CodeTab = ({
         className="overflow-y-auto border-r"
       >
         <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
-          {(['changes', 'all'] as const).map((v) => (
+          {VIEWS.map((v) => (
             <button
               key={v}
               type="button"
-              onClick={() => setView(v)}
+              onClick={() => {
+                setView(v);
+                if (v === 'history' && versions === null && !versionsLoading) {
+                  void loadVersions();
+                }
+              }}
               className={cn(
                 'rounded px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] transition-colors',
                 view === v
@@ -146,7 +230,7 @@ const CodeTab = ({
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              {v === 'changes' ? 'Changes' : 'All files'}
+              {VIEW_LABEL[v]}
             </button>
           ))}
         </div>
@@ -198,6 +282,66 @@ const CodeTab = ({
                         {change.path}
                       </span>
                     </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : view === 'history' ? (
+          <div className="p-2">
+            {versionsLoading ? (
+              <p className="px-2 py-3 font-mono text-xs text-muted-foreground">
+                Reading history…
+              </p>
+            ) : !versions || versions.length === 0 ? (
+              <p className="px-2 py-3 font-mono text-xs text-muted-foreground">
+                No history yet — each turn the agent takes becomes a version you
+                can come back to.
+              </p>
+            ) : (
+              <ul className="space-y-0.5">
+                {versions.map((version) => (
+                  <li
+                    key={version.id}
+                    className={cn(
+                      'group rounded px-2 py-1.5',
+                      version.current ? 'bg-secondary' : 'hover:bg-accent'
+                    )}
+                  >
+                    <div className="flex items-baseline gap-2">
+                      <span
+                        className={cn(
+                          'truncate text-xs',
+                          version.current
+                            ? 'text-foreground'
+                            : 'text-muted-foreground'
+                        )}
+                        title={version.label}
+                      >
+                        {version.label}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                        {version.current ? 'Current' : ago(version.at)}
+                      </span>
+                      {!version.current && (
+                        <button
+                          type="button"
+                          disabled={restoring !== null}
+                          onClick={() => void restore(version.id)}
+                          className={cn(
+                            'rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em]',
+                            'text-muted-foreground opacity-0 transition-opacity',
+                            'hover:bg-secondary hover:text-foreground',
+                            'group-hover:opacity-100 focus-visible:opacity-100',
+                            restoring !== null && 'cursor-not-allowed'
+                          )}
+                        >
+                          {restoring === version.id ? 'Restoring…' : 'Restore'}
+                        </button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

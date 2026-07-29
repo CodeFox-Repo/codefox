@@ -19,6 +19,18 @@ export interface ChangedFile {
   status: 'added' | 'modified' | 'deleted';
 }
 
+/** One point the project can be taken back to. */
+export interface Version {
+  /** Commit sha; what `restore` takes. */
+  id: string;
+  /** The message the snapshot was taken under — the user's own prompt. */
+  label: string;
+  /** ISO timestamp. */
+  at: string;
+  /** True for the version the working tree currently sits on. */
+  current: boolean;
+}
+
 export interface ProjectWorkspace {
   /**
    * Every file in the project, as paths relative to its root, with shared
@@ -32,6 +44,24 @@ export interface ProjectWorkspace {
    * there is no git history to diff against.
    */
   changedFiles(): Promise<ChangedFile[] | null>;
+
+  /**
+   * Commit whatever the turn changed, so it becomes a point the project can
+   * be brought back to. No-op when nothing changed or there is no git.
+   * Returns the new version's id, or null when nothing was committed.
+   */
+  snapshot(label: string): Promise<string | null>;
+
+  /**
+   * Every snapshot, newest first. Null when the project has no git history.
+   */
+  versions(): Promise<Version[] | null>;
+
+  /**
+   * Put the working tree back to a version. Whatever the tree currently holds
+   * is snapshotted first, so a restore is itself undoable.
+   */
+  restore(versionId: string): Promise<void>;
 
   /** File contents as text, or null when there is no such file. */
   readFile(relativePath: string): Promise<string | null>;
@@ -85,6 +115,33 @@ export const IGNORED_ENTRIES = [
   'coverage',
   '.DS_Store',
 ];
+
+/**
+ * The log format both workspaces ask git for, and the parser for it. Kept
+ * together so the two can never drift: a field added to one without the other
+ * would silently shift every column.
+ */
+export const VERSION_LOG_FORMAT = '%H\x1f%cI\x1f%s';
+
+/**
+ * `git log` lines into Version records, newest first. `head` is the sha the
+ * working tree sits on, which marks the current entry.
+ */
+export function parseVersionLog(output: string, head: string): Version[] {
+  const versions: Version[] = [];
+  for (const line of output.split('\n')) {
+    if (!line.trim()) continue;
+    const [id, at, ...rest] = line.split('\x1f');
+    if (!id || !at) continue;
+    versions.push({
+      id,
+      at,
+      label: rest.join('\x1f').trim() || 'Snapshot',
+      current: id === head.trim(),
+    });
+  }
+  return versions;
+}
 
 /**
  * `git status --porcelain` lines into ChangedFile records. Renames report the
