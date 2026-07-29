@@ -554,6 +554,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    // Login refuses a closed account; refresh did not, so a deactivated user
+    // could keep minting access tokens for the refresh token's seven days.
+    if (!existingToken.user?.isActive || existingToken.user.isDeleted) {
+      // The refresh token is the thing that would keep working, so it goes.
+      await this.refreshTokenRepository.delete({ token: refreshToken } as any);
+      throw new UnauthorizedException('This account is no longer active');
+    }
+
     const accessToken = this.jwtService.sign(
       {
         userId: existingToken.user.id,

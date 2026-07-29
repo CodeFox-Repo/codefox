@@ -9,6 +9,9 @@ import {
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
 import { JwtCacheService } from 'src/jwt-cache/jwt-cache.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from 'src/user/user.model';
 
 @Injectable()
 export class JWTAuthGuard implements CanActivate {
@@ -17,6 +20,11 @@ export class JWTAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly jwtCacheService: JwtCacheService,
+    // A primary-key read, next to the token-cache read this guard already
+    // does. Worth it: without it "deactivate" is advice rather than a
+    // control.
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,6 +51,21 @@ export class JWTAuthGuard implements CanActivate {
       if (!isTokenValid) {
         this.logger.warn('Token has been invalidated');
         throw new UnauthorizedException('Token has been invalidated');
+      }
+
+      // Login refuses a deactivated account, but a token issued before the
+      // deactivation kept working — so banning someone did nothing until
+      // their token expired, and refresh (which also did not check) would
+      // hand them a fresh one for another seven days. The account's current
+      // state has to be part of admitting the request, not only of issuing
+      // the token.
+      const active = await this.users.findOne({
+        where: { id: payload.userId },
+        select: { id: true, isActive: true, isDeleted: true },
+      });
+      if (!active || !active.isActive || active.isDeleted) {
+        this.logger.warn(`Rejected a token for a closed account`);
+        throw new UnauthorizedException('This account is no longer active');
       }
 
       request.user = payload;

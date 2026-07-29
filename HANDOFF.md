@@ -757,6 +757,31 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 04:20 (7-29) — 停用账号此前只是一句建议
+
+admin 控制台有个 "set user active" 开关。登录会检查 `isActive`,**但别的
+地方都不检查** —— 实测确认(直接改数据库然后走真实 API):
+
+1. 新登录 → `Invalid credentials` ✓
+2. **停用前签发的 token → 照常工作**
+3. **refresh → 高高兴兴发一个新 access token**
+
+也就是说封禁一个已登录的用户在最长 7 天(refresh token 的寿命)内**完全
+没有效果**。这不是理论问题:admin 面板上那个按钮看起来生效了,实际什么
+都没做。
+
+- JWTAuthGuard 现在除了验签名和查 token 没被登出之外,还按主键读一次 User
+  行,账号关闭就拒。这是在这个 guard 已有的一次 DB 读旁边再加一次主键
+  查询——值得:不加的话"停用"是建议而不是控制。
+- refresh 路径同样检查,并且**删掉那个 refresh token** ——它才是那个会继续
+  working 的东西。
+- guard 的依赖放进 `JwtCacheModule`(它本来就被每个挂这个 guard 的模块
+  import)。在每个模块各自注册 User repo 太脆:新模块能编译通过然后在启动
+  时炸——这个坑我在这轮就踩到了(PromptToolModule)。
+
+验证:同一个探针脚本,修复后三项全部变成 "This account is no longer
+active";E2E 全绿说明正常用户不受影响。
+
 ## 03:50 (7-29) — trending 一直只返回一个;删除项目会永久漏一张封面
 
 **gallery 的 trending 策略在生产上是坏的。** 它取
