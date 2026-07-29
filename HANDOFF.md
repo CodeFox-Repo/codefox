@@ -757,6 +757,26 @@ lost their borders — a bordered button inside a bordered capsule was the
 same double-frame problem as the chat bubble; they are now text/icons with
 a hover wash, and the single solid fill marks Sign Up as the one primary.
 
+## 08:20 (7-29) — 沙箱配额用尽,却告诉用户"模型账户没钱了"
+
+这轮查 turn 失败时用户到底看到什么。`explain()` 按状态码分类,但**沙箱错误
+也带 provider 形状的状态码**,于是被模型那几条规则抢走了 —— 实测:一个
+沙箱配额 402(**正是 HANDOFF 里记着的、当前挡住 prod Next-mode turn 的那个
+故障**)被报成"模型提供方账户没钱了"。**指向了错误的厂商,也指向了错误的
+待办**。另外三种沙箱故障(未配置凭证 / 启动超时 / 连不上)则全部落到通用
+的"agent 出错停止了",用户无从判断该不该重试。
+
+沙箱规则放在最前面,因为它们更具体;之后按原因分开:
+- 配额用尽 → "沙箱配额用完了"
+- 缺 VERCEL_PROJECT_ID / TOKEN / OIDC → "这个部署没配置沙箱"
+- 超时 → "沙箱没能及时启动,再试一次"(明确告诉用户值得重试)
+- 其他 → "连不上沙箱"(仍然比通用句子有指向)
+
+模型侧的四条分类一字未动,单测里专门有一条守住"真正的模型 402 仍然报模型"。
+
+验证:10 种错误形状逐一实测分类正确;单测从 4 条加到 9 条,**并验证过新增
+的 4 条在还原 fix 后会失败**。后端单测 84 全绿。
+
 ## 07:50 (7-29) — 问题卡片:模型漏了 id,回答一题就等于回答了全部
 
 planner 的问题卡片是产品的第一印象,但从没验证过。先实测三种 prompt

@@ -23,6 +23,23 @@ export const explain = (error: unknown): string => {
           .filter(Boolean)
           .join(' ') || JSON.stringify(error ?? '');
 
+  // Sandbox failures first: they carry provider-shaped status codes, so the
+  // model-provider rules below would claim them. A sandbox quota 402 read as
+  // "the model account is out of credit" — the wrong vendor, and the wrong
+  // thing to go fix.
+  if (/sandbox/i.test(text)) {
+    if (/402|quota|Payment Required|limit.*exceeded/i.test(text)) {
+      return 'The project sandbox could not start: the sandbox quota is used up.';
+    }
+    if (/VERCEL_PROJECT_ID|VERCEL_TEAM_ID|VERCEL_TOKEN|credentials|OIDC/i.test(text)) {
+      return 'The project sandbox is not configured on this deployment.';
+    }
+    if (/timeout|timed out|did not become ready|ETIMEDOUT/i.test(text)) {
+      return 'The project sandbox did not start in time. Try again.';
+    }
+    return 'The project sandbox could not be reached.';
+  }
+
   if (/402|Payment Required|more credits|insufficient/i.test(text)) {
     return 'The model provider rejected the request: the account is out of credit.';
   }
