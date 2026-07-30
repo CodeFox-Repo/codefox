@@ -349,7 +349,11 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                     'opacity-50 cursor-not-allowed'
                 )}
               >
-                <SelectValue />
+                {/* Not <SelectValue/>: it clones the item's two-line content
+                    (title + blurb) into the h-9 trigger and blows it up. */}
+                <span className="whitespace-nowrap font-semibold">
+                  {template === 'html' ? 'Page' : 'Next.js app'}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="html">
@@ -389,13 +393,16 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                     'rounded-lg focus:outline-none hover:bg-accent',
                     'transition-all duration-200 active:scale-[0.98]',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    // the base trigger's [&>span]:line-clamp-1 turns the child
+                    // span into -webkit-box, stacking swatch over name
+                    '[&>span]:!flex [&>span]:items-center [&>span]:gap-2',
                     (isLoading || isRegenerating) &&
                       'opacity-50 cursor-not-allowed'
                   )}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="whitespace-nowrap">
                     <Swatch system={chosenStyle} />
-                    <span>{chosenStyle?.name}</span>
+                    <span className="font-semibold">{chosenStyle?.name}</span>
                   </span>
                 </SelectTrigger>
                 <SelectContent>
