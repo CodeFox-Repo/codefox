@@ -1,0 +1,50 @@
+[
+  {
+    "id": "editorial",
+    "name": "Editorial",
+    "blurb": "Warm paper, serif headlines, magazine pacing",
+    "tokens": "  --bg: #fbf7f0;\n  --surface: #fffdf8;\n  --surface-warm: #f1e6d6;\n  --fg: #1f1a16;\n  --fg-2: #4b4038;\n  --muted: #7d7168;\n  --meta: #9a5a2f;\n  --border: #ded3c5;\n  --border-soft: #eee5da;\n  --accent: #9a5a2f;\n  --accent-on: #ffffff;\n  --success: #4f8a4f;\n  --warn: #c9822f;\n  --danger: #b33a3a;\n  --font-display: Georgia, \"Times New Roman\", serif;\n  --font-body: \"Source Serif Pro\", Georgia, serif;\n  --font-mono: \"IBM Plex Mono\", ui-monospace, Menlo, monospace;\n  --text-base: 18px;\n  --text-lg: 21px;\n  --text-xl: 30px;\n  --text-2xl: 44px;\n  --text-3xl: 66px;\n  --text-4xl: 92px;\n  --leading-body: 1.65;\n  --leading-tight: 1;\n  --tracking-display: -0.02em;\n  --section-y: 112px;\n  --radius-sm: 4px;\n  --radius-md: 8px;\n  --radius-lg: 12px;\n  --elev-raised: 0 20px 50px rgba(31, 26, 22, 0.12);\n  --focus-ring: 0 0 0 4px rgba(154, 90, 47, 0.24);\n  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);\n  --container-max: 1120px;"
+  },
+  {
+    "id": "product",
+    "name": "Product",
+    "blurb": "Near-black canvas, indigo accent, tight product-app rhythm",
+    "tokens": "  --bg: #08090a;\n  --surface: #191a1b;\n  --surface-warm: #191a1b;\n  --fg: #f7f8f8;\n  --fg-2: #d0d6e0;\n  --muted: #8a8f98;\n  --meta: #62666d;\n  --border: rgba(255, 255, 255, 0.08);\n  --border-soft: rgba(255, 255, 255, 0.05);\n  --accent: #5e6ad2;\n  --accent-on: #ffffff;\n  --success: #27a644;\n  --warn: #eab308;\n  --danger: #dc2626;\n  --font-display: \"Inter\", -apple-system, system-ui, \"Segoe UI\", Roboto, sans-serif;\n  --font-body: \"Inter\", -apple-system, system-ui, \"Segoe UI\", Roboto, sans-serif;\n  --font-mono: ui-monospace, \"SF Mono\", Menlo, Monaco, Consolas, monospace;\n  --text-base: 16px;\n  --text-lg: 18px;\n  --text-xl: 24px;\n  --text-2xl: 32px;\n  --text-3xl: 48px;\n  --text-4xl: 72px;\n  --leading-body: 1.5;\n  --leading-tight: 1;\n  --tracking-display: -0.022em;\n  --section-y: 80px;\n  --radius-sm: 6px;\n  --radius-md: 8px;\n  --radius-lg: 12px;\n  --elev-raised: 0 8px 24px rgba(0, 0, 0, 0.5);\n  --focus-ring: 0 0 0 3px rgba(94, 106, 210, 0.45);\n  --ease-standard: cubic-bezier(0.2, 0, 0, 1);\n  --container-max: 1200px;"
+  },
+  {
+    "id": "minimal",
+    "name": "Minimal",
+    "blurb": "White, black, one hairline — nothing decorative",
+    "tokens": "  --bg: #ffffff;\n  --surface: #fafafa;\n  --surface-warm: #f5f5f5;\n  --fg: #111111;\n  --fg-2: #3a3a3a;\n  --muted: #777777;\n  --meta: #111111;\n  --border: #e2e2e2;\n  --border-soft: #eeeeee;\n  --accent: #111111;\n  --accent-on: #ffffff;\n  --success: #168a46;\n  --warn: #b7791f;\n  --danger: #c53030;\n  --font-display: Inter, system-ui, sans-serif;\n  --font-body: Inter, system-ui, sans-serif;\n  --font-mono: ui-monospace, \"SF Mono\", Menlo, monospace;\n  --text-base: 16px;\n  --text-lg: 18px;\n  --text-xl: 22px;\n  --text-2xl: 32px;\n  --text-3xl: 48px;\n  --text-4xl: 68px;\n  --leading-body: 1.6;\n  --leading-tight: 1.05;\n  --tracking-display: -0.02em;\n  --section-y: 96px;\n  --radius-sm: 2px;\n  --radius-md: 4px;\n  --radius-lg: 8px;\n  --elev-raised: 0 1px 2px rgba(0, 0, 0, 0.06);\n  --focus-ring: 0 0 0 3px rgba(17, 17, 17, 0.2);\n  --ease-standard: cubic-bezier(0.2, 0, 0, 1);\n  --container-max: 1080px;"
+  },
+  {
+    "id": "brutalist",
+    "name": "Brutalist",
+    "blurb": "Hard black rules, loud yellow, zero radius",
+    "tokens": "  --bg: #f5f1e8;\n  --surface: #ffffff;\n  --surface-warm: #ffef5a;\n  --fg: #000000;\n  --fg-2: #222222;\n  --muted: #555555;\n  --meta: #000000;\n  --border: #000000;\n  --border-soft: #000000;\n  --accent: #ffef5a;\n  --accent-on: #000000;\n  --success: #00b050;\n  --warn: #ff8c00;\n  --danger: #ff2b2b;\n  --font-display: \"Arial Black\", Impact, sans-serif;\n  --font-body: Arial, Helvetica, sans-serif;\n  --font-mono: \"Courier New\", ui-monospace, monospace;\n  --text-base: 17px;\n  --text-lg: 20px;\n  --text-xl: 28px;\n  --text-2xl: 42px;\n  --text-3xl: 64px;\n  --text-4xl: 88px;\n  --leading-body: 1.35;\n  --leading-tight: 0.98;\n  --tracking-display: 0;\n  --section-y: 88px;\n  --radius-sm: 0px;\n  --radius-md: 0px;\n  --radius-lg: 0px;\n  --elev-raised: 8px 8px 0 #000000;\n  --focus-ring: 0 0 0 4px #000000, 0 0 0 8px #ffef5a;\n  --ease-standard: steps(2, end);\n  --container-max: 1160px;"
+  },
+  {
+    "id": "luxury",
+    "name": "Luxury",
+    "blurb": "Black lacquer, champagne gold, spacious",
+    "tokens": "  --bg: #080706;\n  --surface: #151310;\n  --surface-warm: #241e14;\n  --fg: #fff8ea;\n  --fg-2: #d8cdb7;\n  --muted: #9f927c;\n  --meta: #c6a15b;\n  --border: #3a3020;\n  --border-soft: #282217;\n  --accent: #c6a15b;\n  --accent-on: #080706;\n  --success: #5fa36a;\n  --warn: #d8a94f;\n  --danger: #d85a52;\n  --font-display: \"Didot\", \"Bodoni 72\", Georgia, serif;\n  --font-body: \"Avenir Next\", Inter, sans-serif;\n  --font-mono: ui-monospace, \"SF Mono\", Menlo, monospace;\n  --text-base: 16px;\n  --text-lg: 19px;\n  --text-xl: 28px;\n  --text-2xl: 44px;\n  --text-3xl: 68px;\n  --text-4xl: 96px;\n  --leading-body: 1.6;\n  --leading-tight: 0.98;\n  --tracking-display: -0.015em;\n  --section-y: 120px;\n  --radius-sm: 8px;\n  --radius-md: 14px;\n  --radius-lg: 24px;\n  --elev-raised: 0 30px 90px rgba(0, 0, 0, 0.52);\n  --focus-ring: 0 0 0 4px rgba(198, 161, 91, 0.3);\n  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);\n  --container-max: 1160px;"
+  },
+  {
+    "id": "neon",
+    "name": "Neon",
+    "blurb": "Dark violet night, glowing accent, high energy",
+    "tokens": "  --bg: #070711;\n  --surface: #111126;\n  --surface-warm: #1e1540;\n  --fg: #f8f7ff;\n  --fg-2: #d6ccff;\n  --muted: #9d8ad4;\n  --meta: #c084fc;\n  --border: #34265e;\n  --border-soft: #241c42;\n  --accent: #c084fc;\n  --accent-on: #13051f;\n  --success: #39ff88;\n  --warn: #fff34d;\n  --danger: #ff4d8d;\n  --font-display: Inter, system-ui, sans-serif;\n  --font-body: Inter, system-ui, sans-serif;\n  --font-mono: ui-monospace, \"SF Mono\", Menlo, monospace;\n  --text-base: 16px;\n  --text-lg: 18px;\n  --text-xl: 24px;\n  --text-2xl: 36px;\n  --text-3xl: 54px;\n  --text-4xl: 76px;\n  --leading-body: 1.52;\n  --leading-tight: 1.06;\n  --tracking-display: -0.025em;\n  --section-y: 96px;\n  --radius-sm: 10px;\n  --radius-md: 16px;\n  --radius-lg: 24px;\n  --elev-raised: 0 24px 80px rgba(192, 132, 252, 0.22);\n  --focus-ring: 0 0 0 4px rgba(192, 132, 252, 0.32);\n  --ease-standard: cubic-bezier(0.2, 0, 0, 1);\n  --container-max: 1180px;"
+  },
+  {
+    "id": "glass",
+    "name": "Glass",
+    "blurb": "Frosted panels on a cool blue wash, deep radii",
+    "tokens": "  --bg: #eef6ff;\n  --surface: rgba(255, 255, 255, 0.74);\n  --surface-warm: rgba(238, 246, 255, 0.72);\n  --fg: #102033;\n  --fg-2: #34465f;\n  --muted: #60708a;\n  --meta: #4f8cff;\n  --border: rgba(255, 255, 255, 0.64);\n  --border-soft: rgba(255, 255, 255, 0.38);\n  --accent: #4f8cff;\n  --accent-on: #ffffff;\n  --success: #22c55e;\n  --warn: #f59e0b;\n  --danger: #ef4444;\n  --font-display: Inter, system-ui, sans-serif;\n  --font-body: Inter, system-ui, sans-serif;\n  --font-mono: ui-monospace, \"SF Mono\", Menlo, monospace;\n  --text-base: 16px;\n  --text-lg: 18px;\n  --text-xl: 24px;\n  --text-2xl: 36px;\n  --text-3xl: 54px;\n  --text-4xl: 76px;\n  --leading-body: 1.55;\n  --leading-tight: 1.04;\n  --tracking-display: -0.025em;\n  --section-y: 104px;\n  --radius-sm: 16px;\n  --radius-md: 24px;\n  --radius-lg: 36px;\n  --elev-raised: 0 24px 80px rgba(79, 140, 255, 0.18);\n  --focus-ring: 0 0 0 4px rgba(79, 140, 255, 0.28);\n  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);\n  --container-max: 1180px;"
+  },
+  {
+    "id": "retro",
+    "name": "Retro",
+    "blurb": "Sun-faded cream, chunky terracotta, typewriter display",
+    "tokens": "  --bg: #fff4cf;\n  --surface: #fffaf0;\n  --surface-warm: #ffdca8;\n  --fg: #2a1810;\n  --fg-2: #593625;\n  --muted: #8a6652;\n  --meta: #d24b1f;\n  --border: #d9aa7a;\n  --border-soft: #efd0ab;\n  --accent: #d24b1f;\n  --accent-on: #ffffff;\n  --success: #3d8f4f;\n  --warn: #f2a93b;\n  --danger: #b83a2f;\n  --font-display: \"Courier New\", ui-monospace, monospace;\n  --font-body: Inter, system-ui, sans-serif;\n  --font-mono: \"Courier New\", ui-monospace, monospace;\n  --text-base: 16px;\n  --text-lg: 18px;\n  --text-xl: 24px;\n  --text-2xl: 36px;\n  --text-3xl: 54px;\n  --text-4xl: 76px;\n  --leading-body: 1.52;\n  --leading-tight: 1.06;\n  --tracking-display: 0;\n  --section-y: 96px;\n  --radius-sm: 4px;\n  --radius-md: 8px;\n  --radius-lg: 12px;\n  --elev-raised: 6px 6px 0 rgba(42, 24, 16, 0.26);\n  --focus-ring: 0 0 0 4px rgba(210, 75, 31, 0.28);\n  --ease-standard: cubic-bezier(0.2, 0, 0, 1);\n  --container-max: 1180px;"
+  }
+]

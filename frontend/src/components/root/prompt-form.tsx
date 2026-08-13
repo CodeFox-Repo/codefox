@@ -23,6 +23,12 @@ import { cn } from '@/lib/utils';
 import { useModels } from '@/hooks/useModels';
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { logger } from '@/app/log/logger';
+import {
+  DESIGN_SYSTEMS,
+  DesignSystemChoice,
+  DesignSystemOptions,
+  Swatch,
+} from '@/components/design-systems';
 
 export interface PromptFormRef {
   getPromptData: () => {
@@ -33,31 +39,6 @@ export interface PromptFormRef {
     style: string;
   };
   clearMessage: () => void;
-}
-
-interface DesignSystemChoice {
-  id: string;
-  name: string;
-  category: string;
-  blurb: string;
-  bg: string;
-  fg: string;
-  accent: string;
-}
-
-/**
- * Systems under their category heading, both in the order the backend sent
- * them. A flat list of 150+ styles is a scroll, not a choice.
- */
-function groupByCategory(
-  systems: DesignSystemChoice[]
-): [string, DesignSystemChoice[]][] {
-  const groups = new Map<string, DesignSystemChoice[]>();
-  for (const system of systems) {
-    const key = system.category || 'Other';
-    groups.set(key, [...(groups.get(key) ?? []), system]);
-  }
-  return [...groups];
 }
 
 interface PromptFormProps {
@@ -75,37 +56,6 @@ const REGENERATE_DESCRIPTION = gql`
     regenerateDescription(input: $input)
   }
 `;
-
-const DESIGN_SYSTEMS = gql`
-  query DesignSystems {
-    designSystems {
-      id
-      name
-      category
-      blurb
-      bg
-      fg
-      accent
-    }
-  }
-`;
-
-/** A style, shown as itself: canvas, text, accent. */
-function Swatch({ system }: { system?: DesignSystemChoice }) {
-  if (!system) return null;
-  return (
-    <span
-      aria-hidden
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/60"
-      style={{ background: system.bg }}
-    >
-      <span
-        className="h-2 w-2 rounded-full"
-        style={{ background: system.accent }}
-      />
-    </span>
-  );
-}
 
 export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
   function PromptForm(
@@ -435,26 +385,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                   </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {groupByCategory(designSystems).map(([category, group]) => (
-                    <SelectGroup key={category}>
-                      <SelectLabel>{category}</SelectLabel>
-                      {group.map((system) => (
-                        <SelectItem key={system.id} value={system.id}>
-                          <div className="flex items-center gap-2.5">
-                            <Swatch system={system} />
-                            <div className="flex flex-col items-start">
-                              <span className="font-semibold">
-                                {system.name}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {system.blurb}
-                              </span>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
+                  <DesignSystemOptions systems={designSystems} />
                 </SelectContent>
               </Select>
             )}

@@ -108,4 +108,50 @@ describe('swapTokens', () => {
     expect(out).toContain('--accent: #ff385c;');
     expect(out).toContain('--section-y:');
   });
+
+  it('is idempotent — restyling twice to the same system is a no-op', () => {
+    const once = swapTokens(page, designSystem('airbnb').tokens);
+    expect(swapTokens(once, designSystem('airbnb').tokens)).toBe(once);
+  });
+
+  it('rewrites only the first :root, leaving a later one alone', () => {
+    // A page that grew a second token block keeps it: guessing which one is
+    // "the design" would be how a restyle silently breaks a dark-mode scope.
+    const twoBlocks = `${page}<style>:root { --late: 1px; }</style>`;
+    const out = swapTokens(twoBlocks, '  --bg: #101010;');
+    expect(out).toContain('--late: 1px;');
+    expect(out).toContain('--bg: #101010;');
+  });
+});
+
+/**
+ * The catalog is generated from open-design, but codefox's own eight systems
+ * were edited locally after they were first copied over. A re-import must not
+ * quietly revert those edits, and must not drop the ones with no upstream
+ * counterpart at all.
+ */
+describe('local systems survive the import', () => {
+  const ORIGINAL_EIGHT = [
+    'editorial',
+    'product',
+    'minimal',
+    'brutalist',
+    'luxury',
+    'neon',
+    'glass',
+    'retro',
+  ];
+
+  it('keeps all eight, in front, with editorial still the fallback', () => {
+    expect(DESIGN_SYSTEMS.slice(0, 8).map((s) => s.id)).toEqual(ORIGINAL_EIGHT);
+    // designSystem() falls back to the first row, so this pins the default
+    // style a project scaffolds with when no id is given.
+    expect(designSystem(null).id).toBe('editorial');
+  });
+
+  it('keeps the locally-edited values, not the upstream ones', () => {
+    // minimal diverged from upstream in 8 of its 34 tokens; this is one of
+    // them, and it flipping means a re-import clobbered the local edit.
+    expect(designSystem('minimal').tokens).toContain('--accent: #111111;');
+  });
 });

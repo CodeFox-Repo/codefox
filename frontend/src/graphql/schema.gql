@@ -117,6 +117,7 @@ type DesignSystemChoice {
   accent: String!
   bg: String!
   blurb: String!
+  category: String!
   fg: String!
   id: String!
   name: String!
@@ -184,6 +185,7 @@ type Mutation {
   regenerateDescription(input: String!): String!
   registerUser(input: RegisterUserInput!): User!
   resendConfirmationEmail(input: ResendEmailInput!): EmailConfirmationResponse!
+  restyleProject(projectId: ID!, styleId: String!): RestyleResult!
   saveMessage(input: ChatInputType!): Boolean!
   updateChatModel(chatId: String!, model: String!): Chat
   updateChatTitle(updateChatTitleInput: UpdateChatTitleInput!): Chat
@@ -259,6 +261,11 @@ input RegisterUserInput {
 
 input ResendEmailInput {
   email: String!
+}
+
+type RestyleResult {
+  message: String!
+  ok: Boolean!
 }
 
 enum Role {

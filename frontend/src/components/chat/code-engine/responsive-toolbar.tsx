@@ -11,6 +11,7 @@ import {
   GitFork,
   Share2,
   FileText,
+  Palette,
   Terminal,
   Loader,
 } from 'lucide-react';
@@ -22,6 +23,14 @@ import { GET_PROJECT } from '../../../graphql/request';
 import { ProjectContext } from './project-context';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { shareUrl } from '@/lib/share';
+import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectTrigger } from '@/components/ui/select';
+import {
+  DESIGN_SYSTEMS,
+  DesignSystemChoice,
+  DesignSystemOptions,
+  RESTYLE_PROJECT,
+} from '@/components/design-systems';
 
 interface ResponsiveToolbarProps {
   isLoading: boolean;
@@ -97,6 +106,30 @@ const ResponsiveToolbar = ({
   const isPage = projectData?.getProject?.template === 'html';
   const projectPath: string | undefined = projectData?.getProject?.projectPath;
   const [printing, setPrinting] = useState(false);
+
+  // Restyling swaps the page's token block server-side. The preview polls the
+  // file every few seconds, so it picks the new look up on its own — nothing
+  // to reload here.
+  const { data: styleData } = useQuery<{
+    designSystems: DesignSystemChoice[];
+  }>(DESIGN_SYSTEMS, { skip: !isPage });
+  const styleSystems = styleData?.designSystems ?? [];
+  const [restyle, { loading: restyling }] = useMutation(RESTYLE_PROJECT);
+
+  const handleRestyle = async (styleId: string) => {
+    if (!projectId || restyling) return;
+    try {
+      const { data } = await restyle({ variables: { projectId, styleId } });
+      const result = data?.restyleProject;
+      // `ok: false` is a reason the user needs to read (the agent restructured
+      // the styles, say), not a failure to log.
+      if (result?.ok) toast.success(result.message);
+      else toast.error(result?.message ?? 'Could not restyle this page');
+    } catch (error) {
+      logger.error('Restyle failed:', error);
+      toast.error('Could not restyle this page');
+    }
+  };
 
   const handlePrint = async () => {
     if (!projectPath || printing) return;
@@ -323,6 +356,32 @@ const ResponsiveToolbar = ({
                 )}
                 Download
               </Button>
+              {/* Pages only, same reason as PDF below: a Next app has no one
+                  file whose token block is "the design". Swapping is
+                  snapshotted server-side, so History undoes it. */}
+              {isPage && styleSystems.length > 0 && (
+                <Select value="" onValueChange={handleRestyle}>
+                  <SelectTrigger
+                    className={cn(
+                      'h-8 w-auto gap-1 border border-border bg-background px-3 text-sm',
+                      'hover:bg-accent focus:ring-0 focus:ring-offset-0',
+                      '[&>svg:last-child]:hidden',
+                      restyling && 'pointer-events-none opacity-50'
+                    )}
+                    title="Change this page's design system"
+                  >
+                    {restyling ? (
+                      <Loader className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <Palette className="w-3 h-3 mr-1" />
+                    )}
+                    Style
+                  </SelectTrigger>
+                  <SelectContent>
+                    <DesignSystemOptions systems={styleSystems} />
+                  </SelectContent>
+                </Select>
+              )}
               {/* Pages only: printing a Next app means printing whatever its
                   dev server happens to be serving, which is not a
                   deliverable anyone asked for. */}

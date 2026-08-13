@@ -26,6 +26,7 @@ import { validateAndBufferFile } from 'src/common/security/file_check';
 import {
   DesignSystemChoice,
   designSystemChoices,
+  RestyleResult,
 } from './design-systems';
 
 @Resolver(() => Project)
@@ -146,6 +147,21 @@ export class ProjectsResolver {
   @Public()
   designSystems(): DesignSystemChoice[] {
     return designSystemChoices();
+  }
+
+  /**
+   * Swap a page's design system after the fact. Snapshotted, so the previous
+   * look stays in History — the picker is not a one-way door.
+   */
+  @Mutation(() => RestyleResult)
+  @JWTAuth()
+  async restyleProject(
+    @GetUserIdFromToken() userId: string,
+    @Args('projectId', { type: () => ID }) projectId: string,
+    @Args('styleId') styleId: string,
+  ): Promise<RestyleResult> {
+    this.logger.log(`User ${userId} restyling ${projectId} to ${styleId}`);
+    return this.projectService.restyleProject(userId, projectId, styleId);
   }
 
   // @Mutation(() => Project)

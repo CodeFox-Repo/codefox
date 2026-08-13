@@ -34,6 +34,7 @@ import {
 import { UserService } from 'src/user/user.service';
 import { PreviewService } from './preview.service';
 import { WorkspaceService } from './workspace.service';
+import { DESIGN_SYSTEMS, designSystem, swapTokens } from './design-systems';
 import {
   SANDBOX_ROOT,
   sandboxHandle,
@@ -533,6 +534,56 @@ export class ProjectService {
         ? error
         : new InternalServerErrorException('Error forking the project.');
     }
+  }
+
+  /**
+   * Change a page project's design system in place.
+   *
+   * The page reads `var(--*)` throughout, so swapping the `:root` body is the
+   * whole restyle — no agent turn, no rewrite of the user's markup. Snapshots
+   * first, which makes it undoable through the History panel rather than
+   * needing an undo of its own.
+   *
+   * Returns a message instead of throwing when the page has no `:root` left:
+   * that is the agent having restructured the styles, which is a thing to
+   * explain to the user, not a server error.
+   */
+  async restyleProject(
+    userId: string,
+    projectId: string,
+    styleId: string,
+  ): Promise<{ ok: boolean; message: string }> {
+    const project = await this.getProjectById(projectId);
+    this.checkProjectOwnership(project, userId);
+
+    // The Next starter carries its own styling; there is no single page whose
+    // token block is "the design".
+    if (project.template !== 'html') {
+      return { ok: false, message: 'Only page projects have a design system.' };
+    }
+    if (!DESIGN_SYSTEMS.some((s) => s.id === styleId)) {
+      return { ok: false, message: 'That style does not exist.' };
+    }
+
+    const workspace = await this.workspaces.for(project.projectPath);
+    const html = await workspace.readFile('index.html');
+    if (html === null) {
+      return { ok: false, message: 'This project has no index.html to style.' };
+    }
+
+    const system = designSystem(styleId);
+    const restyled = swapTokens(html, system.tokens);
+    if (restyled === null) {
+      return {
+        ok: false,
+        message:
+          'The page’s styles have been restructured — ask the agent to restyle it instead.',
+      };
+    }
+
+    await workspace.snapshot(`Before restyle to ${system.name}`);
+    await workspace.writeFile('index.html', restyled);
+    return { ok: true, message: `Restyled to ${system.name}.` };
   }
 
   /**
