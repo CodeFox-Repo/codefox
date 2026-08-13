@@ -8,9 +8,9 @@
  * Runs grep-style checks against an artifact body and returns a list of
  * structured findings. P0 findings indicate the artifact is regressing
  * to AI-slop tropes (purple gradients, emoji feature icons, sans-serif
- * display, invented metrics, lorem-style filler) and are surfaced back
- * to the agent as a system message so it can self-correct on the next
- * turn. P1/P2 findings are advisories.
+ * display, invented metrics, lorem-style filler); P1/P2 are advisories.
+ * They are shown to the USER in the Changes panel — nothing feeds them
+ * back to the agent, so it does not self-correct on the next turn.
  *
  * The linter is deliberately greppy: cheap, deterministic, and trivial
  * to extend. It does NOT parse HTML — false positives are tolerable
@@ -511,37 +511,6 @@ export function lintArtifact(rawHtml: unknown): LintFinding[] {
   }
 
   return out;
-}
-
-/**
- * Format findings as a Markdown block ready to splice into a system
- * reminder back to the agent. P0 findings appear first.
- *
- * @param {LintFinding[]} findings
- * @returns {string}
- */
-export function renderFindingsForAgent(findings: LintFinding[]): string {
-  if (findings.length === 0) return '';
-  const sorted = [...findings].sort((a, b) => severity(a) - severity(b));
-  const lines = [
-    '<artifact-lint>',
-    'The artifact you just produced has the following anti-slop / design-token issues.',
-    `${findings.filter((f) => f.severity === 'P0').length} P0 (must fix), ${findings.filter((f) => f.severity === 'P1').length} P1 (should fix), ${findings.filter((f) => f.severity === 'P2').length} P2 (nice to have).`,
-    'Re-emit a corrected `<artifact>` in your next turn — do not write a separate explanation; the user has the previous version already.',
-    '',
-  ];
-  for (const f of sorted) {
-    lines.push(`**[${f.severity}] ${f.id}** — ${f.message}`);
-    lines.push(`  Fix: ${f.fix}`);
-    if (f.snippet) lines.push(`  Snippet: \`${f.snippet}\``);
-    lines.push('');
-  }
-  lines.push('</artifact-lint>');
-  return lines.join('\n');
-}
-
-function severity(f: LintFinding): number {
-  return f.severity === 'P0' ? 0 : f.severity === 'P1' ? 1 : 2;
 }
 
 function clip(s: string): string {

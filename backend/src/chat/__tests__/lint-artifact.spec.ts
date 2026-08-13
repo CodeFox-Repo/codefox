@@ -1,4 +1,4 @@
-import { lintArtifact, renderFindingsForAgent } from '../lint-artifact';
+import { lintArtifact } from '../lint-artifact';
 
 describe('lintArtifact', () => {
   it('flags a violet gradient as P0', () => {
@@ -24,10 +24,4 @@ describe('lintArtifact', () => {
     expect(lintArtifact(null)).toEqual([]);
   });
 
-  it('renders findings for the agent worst-first', () => {
-    const rendered = renderFindingsForAgent(
-      lintArtifact(`<style>.h { background: linear-gradient(90deg, violet, #fff); }</style>`),
-    );
-    expect(rendered).toContain('purple-gradient');
-  });
 });

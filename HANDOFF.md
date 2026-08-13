@@ -201,7 +201,8 @@ framework. They exist because most of this session's logic is a branch that
 only fires when something is already broken, which no ordinary test run
 reaches. Each asserts against real source text plus a runtime case, and each
 was verified to *fail* when its fix is reverted — a check that cannot fail is
-not a check. Run them all: `for f in scripts/check-*.mjs; do node "$f"; done`.
+not a check. Run them all with `pnpm check`, which is also a CI step on both
+workflows.
 
 | Script | Asserts |
 |---|---|
@@ -212,7 +213,7 @@ not a check. Run them all: `for f in scripts/check-*.mjs; do node "$f"; done`.
 | `check-preview-readiness` | readiness is the response, not a second probe; retry reachable |
 | `check-question-card` | the parser survives 11 model-written shapes |
 | `check-project-relative` | sandbox paths stripped from replies, ordinary prose untouched |
-| `check-style-card-project` | a palette card restyles the project on screen |
+| `check-roles-guarded` | role names served only by the guarded `myRoles` query |
 
 ### Traps
 
@@ -922,10 +923,7 @@ planner 的问题卡片是产品的第一印象,但从没验证过。先实测�
 位置 `q${index}` —— 位置才是真正唯一的东西。实测五种形状(无 id / 重复 id
 / 空字符串 id / 数字 id / 正常 id)现在都是唯一且互相隔离的。
 
-`scripts/check-question-card.mjs`:9 种模型可能写出的形状的自检(含半截
-流式块、malformed JSON、选项为空)。**验证过它会失败** —— 把 fix 还原后
-脚本报错退出 1,恢复后通过。前端没有测试框架,为一个纯函数立一套 runner
-比这个函数本身还重,所以用可直接运行的脚本。
+自检脚本见上面的「Known-good check scripts」表(`pnpm check`)。
 
 ## 07:20 (7-29) — 页面可以导出成 PDF 了
 
