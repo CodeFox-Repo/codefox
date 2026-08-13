@@ -199,9 +199,9 @@ export default function HomePage() {
             <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
               <Image
                 src="/demo/product-shot.png"
-                alt="The generated habit tracker running on localhost inside CodeFox preview"
+                alt="A generated analog-synth sound designer running inside CodeFox preview"
                 width={1600}
-                height={1165}
+                height={1147}
                 className="block h-auto w-full"
                 priority
               />
