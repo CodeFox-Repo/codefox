@@ -336,7 +336,10 @@ export default function ChatBottombar({
           </div>
 
           {/* Text input */}
-          <div className="relative flex-1 flex items-center">
+          {/* min-w-0: a flex item's default min-width is its content, so
+              without this the textarea refuses to give room back and the
+              siblings win the squeeze instead. */}
+          <div className="relative flex min-w-0 flex-1 items-center">
             <TextareaAutosize
               autoComplete="off"
               value={input}
@@ -357,18 +360,10 @@ export default function ChatBottombar({
             />
           </div>
 
-          {/* Right side - feedback & send */}
-          <div className="flex items-center mr-2 gap-2">
-            {/* A bare span said "Have feedback?" and led nowhere. */}
-            <a
-              href="https://github.com/Sma1lboy/codefox/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Have feedback?
-            </a>
-
+          {/* Right side - send. "Have feedback?" used to sit here and ate
+              ~110px of a ~230px composer, squeezing the textarea to one
+              character per line. It lives in the sidebar footer instead. */}
+          <div className="flex shrink-0 items-center mr-2 gap-2">
             {isStreaming ? (
               <>
                 {input.trim() && (

@@ -32,6 +32,17 @@ interface ChatListProps {
 
 const isUserMessage = (role: string) => role.toLowerCase() === 'user';
 
+/**
+ * The agent works in an absolute sandbox directory and says so — "I updated
+ * /tmp/.../projects/codex-a1b2/index.html", which is a path the user cannot
+ * open and did not ask about. Show what they'd type instead.
+ *
+ * Here rather than in the prompt: this also cleans up replies already stored
+ * from earlier turns, and a model told not to mention paths still will.
+ */
+const projectRelative = (text: string) =>
+  text.replace(/(?:\/[\w.-]+)*\/projects\/[\w.-]+\//g, '');
+
 export default function ChatList({
   messages,
   loadingSubmit,
@@ -107,7 +118,7 @@ export default function ChatList({
       caret={streaming ? 'block' : undefined}
       shikiTheme={['github-light', 'github-dark']}
     >
-      {content}
+      {projectRelative(content)}
     </Streamdown>
   );
 

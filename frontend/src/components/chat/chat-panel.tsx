@@ -101,6 +101,20 @@ export default function ChatContent({
           onQueue={onQueue}
           onClearQueue={onClearQueue}
         />
+        {/* Under the composer, not inside its row: on a narrow panel this link
+            was taking half the width the textarea needed. */}
+        {!inputHidden && (
+          <div className="px-3 pb-1.5 pt-1 text-right">
+            <a
+              href="https://github.com/Sma1lboy/codefox/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Have feedback?
+            </a>
+          </div>
+        )}
       </div>
     </motion.div>
   );
