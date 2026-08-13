@@ -23,6 +23,7 @@ import { getMediaDir } from '../common/utils/common-path';
 import { Project } from './project.model';
 import { assertProjectAccess } from './project-access';
 import { WorkspaceService } from './workspace.service';
+import { designSystem, DESIGN_SYSTEMS, swapTokens } from './design-systems';
 
 /**
  * Reads and writes the files of a generated project.
@@ -147,6 +148,53 @@ export class FilesController {
     const workspace = await this.workspaces.for(projectId);
     await workspace.restore(versionId);
     return { changes: await workspace.changedFiles() };
+  }
+
+  /**
+   * Restyle a page project: swap its token block for another system's.
+   *
+   * Snapshotted first, so the previous look is a version in the History panel
+   * — the restyle is undoable by the machinery that already exists rather
+   * than by a bespoke undo. Write access: this rewrites the user's page.
+   */
+  @Post('project/restyle')
+  @UseGuards(JWTAuthGuard)
+  async restyle(
+    @Req() req: Request,
+    @Body() body: { path?: string; style?: string },
+  ) {
+    const { path: projectId, style } = body ?? {};
+    if (!projectId) throw new BadRequestException('Missing path');
+    if (!style) throw new BadRequestException('Missing style');
+    // An unknown id would otherwise silently restyle to the default, which
+    // looks like the picker ignoring the click.
+    if (!DESIGN_SYSTEMS.some((s) => s.id === style)) {
+      throw new BadRequestException(`No such style: ${style}`);
+    }
+    await assertProjectAccess({
+      projects: this.projects,
+      req,
+      projectPath: projectId,
+      write: true,
+    });
+
+    const workspace = await this.workspaces.for(projectId);
+    const html = await workspace.readFile('index.html');
+    if (html === null) throw new NotFoundException('No index.html to restyle');
+
+    const system = designSystem(style);
+    const restyled = swapTokens(html, system.tokens);
+    if (restyled === null) {
+      return {
+        applied: false,
+        reason:
+          'This page no longer keeps its colors in a :root block, so the style could not be swapped. Ask the agent to restyle it instead.',
+      };
+    }
+
+    await workspace.snapshot(`Before restyle to ${system.name}`);
+    await workspace.writeFile('index.html', restyled);
+    return { applied: true, style: system.id, name: system.name };
   }
 
   @Get('project')

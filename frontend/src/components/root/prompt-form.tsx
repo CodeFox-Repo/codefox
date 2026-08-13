@@ -6,7 +6,9 @@ import Typewriter from 'typewriter-effect';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -36,10 +38,26 @@ export interface PromptFormRef {
 interface DesignSystemChoice {
   id: string;
   name: string;
+  category: string;
   blurb: string;
   bg: string;
   fg: string;
   accent: string;
+}
+
+/**
+ * Systems under their category heading, both in the order the backend sent
+ * them. A flat list of 150+ styles is a scroll, not a choice.
+ */
+function groupByCategory(
+  systems: DesignSystemChoice[]
+): [string, DesignSystemChoice[]][] {
+  const groups = new Map<string, DesignSystemChoice[]>();
+  for (const system of systems) {
+    const key = system.category || 'Other';
+    groups.set(key, [...(groups.get(key) ?? []), system]);
+  }
+  return [...groups];
 }
 
 interface PromptFormProps {
@@ -63,6 +81,7 @@ const DESIGN_SYSTEMS = gql`
     designSystems {
       id
       name
+      category
       blurb
       bg
       fg
@@ -416,18 +435,25 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                   </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {designSystems.map((system) => (
-                    <SelectItem key={system.id} value={system.id}>
-                      <div className="flex items-center gap-2.5">
-                        <Swatch system={system} />
-                        <div className="flex flex-col items-start">
-                          <span className="font-semibold">{system.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {system.blurb}
-                          </span>
-                        </div>
-                      </div>
-                    </SelectItem>
+                  {groupByCategory(designSystems).map(([category, group]) => (
+                    <SelectGroup key={category}>
+                      <SelectLabel>{category}</SelectLabel>
+                      {group.map((system) => (
+                        <SelectItem key={system.id} value={system.id}>
+                          <div className="flex items-center gap-2.5">
+                            <Swatch system={system} />
+                            <div className="flex flex-col items-start">
+                              <span className="font-semibold">
+                                {system.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {system.blurb}
+                              </span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>

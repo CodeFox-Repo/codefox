@@ -2,6 +2,7 @@ import {
   DESIGN_SYSTEMS,
   designSystem,
   designSystemChoices,
+  swapTokens,
 } from '../design-systems';
 
 /**
@@ -49,10 +50,62 @@ describe('design systems', () => {
   it('exposes parsed swatch colors, not empty strings', () => {
     // The picker renders these directly as CSS; a failed parse would show
     // as a transparent swatch and nobody would notice in a type check.
+    // The imported catalog uses oklch() and rgb() alongside hex, so this
+    // asserts a literal color of some form — specifically not a var()
+    // reference, which resolves to nothing outside the page it came from.
     for (const choice of designSystemChoices()) {
-      expect(choice.bg).toMatch(/^(#|rgba)/);
-      expect(choice.fg).toMatch(/^(#|rgba)/);
-      expect(choice.accent).toMatch(/^(#|rgba)/);
+      for (const value of [choice.bg, choice.fg, choice.accent]) {
+        expect(value).toMatch(/^(#|rgba?\(|oklch\(|hsla?\()/);
+      }
     }
+  });
+
+  it('groups every system under a category for the picker', () => {
+    for (const system of DESIGN_SYSTEMS) {
+      expect(system.category).toBeTruthy();
+      expect(system.blurb).toBeTruthy();
+    }
+  });
+});
+
+/**
+ * Restyling is a token swap: the page's own markup reads var(--*) throughout,
+ * so replacing the :root body is the whole feature. What matters is that it
+ * finds the block, leaves the rest of the file alone, and says so honestly
+ * when the agent has restructured the styles away.
+ */
+describe('swapTokens', () => {
+  const page = `<html><head><style>
+      :root {
+        --bg: #fff;
+        --accent: #000;
+      }
+      body { background: var(--bg); }
+    </style></head><body><h1>Hi</h1></body></html>`;
+
+  it('replaces the token block and nothing else', () => {
+    const out = swapTokens(page, '  --bg: #101010;\n  --accent: #ff0;');
+    expect(out).toContain('--bg: #101010;');
+    expect(out).not.toContain('--bg: #fff;');
+    // The rules that consume the tokens, and the markup, are untouched.
+    expect(out).toContain('body { background: var(--bg); }');
+    expect(out).toContain('<h1>Hi</h1>');
+  });
+
+  it('produces a page whose :root holds exactly the new values', () => {
+    const out = swapTokens(page, '  --bg: #101010;\n  --accent: #ff0;');
+    expect(/:root\s*\{([^}]*)\}/.exec(out)[1]).toMatch(
+      /--bg: #101010;\s*--accent: #ff0;/,
+    );
+  });
+
+  it('returns null when there is no :root to swap', () => {
+    expect(swapTokens('<html><body>no styles</body></html>', '--bg: #000;')).toBeNull();
+  });
+
+  it('restyles a real system into the starter shape', () => {
+    const out = swapTokens(page, designSystem('airbnb').tokens);
+    expect(out).toContain('--accent: #ff385c;');
+    expect(out).toContain('--section-y:');
   });
 });
