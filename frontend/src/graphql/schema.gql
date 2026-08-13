@@ -253,6 +253,7 @@ type Query {
   googleAuthAvailable: Boolean!
   logout: Boolean!
   me: User!
+  myRoles: [String!]!
   registrationOpen: Boolean!
   scenarios: [ScenarioChoice!]!
 }
@@ -329,7 +330,6 @@ type User {
   isEmailConfirmed: Boolean!
   lastEmailSendTime: Date!
   projects: [Project!]!
-  roles: [String!]!
   subscribedProjects: [Project!] @deprecated(reason: "Use projects with forkedFromId instead")
   updatedAt: Date!
   username: String!

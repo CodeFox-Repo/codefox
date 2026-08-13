@@ -155,8 +155,16 @@ export type CreateProjectInput = {
   model?: InputMaybe<Scalars['String']['input']>;
   projectName?: InputMaybe<Scalars['String']['input']>;
   public?: InputMaybe<Scalars['Boolean']['input']>;
+  scenario?: InputMaybe<Scalars['String']['input']>;
   style?: InputMaybe<Scalars['String']['input']>;
   template?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type DeployResult = {
+  __typename: 'DeployResult';
+  message: Scalars['String']['output'];
+  ok: Scalars['Boolean']['output'];
+  url: Scalars['String']['output'];
 };
 
 export type DesignSystemChoice = {
@@ -231,6 +239,7 @@ export type Mutation = {
   createProject: Chat;
   deleteChat: Scalars['Boolean']['output'];
   deleteProject: Scalars['Boolean']['output'];
+  deployProject: DeployResult;
   dropLastAssistantReply: Scalars['Boolean']['output'];
   forkProject: Chat;
   login: LoginResponse;
@@ -288,6 +297,12 @@ export type MutationDeleteChatArgs = {
 
 export type MutationDeleteProjectArgs = {
   projectId: Scalars['String']['input'];
+};
+
+export type MutationDeployProjectArgs = {
+  projectId: Scalars['ID']['input'];
+  provider: Scalars['String']['input'];
+  token: Scalars['String']['input'];
 };
 
 export type MutationDropLastAssistantReplyArgs = {
@@ -403,7 +418,9 @@ export type Query = {
   googleAuthAvailable: Scalars['Boolean']['output'];
   logout: Scalars['Boolean']['output'];
   me: User;
+  myRoles: Array<Scalars['String']['output']>;
   registrationOpen: Scalars['Boolean']['output'];
+  scenarios: Array<ScenarioChoice>;
 };
 
 export type QueryCheckTokenArgs = {
@@ -451,6 +468,13 @@ export type RestyleResult = {
 
 export type Role = 'Assistant' | 'System' | 'User';
 
+export type ScenarioChoice = {
+  __typename: 'ScenarioChoice';
+  blurb: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
 export type TurnStepInput = {
   file?: InputMaybe<Scalars['String']['input']>;
   kind: Scalars['String']['input'];
@@ -489,7 +513,6 @@ export type User = {
   isEmailConfirmed: Scalars['Boolean']['output'];
   lastEmailSendTime: Scalars['Date']['output'];
   projects: Array<Project>;
-  roles: Array<Scalars['String']['output']>;
   /** @deprecated Use projects with forkedFromId instead */
   subscribedProjects?: Maybe<Array<Project>>;
   updatedAt: Scalars['Date']['output'];
@@ -622,6 +645,7 @@ export type ResolversTypes = ResolversObject<{
   CheckTokenInput: CheckTokenInput;
   CreateProjectInput: CreateProjectInput;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
+  DeployResult: ResolverTypeWrapper<DeployResult>;
   DesignSystemChoice: ResolverTypeWrapper<DesignSystemChoice>;
   EmailConfirmationResponse: ResolverTypeWrapper<EmailConfirmationResponse>;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -641,6 +665,7 @@ export type ResolversTypes = ResolversObject<{
   ResendEmailInput: ResendEmailInput;
   RestyleResult: ResolverTypeWrapper<RestyleResult>;
   Role: Role;
+  ScenarioChoice: ResolverTypeWrapper<ScenarioChoice>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   TurnStepInput: TurnStepInput;
   TurnStepType: ResolverTypeWrapper<TurnStepType>;
@@ -668,6 +693,7 @@ export type ResolversParentTypes = ResolversObject<{
   CheckTokenInput: CheckTokenInput;
   CreateProjectInput: CreateProjectInput;
   Date: Scalars['Date']['output'];
+  DeployResult: DeployResult;
   DesignSystemChoice: DesignSystemChoice;
   EmailConfirmationResponse: EmailConfirmationResponse;
   FetchPublicProjectsInputs: FetchPublicProjectsInputs;
@@ -686,6 +712,7 @@ export type ResolversParentTypes = ResolversObject<{
   RegisterUserInput: RegisterUserInput;
   ResendEmailInput: ResendEmailInput;
   RestyleResult: RestyleResult;
+  ScenarioChoice: ScenarioChoice;
   String: Scalars['String']['output'];
   TurnStepInput: TurnStepInput;
   TurnStepType: TurnStepType;
@@ -861,6 +888,17 @@ export interface DateScalarConfig
   name: 'Date';
 }
 
+export type DeployResultResolvers<
+  ContextType = any,
+  ParentType extends
+    ResolversParentTypes['DeployResult'] = ResolversParentTypes['DeployResult'],
+> = ResolversObject<{
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ok?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type DesignSystemChoiceResolvers<
   ContextType = any,
   ParentType extends
@@ -999,6 +1037,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationDeleteProjectArgs, 'projectId'>
+  >;
+  deployProject?: Resolver<
+    ResolversTypes['DeployResult'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeployProjectArgs, 'projectId' | 'provider' | 'token'>
   >;
   dropLastAssistantReply?: Resolver<
     ResolversTypes['Boolean'],
@@ -1240,8 +1284,14 @@ export type QueryResolvers<
   >;
   logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   me?: Resolver<ResolversTypes['User'], ParentType, ContextType>;
+  myRoles?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   registrationOpen?: Resolver<
     ResolversTypes['Boolean'],
+    ParentType,
+    ContextType
+  >;
+  scenarios?: Resolver<
+    Array<ResolversTypes['ScenarioChoice']>,
     ParentType,
     ContextType
   >;
@@ -1264,6 +1314,17 @@ export type RestyleResultResolvers<
 > = ResolversObject<{
   message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   ok?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ScenarioChoiceResolvers<
+  ContextType = any,
+  ParentType extends
+    ResolversParentTypes['ScenarioChoice'] = ResolversParentTypes['ScenarioChoice'],
+> = ResolversObject<{
+  blurb?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1316,7 +1377,6 @@ export type UserResolvers<
     ParentType,
     ContextType
   >;
-  roles?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   subscribedProjects?: Resolver<
     Maybe<Array<ResolversTypes['Project']>>,
     ParentType,
@@ -1340,6 +1400,7 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   ChatCompletionChoiceType?: ChatCompletionChoiceTypeResolvers<ContextType>;
   ChatCompletionDeltaType?: ChatCompletionDeltaTypeResolvers<ContextType>;
   Date?: GraphQLScalarType;
+  DeployResult?: DeployResultResolvers<ContextType>;
   DesignSystemChoice?: DesignSystemChoiceResolvers<ContextType>;
   EmailConfirmationResponse?: EmailConfirmationResponseResolvers<ContextType>;
   LoginResponse?: LoginResponseResolvers<ContextType>;
@@ -1350,6 +1411,7 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   Query?: QueryResolvers<ContextType>;
   RefreshTokenResponse?: RefreshTokenResponseResolvers<ContextType>;
   RestyleResult?: RestyleResultResolvers<ContextType>;
+  ScenarioChoice?: ScenarioChoiceResolvers<ContextType>;
   TurnStepType?: TurnStepTypeResolvers<ContextType>;
   Upload?: GraphQLScalarType;
   User?: UserResolvers<ContextType>;

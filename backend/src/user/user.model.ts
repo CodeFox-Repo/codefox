@@ -64,9 +64,8 @@ export class User extends SystemBaseModel {
   })
   projects: Project[];
 
-  // Exposed as [String] by UserResolver.roles, not as the Role entity: the
-  // GraphQL type name `Role` already belongs to the message-author enum.
-  @Field(() => [String])
+  // Deliberately NOT a @Field: as one it was resolvable through any public
+  // query that reaches a User, with no guard. See UserResolver.myRoles.
   @ManyToMany(() => Role)
   @JoinTable({
     name: 'user_roles',

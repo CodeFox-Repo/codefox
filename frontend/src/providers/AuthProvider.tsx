@@ -8,7 +8,11 @@ import React, {
   useCallback,
 } from 'react';
 import { useLazyQuery, useMutation } from '@apollo/client';
-import { CHECK_TOKEN_QUERY, GET_USER_INFO } from '@/graphql/request';
+import {
+  CHECK_TOKEN_QUERY,
+  GET_MY_ROLES,
+  GET_USER_INFO,
+} from '@/graphql/request';
 import { LOGOUT, REFRESH_TOKEN_MUTATION } from '@/graphql/mutations/auth';
 import { LocalStore } from '@/lib/storage';
 import { LoadingPage } from '@/components/global-loading';
@@ -48,11 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
   const router = useRouter();
 
   const [checkToken] = useLazyQuery<{ checkToken: boolean }>(CHECK_TOKEN_QUERY);
   const [refreshTokenMutation] = useMutation(REFRESH_TOKEN_MUTATION);
   const [getUserInfo] = useLazyQuery<{ me: User }>(GET_USER_INFO);
+  const [getMyRoles] = useLazyQuery<{ myRoles: string[] }>(GET_MY_ROLES);
   // no-cache: a cached `true` would skip the network on the second logout of a
   // session and leave that token live.
   const [logoutQuery] = useLazyQuery<{ logout: boolean }>(LOGOUT, {
@@ -86,6 +92,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data } = await getUserInfo();
       if (data?.me) {
         setUser(data.me);
+        // Alongside rather than inside `me`: roles are a separate guarded
+        // query now. A failure here only costs the Admin link.
+        getMyRoles()
+          .then(({ data: r }) => setRoles(r?.myRoles ?? []))
+          .catch(() => setRoles([]));
         return true;
       }
       return false;
@@ -93,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logger.error('Failed to fetch user info:', error);
       return false;
     }
-  }, [getUserInfo]);
+  }, [getUserInfo, getMyRoles]);
 
   const refreshUserInfo = useCallback(async () => {
     return await fetchUserInfo();
@@ -116,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setIsAuthorized(false);
     setUser(null);
+    setRoles([]);
     localStorage.removeItem(LocalStore.accessToken);
     localStorage.removeItem(LocalStore.refreshToken);
 
@@ -219,7 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         user,
         // 'Admin' is the seeded name — DefaultRoles.ADMIN, backend/src/common/enums/role.enum.ts.
-        isAdmin: !!user?.roles?.includes('Admin'),
+        isAdmin: roles.includes('Admin'),
         login,
         logout,
         refreshAccessToken,

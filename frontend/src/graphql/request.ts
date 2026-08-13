@@ -126,8 +126,15 @@ export const GET_USER_INFO = gql`
       email
       avatarUrl
       githubInstallationId
-      roles
     }
+  }
+`;
+
+/** Separate from `me` because it is guarded on its own; a field on User was
+ *  reachable through any public query that returns a User. */
+export const GET_MY_ROLES = gql`
+  query MyRoles {
+    myRoles
   }
 `;
 

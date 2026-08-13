@@ -99,14 +99,21 @@ export class UserResolver {
   }
 
   /**
-   * Role names, so the client can offer the operator console to the people who
-   * can actually open it. Names rather than the Role entity: the GraphQL type
-   * `Role` is already the message-author enum, and this is all a client needs.
-   * Resolved on demand — `me` does not load the relation.
+   * Role names for the caller, so the client can offer the operator console to
+   * the people who can actually open it. Names rather than the Role entity:
+   * the GraphQL type `Role` is already the message-author enum.
+   *
+   * A top-level guarded query rather than a field on User. As a @ResolveField
+   * it ran with no guard at all — APP_GUARD does not reach field resolvers
+   * unless `fieldResolverEnhancers` is set, and it is not — so anonymous
+   * callers could walk fetchPublicProjects (@Public) → Project.user → roles
+   * and enumerate which accounts are admins. Asking only about the bearer
+   * means there is no other user's roles to leak.
    */
-  @ResolveField(() => [String])
-  async roles(@Parent() user: User): Promise<string[]> {
-    const { roles } = await this.authService.getUserRoles(user.id);
+  @Query(() => [String])
+  @UseGuards(JWTAuthGuard)
+  async myRoles(@GetUserIdFromToken() id: string): Promise<string[]> {
+    const { roles } = await this.authService.getUserRoles(id);
     return roles.map((role) => role.name);
   }
 
