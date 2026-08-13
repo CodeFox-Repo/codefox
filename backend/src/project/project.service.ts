@@ -599,6 +599,10 @@ export class ProjectService {
         };
       }
 
+      // null here now means the tree was already clean, so HEAD *is* the
+      // pre-restyle page and History can reach it. Before the snapshot guard
+      // was fixed it also meant "silently did nothing", which is how a
+      // restyle became unrevertable.
       await workspace.snapshot(`Before restyle to ${system.name}`);
       await workspace.writeFile('index.html', restyled);
       return { ok: true, message: `Restyled to ${system.name}.` };

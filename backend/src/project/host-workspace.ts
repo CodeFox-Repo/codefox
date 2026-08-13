@@ -130,8 +130,14 @@ export class HostWorkspace implements ProjectWorkspace {
   async snapshot(label: string): Promise<string | null> {
     if (!this.hasGit) return null;
     try {
-      const changed = await this.changedFiles();
-      if (!changed?.length) return null;
+      // Working-tree dirtiness, not changedFiles(): that diffs against the
+      // ROOT commit, so after any turn it stays non-empty while the tree is
+      // clean vs HEAD — the guard passed, `git commit` exited 1 with "nothing
+      // to commit", and the catch below returned null. Every caller read that
+      // as "nothing to snapshot"; restyle wrote anyway, leaving no version to
+      // go back to. This is the same check the sandbox workspace already uses.
+      const { stdout: dirty } = await this.git('status', '--porcelain');
+      if (!dirty.trim()) return null;
       await this.git('add', '-A');
       await this.git('commit', '-m', label, '--no-gpg-sign');
       const { stdout } = await this.git('rev-parse', 'HEAD');
