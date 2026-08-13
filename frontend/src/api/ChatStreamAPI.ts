@@ -1,6 +1,15 @@
 import { ChatInputType } from '@/graphql/type';
 import authenticatedFetch from '@/lib/authenticatedFetch';
 
+/** One thing the page the turn produced gets wrong, worst first. */
+export interface LintFinding {
+  severity: 'P0' | 'P1' | 'P2';
+  id: string;
+  message: string;
+  fix: string;
+  snippet?: string;
+}
+
 export interface ChatStreamHandlers {
   /** Assistant text as it arrives. */
   onText?: (delta: string) => void;
@@ -8,6 +17,8 @@ export interface ChatStreamHandlers {
   onTool?: (name: string, target?: string) => void;
   /** Turn-level failure reported by the backend. */
   onError?: (message: string) => void;
+  /** Design findings for the finished page. Sent once, at the end of a turn. */
+  onLint?: (findings: LintFinding[]) => void;
 }
 
 export interface ChatStreamOptions extends ChatStreamHandlers {
@@ -27,7 +38,7 @@ export interface ChatStreamOptions extends ChatStreamHandlers {
 export const startChatStream = async (
   input: ChatInputType,
   token: string,
-  { onText, onTool, onError, signal, images }: ChatStreamOptions = {}
+  { onText, onTool, onError, onLint, signal, images }: ChatStreamOptions = {}
 ): Promise<string> => {
   if (!token) {
     throw new Error('Not authenticated');
@@ -61,7 +72,8 @@ export const startChatStream = async (
 
   const handle = (line: string) => {
     if (!line.trim()) return;
-    let event: { t?: string; v?: string; arg?: string };
+    // `v` is the finding list on a lint event and a string everywhere else.
+    let event: { t?: string; v?: string | LintFinding[]; arg?: string };
     try {
       event = JSON.parse(line);
     } catch {
@@ -69,14 +81,17 @@ export const startChatStream = async (
     }
     switch (event.t) {
       case 'text':
-        content += event.v ?? '';
-        onText?.(event.v ?? '');
+        content += (event.v as string) ?? '';
+        onText?.((event.v as string) ?? '');
         break;
       case 'tool':
-        onTool?.(event.v ?? '', event.arg);
+        onTool?.((event.v as string) ?? '', event.arg);
         break;
       case 'error':
-        onError?.(event.v ?? 'The agent failed.');
+        onError?.((event.v as string) ?? 'The agent failed.');
+        break;
+      case 'lint':
+        if (Array.isArray(event.v)) onLint?.(event.v);
         break;
     }
   };

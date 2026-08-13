@@ -115,6 +115,7 @@ export default function Chat() {
     queued,
     queueMessage,
     clearQueued,
+    lint,
   } = useChatStream({
     chatId,
     input,
@@ -309,6 +310,7 @@ export default function Chat() {
             chatId={chatId}
             isProjectReady={isReady}
             projectId={projectId}
+            lint={lint}
           />
         </div>
       </div>
@@ -366,6 +368,7 @@ export default function Chat() {
             chatId={chatId}
             isProjectReady={isReady}
             projectId={projectId}
+            lint={lint}
           />
         </div>
       </ResizablePanel>

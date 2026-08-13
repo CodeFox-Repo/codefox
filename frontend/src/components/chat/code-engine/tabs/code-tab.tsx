@@ -15,6 +15,7 @@ import FileStructure from '../file-structure';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import type { LintFinding } from '@/api/ChatStreamAPI';
 
 /** One file the agent has touched, relative to the template baseline. */
 interface ChangedFile {
@@ -26,6 +27,14 @@ const STATUS_TONE: Record<ChangedFile['status'], string> = {
   added: 'text-green-500',
   modified: 'text-amber-500',
   deleted: 'text-destructive line-through',
+};
+
+/** P0 is a must-fix, P1 should be fixed, P2 is advice. Same three tones the
+ *  change list uses, so the panel reads as one thing. */
+const SEVERITY_TONE: Record<LintFinding['severity'], string> = {
+  P0: 'text-destructive',
+  P1: 'text-amber-500',
+  P2: 'text-muted-foreground',
 };
 
 /** One point the project can be taken back to — a snapshot per agent turn. */
@@ -65,6 +74,8 @@ interface CodeTabProps {
   updateSavingStatus: (value: string) => void;
   filePath: string | null;
   setFilePath: (path: string | null) => void;
+  /** Design findings for the page the last turn produced; empty when clean. */
+  lint?: LintFinding[];
 }
 
 const CodeTab = ({
@@ -76,6 +87,7 @@ const CodeTab = ({
   updateSavingStatus,
   filePath,
   setFilePath,
+  lint,
 }: CodeTabProps) => {
   const theme = useTheme();
   const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false);
@@ -282,6 +294,32 @@ const CodeTab = ({
                         {change.path}
                       </span>
                     </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {/* Nothing at all when the page is clean — an empty "no issues"
+                panel is a claim the lint is not making. */}
+            {lint && lint.length > 0 && (
+              <ul className="mt-3 space-y-2 border-t border-border pt-3">
+                {lint.map((finding) => (
+                  <li key={finding.id} className="px-2">
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={cn(
+                          'shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]',
+                          SEVERITY_TONE[finding.severity]
+                        )}
+                      >
+                        {finding.severity}
+                      </span>
+                      <span className="text-xs text-foreground">
+                        {finding.message}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 pl-7 text-[11px] text-muted-foreground">
+                      {finding.fix}
+                    </p>
                   </li>
                 ))}
               </ul>

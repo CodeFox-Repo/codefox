@@ -5,7 +5,7 @@ import { Message, splitTurn, TurnStep } from '@/const/MessageType';
 import { toast } from 'sonner';
 import { logger } from '@/app/log/logger';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { startChatStream } from '@/api/ChatStreamAPI';
+import { startChatStream, type LintFinding } from '@/api/ChatStreamAPI';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { ChatInputType } from '@/graphql/type';
 
@@ -30,6 +30,10 @@ export const useChatStream = ({
     tool?: string;
     file?: string;
   } | null>(null);
+  /** What the last turn's page got wrong. Replaced per turn, not appended:
+   *  the agent may well have fixed the previous set, and a stale finding is
+   *  worse than none. */
+  const [lint, setLint] = useState<LintFinding[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   /** Attachments for the turn being submitted. A ref because the first turn of
    *  a new chat is dispatched from createChat's onCompleted, outside the
@@ -152,6 +156,11 @@ export const useChatStream = ({
 
       let touchedFiles = false;
 
+      // Cleared here rather than on the event: a clean turn sends no lint
+      // event at all, so findings the agent has since fixed would otherwise
+      // stay on screen forever.
+      setLint([]);
+
       // Wire the controller the stop button aborts. Hanging up the response is
       // what actually halts the agent server-side.
       const controller = new AbortController();
@@ -174,6 +183,7 @@ export const useChatStream = ({
           setActivity({ tool, file: target });
         },
         onError: (m) => toast.error(m),
+        onLint: setLint,
       });
 
       setActivity(null);
@@ -336,6 +346,7 @@ export const useChatStream = ({
   return {
     loadingSubmit,
     activity,
+    lint,
     handleSubmit,
     handleInputChange,
     startTurn,

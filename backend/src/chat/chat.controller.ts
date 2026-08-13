@@ -12,6 +12,7 @@ import { explain } from './explain-error';
 import { MessageRole, TurnStep } from './message.model';
 import { WorkspaceService } from '../project/workspace.service';
 import type { ChangedFile } from '../project/workspace';
+import { lintArtifact, type LintFinding } from './lint-artifact';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -92,6 +93,28 @@ export class ChatController {
       return edited;
     } catch (error) {
       this.logger.warn(`[${projectPath}] pre-turn snapshot failed: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * What the page the turn just produced gets wrong, as design findings.
+   *
+   * Only page projects have a single artifact to judge — a Next app is a
+   * tree, and there is no one file that is "the design". Advisory by
+   * definition: the files are already written, so a lint that throws must
+   * not be what fails a turn that otherwise succeeded.
+   */
+  private async lintPage(projectPath: string): Promise<LintFinding[]> {
+    try {
+      const workspace = await this.workspaces.for(projectPath);
+      const html = await workspace.readFile('index.html');
+      // ponytail: 2MB is well past any hand-written page; past that the
+      // regex sweep costs more than the advice is worth.
+      if (!html || html.length > 2_000_000) return [];
+      return lintArtifact(html);
+    } catch (error) {
+      this.logger.warn(`[${projectPath}] lint failed: ${error}`);
       return [];
     }
   }
@@ -347,6 +370,12 @@ export class ChatController {
       // turn missing from it. A turn that failed part-way still snapshots:
       // those edits are real, and are the ones someone wants to undo.
       await this.snapshotTurn(project.projectPath, chatDto.message);
+      // After the session, for the same reason the snapshot is: the agent's
+      // last writes have to have landed or the lint reads the previous page.
+      if (project.template === 'html' && !clientGone && !res.writableEnded) {
+        const findings = await this.lintPage(project.projectPath);
+        if (findings.length) send({ t: 'lint', v: findings });
+      }
       res.end();
     }
   }

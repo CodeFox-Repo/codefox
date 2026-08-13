@@ -13,15 +13,19 @@ import { logger } from '@/app/log/logger';
 // These routes check ownership now, so they need the bearer token — a bare
 // fetch got a 401 and the file tree retried it forever.
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
+import type { LintFinding } from '@/api/ChatStreamAPI';
 
 export function CodeEngine({
   chatId,
   isProjectReady = false,
   projectId,
+  lint,
 }: {
   chatId: string;
   isProjectReady?: boolean;
   projectId?: string;
+  /** Design findings for the page the last turn produced; empty when clean. */
+  lint?: LintFinding[];
 }) {
   const { curProject, projectLoading, pollChatProject, editorRef } =
     useContext(ProjectContext);
@@ -285,6 +289,7 @@ export function CodeEngine({
             updateSavingStatus={updateSavingStatus}
             filePath={filePath}
             setFilePath={setFilePath}
+            lint={lint}
           />
         );
       case 'preview':
