@@ -103,6 +103,11 @@ const CodeTab = ({
   const [versions, setVersions] = useState<Version[] | null>(null);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  /** Which project the view has already been coerced for. A project with no
+   *  git baseline keeps `changes: null` forever, so deriving "first load"
+   *  from the data would re-coerce on every finished turn — and a boolean
+   *  would need a reset effect, which runs after this one. */
+  const coercedFor = useRef<string | null>(null);
 
   // Loaded when the tab is first opened rather than with the panel: most
   // sessions never look at history, and it is a git log per project.
@@ -154,6 +159,8 @@ const CodeTab = ({
   useEffect(() => {
     if (!projectPath) return;
     let cancelled = false;
+    const first = coercedFor.current !== projectPath;
+    coercedFor.current = projectPath;
     (async () => {
       try {
         setChangesLoading(true);
@@ -164,11 +171,15 @@ const CodeTab = ({
         const data = await res.json();
         if (cancelled) return;
         setChanges(data.changes ?? null);
-        if (data.changes === null) setView('all');
+        // First load only. This effect reruns per finished turn now, so
+        // coercing the view every time yanked the user off History mid-read
+        // — and a transient fetch failure (a token refresh, say) did it to
+        // whichever tab they were on.
+        if (data.changes === null && first) setView('all');
       } catch {
         if (!cancelled) {
           setChanges(null);
-          setView('all');
+          if (first) setView('all');
         }
       } finally {
         if (!cancelled) setChangesLoading(false);

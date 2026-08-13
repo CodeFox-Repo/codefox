@@ -36,6 +36,7 @@ import { PreviewService } from './preview.service';
 import { WorkspaceService } from './workspace.service';
 import { DESIGN_SYSTEMS, designSystem, swapTokens } from './design-systems';
 import { scenario } from './scenarios';
+import { queueForProject } from './project-queue';
 import {
   SANDBOX_ROOT,
   sandboxHandle,
@@ -574,25 +575,33 @@ export class ProjectService {
       return { ok: false, message: 'That style does not exist.' };
     }
 
-    const workspace = await this.workspaces.for(project.projectPath);
-    const html = await workspace.readFile('index.html');
-    if (html === null) {
-      return { ok: false, message: 'This project has no index.html to style.' };
-    }
+    // Read-modify-write behind the project's write queue: a turn running at
+    // the same time would otherwise overwrite this swap, or have its own
+    // writes clobbered by it.
+    return queueForProject(project.projectPath, async () => {
+      const workspace = await this.workspaces.for(project.projectPath);
+      const html = await workspace.readFile('index.html');
+      if (html === null) {
+        return {
+          ok: false,
+          message: 'This project has no index.html to style.',
+        };
+      }
 
-    const system = designSystem(styleId);
-    const restyled = swapTokens(html, system.tokens);
-    if (restyled === null) {
-      return {
-        ok: false,
-        message:
-          'The page’s styles have been restructured — ask the agent to restyle it instead.',
-      };
-    }
+      const system = designSystem(styleId);
+      const restyled = swapTokens(html, system.tokens);
+      if (restyled === null) {
+        return {
+          ok: false,
+          message:
+            'The page’s styles have been restructured — ask the agent to restyle it instead.',
+        };
+      }
 
-    await workspace.snapshot(`Before restyle to ${system.name}`);
-    await workspace.writeFile('index.html', restyled);
-    return { ok: true, message: `Restyled to ${system.name}.` };
+      await workspace.snapshot(`Before restyle to ${system.name}`);
+      await workspace.writeFile('index.html', restyled);
+      return { ok: true, message: `Restyled to ${system.name}.` };
+    });
   }
 
   /**

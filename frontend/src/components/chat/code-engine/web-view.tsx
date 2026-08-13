@@ -287,7 +287,14 @@ function PreviewContent({
         retryTimerRef.current = null;
       }
     };
-  }, [curProject, getWebUrl, retryToken]);
+    // getWebUrl is deliberately not a dep: it re-memoises on every `projects`
+    // change, and refreshProjects replaces that array every 60s — so the
+    // effect tore down mid-retry, clearing the pending timer while
+    // attemptsRef kept counting. A merely-slow dev server hit MAX_ATTEMPTS
+    // for reasons that had nothing to do with it. It is called, never
+    // rendered, so the latest closure is not needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curProject?.projectPath, retryToken]);
 
   useEffect(() => {
     if (iframeRef.current && baseUrl) {

@@ -360,13 +360,18 @@ const ResponsiveToolbar = ({
                   file whose token block is "the design". Swapping is
                   snapshotted server-side, so History undoes it. */}
               {isPage && styleSystems.length > 0 && (
-                <Select value="" onValueChange={handleRestyle}>
+                <Select
+                  value=""
+                  onValueChange={handleRestyle}
+                  disabled={isLoading || restyling}
+                >
                   <SelectTrigger
                     className={cn(
                       'h-8 w-auto gap-1 border border-border bg-background px-3 text-sm',
                       'hover:bg-accent focus:ring-0 focus:ring-offset-0',
                       '[&>svg:last-child]:hidden',
-                      restyling && 'pointer-events-none opacity-50'
+                      (isLoading || restyling) &&
+                        'pointer-events-none opacity-50'
                     )}
                     title="Change this page's design system"
                   >

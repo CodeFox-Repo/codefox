@@ -13,6 +13,7 @@ import { MessageRole, TurnStep } from './message.model';
 import { WorkspaceService } from '../project/workspace.service';
 import type { ChangedFile } from '../project/workspace';
 import { lintArtifact, type LintFinding } from './lint-artifact';
+import { busy, queueForProject } from '../project/project-queue';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -191,17 +192,15 @@ export class ChatController {
     // no error anywhere. Observed directly: two concurrent rewrites produced
     // one version, and the other turn's changes were simply gone.
     const path = project.projectPath;
-    const ahead = ChatController.turns.get(path);
+    const ahead = busy(path);
 
-    // Chain onto whatever is already queued. The stored promise never
-    // rejects, so one failed turn cannot wedge the project's queue.
-    const mine = (ahead ?? Promise.resolve()).then(() => {
+    // Shared with restyle, which also writes index.html — two independent
+    // queues would not have stopped them racing each other.
+    const mine = queueForProject(path, () => {
       // A client that hung up while waiting should not start an agent.
-      if (res.writableEnded || res.destroyed) return;
+      if (res.writableEnded || res.destroyed) return Promise.resolve();
       return this.runTurn(chatDto, res, project);
     });
-    const tail = mine.catch(() => undefined);
-    ChatController.turns.set(path, tail);
 
     // Say so rather than leave the user watching a silent stream: a queued
     // turn can wait as long as the one ahead of it takes.
@@ -214,23 +213,8 @@ export class ChatController {
       );
     }
 
-    // Forget the project once its queue drains, so the map does not keep a
-    // settled promise per project forever.
-    void tail.then(() => {
-      if (ChatController.turns.get(path) === tail) {
-        ChatController.turns.delete(path);
-      }
-    });
-
     return mine;
   }
-
-  /**
-   * The tail of each project's turn queue, keyed by project path. Static: one
-   * controller instance serves every request, and the invariant is per
-   * project rather than per request.
-   */
-  private static readonly turns = new Map<string, Promise<void>>();
 
   private async runTurn(
     chatDto: ChatRestDto,
