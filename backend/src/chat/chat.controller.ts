@@ -16,6 +16,7 @@ import { lintArtifact, type LintFinding } from './lint-artifact';
 import { validateExternalApiBaseUrl } from './external-url';
 import { busy, queueForProject } from '../project/project-queue';
 import { scenarioOfPage } from '../project/scenarios';
+import { clipNotes } from './instructions';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -132,8 +133,7 @@ export class ChatController {
   private async notesOf(projectPath: string): Promise<string | null> {
     try {
       const workspace = await this.workspaces.for(projectPath);
-      const notes = await workspace.readFile('NOTES.md');
-      return notes ? notes.slice(0, 4000) : null;
+      return clipNotes(await workspace.readFile('NOTES.md'));
     } catch {
       return null;
     }

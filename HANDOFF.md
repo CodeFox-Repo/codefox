@@ -140,6 +140,117 @@ the local Vercel CLI login. It carries full account access and is not scoped to
 this project. It works, but a scoped token generated in the dashboard would be
 the right thing to replace it with.
 
+## Overnight session — 2026-08-12/13 (borrows + failure paths)
+
+27 commits. Two themes, one of which was found by the E2E suite rather than by
+reading code.
+
+**Six borrows from open-design.** Every turn's page is linted for design slop
+and the findings land in the Changes panel. 155 design systems are importable
+and a page can change its mind — from the toolbar, or from a palette card the
+agent offers mid-conversation. The composer asks what you are *making*
+(landing, dashboard, deck, email, docs, app) rather than which framework; the
+answer is baked into the scaffolded page as a meta tag and read back on every
+turn. A page deploys to your own Vercel with your own token. And BYOK-lite:
+an API key and base URL ride along with a single turn, are never logged and
+never stored, and the key is deliberately never cached — the harness cache is
+keyed `kind:model`, so a cached credentialled harness would hand one user's
+key to the next. The base URL is SSRF-validated (`backend/src/chat/external-url.ts`).
+
+**The failure-path story, end to end.** A turn can now die four ways and all
+four are bounded. Hard bridge death errors in ~30s (`endSession` races a 30s
+timeout — `session.stop()` goes through `doSuspendTurn()` to a process that is
+already gone, with no timeout of its own). A flapping reconnect trips at 90s.
+Any other silence trips at 5min, armed at stream start and reset by every
+part, because silence is what is fatal, not duration — a build turn runs 9-10
+minutes but emits parts throughout. And the partial reply the user watched
+stream in survives all of it: `splitTurn` treats a turn ending on a tool call
+as "no answer yet", which is right for an abort and wrong for a runtime that
+died, so a died turn falls back to its whole streamed text.
+
+The common shape underneath all of it: `agent.stream()` returns the harness's
+`{result, done}` and discards `done` — which is the only thing the adapter
+rejects when a bridge dies. `generate()` awaits it; `stream()` does not. Every
+hang this session traced back to that discarded promise.
+
+One suspicion is recorded but **unconfirmed**, in the guard's own comment so
+whoever upgrades the harness re-tests it: the silent-close shape may be a
+stall in `SandboxChannel`'s dispatch serialization rather than a lost
+rejection. `enqueue` chains onto a single promise
+(`harness/dist/utils/index.js:263`, `dispatchChain.then(work)`) and
+`finalizeClose` is enqueued onto it (`:178`), so a `handleIncoming` (`:267`)
+still awaiting its async parse would park `finalizeClose` behind it forever.
+Not chased further — the deadline covers us either way.
+
+**Also.** Snapshots gate on `git status --porcelain` rather than
+`changedFiles()`. That was a real P0: `changedFiles()` diffs against the ROOT
+commit, so after any turn it stays non-empty while the tree is clean vs HEAD
+— the guard passed, `git commit` exited 1 with "nothing to commit", the catch
+returned null, and every caller read that as "nothing to snapshot". Restyle
+wrote anyway, leaving no version to go back to.
+
+Logout actually ends the session,
+deleting a project deletes the project, a failed save keeps the edit. The
+admin console is reachable and its delete asks first. A phone can reach Code
+and Console.
+
+### Known-good check scripts
+
+`scripts/check-*.mjs`, eight of them, all runnable with bare `node` and no
+framework. They exist because most of this session's logic is a branch that
+only fires when something is already broken, which no ordinary test run
+reaches. Each asserts against real source text plus a runtime case, and each
+was verified to *fail* when its fix is reverted — a check that cannot fail is
+not a check. Run them all: `for f in scripts/check-*.mjs; do node "$f"; done`.
+
+| Script | Asserts |
+|---|---|
+| `check-stream-watchdog` | `endSession` bounds stop/destroy; one timer serving both deadlines; idle arm at stream start; per-part reset; 5min / 90s constants |
+| `check-rescue-save` | the rescue save survives every await in the finally block |
+| `check-partial-answer` | a died turn falls back to its streamed text; an abort still skips |
+| `check-changes-refresh` | Changes/History refresh gates hold across 6 states |
+| `check-preview-readiness` | readiness is the response, not a second probe; retry reachable |
+| `check-question-card` | the parser survives 11 model-written shapes |
+| `check-project-relative` | sandbox paths stripped from replies, ordinary prose untouched |
+| `check-style-card-project` | a palette card restyles the project on screen |
+
+### Traps
+
+- **Native bindings are broken since the 2026-08-12 `pnpm install`.**
+  `sqlite3` and `bcrypt` are compiled per Node version; the install left them
+  mismatched, so a fresh backend boot fails with a module-version error that
+  reads like a config problem and is not. The backend on :8080 keeps working
+  only because it is a `node dist/main` started 2026-07-29 holding the old
+  files by inode — **restarting it is what triggers the failure**. Rebuild the
+  bindings before you restart anything, and do not assume a running :8080
+  means a fresh one would come up.
+- **`NEXT_PUBLIC_*` is inlined at build time**, not read at runtime
+  (`NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_GRAPHQL_URL`). Changing one and
+  restarting the server changes nothing — the old value is compiled into the
+  bundle. Rebuild.
+- **The frontend builds `output: 'standalone'`** (`frontend/next.config.mjs`).
+  A standalone build is served by `node .next/standalone/server.js`, not by
+  `next start` — `next start` against a standalone build serves a stale or
+  empty app and looks like a caching bug.
+- **`/api/*` is a Next rewrite proxy** to the backend, so a stalled turn has
+  two hops to blame rather than one. Check the backend log first: if it has no
+  `[ChatController]` line for the turn, the response was never ended and the
+  client is right to be waiting.
+- The reconnect budget in the harness (`SandboxChannel`, 30s) restarts with
+  every `reconnectLoop`, and a new loop starts on every socket drop — so a
+  flapping socket resets it forever. Worth filing upstream; the guards above
+  cover us either way.
+
+### Open decisions
+
+- **Unauthenticated test-cleanup endpoints** (`backend/src/user/test-cleanup.controller.ts`)
+  — guard them or delete them. They exist for the E2E suite and are reachable
+  in production.
+- **Should Stop persist the partial reply?** Today it does not: an abort means
+  the user is going to ask again, so a half-answer in history is noise. But it
+  is the same code path as a died turn, which now *does* persist. Whichever
+  way this goes, the two should stop disagreeing.
+
 ## Overnight session — 2026-07-28 (feature-death audit)
 
 Every user-facing feature was walked in a real browser against the local stack

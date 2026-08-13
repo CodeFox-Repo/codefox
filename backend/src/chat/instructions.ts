@@ -50,7 +50,14 @@ section", a brand colour they insisted on — append a one-line bullet to
 NOTES.md. Correct or delete a line when it stops being true. Keep it short;
 it is read back to you in full on every turn, and a long file crowds out the
 work. Do not log what you did — the git history already has that. Record only
-what you would need to know if you had never seen this conversation.`;
+what you would need to know if you had never seen this conversation. It
+looks like this, and nothing more elaborate:
+
+# Notes
+- Audience: solo founders evaluating on a phone
+- Brand accent stays #c96a3a — the user rejected blue twice
+- No pricing section until they have real numbers
+- Always pnpm, never npm`;
 
 const INSTRUCTIONS = `You are CodeFox, building a Next.js 15 + Tailwind + shadcn/ui app.
 
@@ -117,3 +124,19 @@ export const notesNote = (notes?: string | null): string =>
   notes?.trim()
     ? `What this project has already decided (from NOTES.md):\n\n${notes.trim()}\n\n---\n\n`
     : '';
+
+/**
+ * NOTES.md as it rides into a prompt: capped, and SAYING it was capped.
+ *
+ * It lands in every turn, so an unbounded file quietly eats the context the
+ * work needs. Truncating silently is worse than truncating — the agent would
+ * believe it had the whole memory and confidently contradict the part it
+ * never saw. The note tells it to go read the file.
+ */
+export const NOTES_LIMIT = 4000;
+
+export function clipNotes(notes?: string | null): string | null {
+  if (!notes?.trim()) return null;
+  if (notes.length <= NOTES_LIMIT) return notes;
+  return `${notes.slice(0, NOTES_LIMIT)}\n\n[NOTES.md is longer than this — the rest was cut. Read the file if you need it, and shorten it.]`;
+}
