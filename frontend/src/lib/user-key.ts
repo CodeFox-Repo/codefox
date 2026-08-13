@@ -27,11 +27,17 @@ export const readUserKey = (): UserKey | null => {
   }
 };
 
+/** Fired on every write. useModels reads this module from another subtree, so
+ *  nothing would re-render it — the saved model stayed out of the picker until
+ *  some unrelated render happened to pick it up. */
+export const USER_KEY_CHANGED = 'codefox-byok-changed';
+
 export const writeUserKey = (value: UserKey | null, remember: boolean) => {
   session = remember ? null : value;
   if (typeof window === 'undefined') return;
   if (value && remember) localStorage.setItem(KEY, JSON.stringify(value));
   else localStorage.removeItem(KEY);
+  window.dispatchEvent(new Event(USER_KEY_CHANGED));
 };
 
 export const isRemembered = () =>

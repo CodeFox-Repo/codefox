@@ -55,11 +55,23 @@ export function KeyDialog({
     sessionStorage.removeItem(LocalStore.models);
     setApiKey('');
     setModel('');
+    setBaseUrl('https://openrouter.ai/api/v1');
+    setRemember(false);
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Same as DeployDialog: closing drops a key the user did not ask us
+        // to remember. The dialog is never unmounted, so without this a typed
+        // credential sat in component state for the rest of the session — and
+        // reopening showed it pre-filled as if it had been saved.
+        if (!next && !remember) setApiKey('');
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Use your own API key</DialogTitle>
