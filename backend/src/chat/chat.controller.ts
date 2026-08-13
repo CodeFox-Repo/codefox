@@ -349,25 +349,49 @@ export class ChatController {
       }
     });
 
-    // Armed only by a "Reconnecting..." frame, and disarmed by the next part.
+    // The stream can go silent forever in more than one shape, and none of
+    // them end it, so the loop is always racing a deadline. Silence is what
+    // is fatal, not duration — a build turn runs 9-10min but emits parts
+    // throughout — so every part resets the clock.
     //
-    // "Reconnecting... 1/5" is the codex CLI's own retry, surfaced as a bridge
-    // error frame — and the harness settles the turn on ANY error frame
-    // (codex-harness.ts `channel.on('error')` → settleError). So by the time
-    // the filter below swallows 1/5, the stream is already finished: no 2/5
-    // ever arrives, no exhaustion, nothing terminal. The filter was written
-    // for transients the harness recovers from, which this is not.
+    // Two known shapes, both ending in a promise nobody holds:
     //
-    // Swallowing it is still right — the CLI does retry internally and killing
-    // a recoverable turn was the older bug — so the fix is a deadline rather
-    // than surfacing 1/5. Confirmed in r3-backend-8081.log: one 1/5 at
-    // 12:10:11, that chat never logs another line.
+    // 1. A "Reconnecting... 1/5" frame. That is the codex CLI's own retry,
+    //    surfaced as a bridge error frame — and the harness settles the turn
+    //    on ANY error frame (codex-harness.ts `channel.on('error')` →
+    //    settleError). So by the time the filter below swallows 1/5 the turn
+    //    is already dead: no 2/5, no exhaustion, nothing terminal. Swallowing
+    //    it is still right (the CLI does retry internally, and killing a
+    //    recoverable turn was the older bug), so it tightens the deadline
+    //    rather than failing the turn outright. r3-backend-8081.log: one 1/5
+    //    at 12:10:11, that chat never logs another line.
     //
-    // ponytail: post-reconnect only, so an ordinary long think is untouched.
+    // 2. A bridge that closes with NO reconnect frame, which arms nothing.
+    //    onClose → settleError only calls `pendingReject`, landing on the
+    //    `done` promise `agent.stream()` discards. r5-backend.log has two —
+    //    last tool frame 1:43:24, `codex bridge closed` logged, then not one
+    //    ChatController line until the next turn at 1:52:12. The response was
+    //    never ended, so the client was right to keep showing it running.
+    //
+    // Assume there are more shapes than these two: the deadline is armed for
+    // the whole turn rather than per known cause.
+    //
+    // UNCONFIRMED, for whoever upgrades the harness: shape 2 may be a stall
+    // in SandboxChannel's dispatch serialization rather than a lost
+    // rejection. `enqueue` chains onto one promise
+    // (harness/dist/utils/index.js:263, `dispatchChain.then(work)`) and
+    // finalizeClose is enqueued onto it (:178), so a `handleIncoming` (:267)
+    // still awaiting its async parse/validate would park finalizeClose behind
+    // it indefinitely. Worth re-testing on upgrade; the guard covers us
+    // either way.
+    //
+    // ponytail: 5min silence, 90s once a reconnect has made the stream
+    // suspect. Both past any real gap between parts (r5's longest is ~30s).
+    const IDLE_MS = 5 * 60_000;
     const RECONNECT_SILENCE_MS = 90_000;
     let deadline: NodeJS.Timeout | undefined;
     let stalled: Promise<never> | undefined;
-    const armed = () => {
+    const armed = (ms = RECONNECT_SILENCE_MS) => {
       stalled = new Promise<never>((_, reject) => {
         deadline = setTimeout(
           () =>
@@ -376,7 +400,7 @@ export class ChatController {
                 'The agent lost its connection and could not get it back.',
               ),
             ),
-          RECONNECT_SILENCE_MS,
+          ms,
         );
       });
     };
@@ -386,16 +410,18 @@ export class ChatController {
       stalled = undefined;
     };
     const iterator = result.stream[Symbol.asyncIterator]();
+    armed(IDLE_MS);
 
     try {
       for (;;) {
-        const next = await (stalled
-          ? Promise.race([iterator.next(), stalled])
-          : iterator.next());
+        const next = await Promise.race([iterator.next(), stalled!]);
         if (next.done) break;
         const part = next.value;
-        // Any part means the connection came back.
-        if (part.type !== 'error') disarm();
+        // Any part means the stream is alive; back to the loose deadline.
+        if (part.type !== 'error') {
+          disarm();
+          armed(IDLE_MS);
+        }
         if (clientGone) break;
 
         switch (part.type) {
