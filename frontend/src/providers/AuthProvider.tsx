@@ -99,53 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return await fetchUserInfo();
   }, [fetchUserInfo]);
 
-  const refreshAccessToken = useCallback(async () => {
-    try {
-      const refreshToken = localStorage.getItem(LocalStore.refreshToken);
-      if (!refreshToken) {
-        logout();
-        return false;
-      }
-      const { data } = await refreshTokenMutation({
-        variables: { refreshToken },
-      });
-      if (data?.refreshToken) {
-        const newAccess = data.refreshToken.accessToken;
-        const newRefresh = data.refreshToken.refreshToken;
-
-        localStorage.setItem(LocalStore.accessToken, newAccess);
-        if (newRefresh) {
-          localStorage.setItem(LocalStore.refreshToken, newRefresh);
-        }
-        setToken(newAccess);
-        setIsAuthorized(true);
-        return newAccess;
-      } else {
-        logout();
-        return false;
-      }
-    } catch (error) {
-      logger.error('Refresh token error:', error);
-      logout();
-      return false;
-    }
-  }, [refreshTokenMutation]);
-
-  const login = useCallback(
-    (accessToken: string, refreshToken: string) => {
-      localStorage.setItem(LocalStore.accessToken, accessToken);
-      localStorage.setItem(LocalStore.refreshToken, refreshToken);
-
-      setToken(accessToken);
-      if (process.env.NODE_ENV !== 'production') {
-        logger.info('Token saved successfully');
-      }
-      setIsAuthorized(true);
-      fetchUserInfo();
-    },
-    [fetchUserInfo]
-  );
-
+  // Above refreshAccessToken because that awaits it: declared after, it was
+  // captured stale and its network round trip ran unawaited, so the caller
+  // returned "signed out" while the tokens were still in storage.
   const logout = useCallback(async () => {
     // Server first, while the token is still in storage for authMiddleware to
     // attach — clearing it first left the session alive on the backend, so a
@@ -168,6 +124,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.push('/');
     }
   }, [router, logoutQuery]);
+
+  const refreshAccessToken = useCallback(async () => {
+    try {
+      const refreshToken = localStorage.getItem(LocalStore.refreshToken);
+      if (!refreshToken) {
+        await logout();
+        return false;
+      }
+      const { data } = await refreshTokenMutation({
+        variables: { refreshToken },
+      });
+      if (data?.refreshToken) {
+        const newAccess = data.refreshToken.accessToken;
+        const newRefresh = data.refreshToken.refreshToken;
+
+        localStorage.setItem(LocalStore.accessToken, newAccess);
+        if (newRefresh) {
+          localStorage.setItem(LocalStore.refreshToken, newRefresh);
+        }
+        setToken(newAccess);
+        setIsAuthorized(true);
+        return newAccess;
+      } else {
+        await logout();
+        return false;
+      }
+    } catch (error) {
+      logger.error('Refresh token error:', error);
+      await logout();
+      return false;
+    }
+  }, [refreshTokenMutation, logout]);
+
+  const login = useCallback(
+    (accessToken: string, refreshToken: string) => {
+      localStorage.setItem(LocalStore.accessToken, accessToken);
+      localStorage.setItem(LocalStore.refreshToken, refreshToken);
+
+      setToken(accessToken);
+      if (process.env.NODE_ENV !== 'production') {
+        logger.info('Token saved successfully');
+      }
+      setIsAuthorized(true);
+      fetchUserInfo();
+    },
+    [fetchUserInfo]
+  );
 
   useEffect(() => {
     async function initAuth() {
