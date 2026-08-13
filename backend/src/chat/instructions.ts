@@ -42,6 +42,16 @@ the whole list. Exactly this shape, ids included:
 Words like "clean", "modern" or "sleek" are NOT valid options — they are not
 ids and the card drops them. The ids, and nothing else, are: ${DESIGN_SYSTEMS.map((s) => s.id).join(', ')}.`;
 
+const NOTES_SECTION = `Keep NOTES.md in the project root as its memory. Only the last 20 turns
+are replayed to you, so anything decided before that is gone unless it is
+written down. When the user states a decision, a preference, a constraint or
+a fact about their product — the audience, a name, a rule like "no pricing
+section", a brand colour they insisted on — append a one-line bullet to
+NOTES.md. Correct or delete a line when it stops being true. Keep it short;
+it is read back to you in full on every turn, and a long file crowds out the
+work. Do not log what you did — the git history already has that. Record only
+what you would need to know if you had never seen this conversation.`;
+
 const INSTRUCTIONS = `You are CodeFox, building a Next.js 15 + Tailwind + shadcn/ui app.
 
 The working directory already contains a scaffolded project. Edit it in place.
@@ -75,7 +85,7 @@ export const instructionsFor = (
   template?: string | null,
   scenarioId?: string | null,
 ): string => {
-  if (template !== 'html') return INSTRUCTIONS;
+  if (template !== 'html') return `${INSTRUCTIONS}\n\n${NOTES_SECTION}`;
   // What the user said they were making, so the agent builds that shape
   // rather than defaulting every project to a centered hero.
   const shape = scenarioId ? scenario(scenarioId).guidance : '';
@@ -89,8 +99,21 @@ export const instructionsFor = (
     shape,
     PLAN_SECTION,
     STYLE_SECTION,
+    NOTES_SECTION,
     'Finish with a short summary of what you changed.',
   ]
     .filter(Boolean)
     .join('\n');
 };
+
+/**
+ * The project's own notes, ahead of the replayed turns.
+ *
+ * The replay window is the last 20 turns — anything decided before that is
+ * gone, and a long project forgets the constraints it was given on turn one.
+ * NOTES.md is where the agent writes those down; this reads them back.
+ */
+export const notesNote = (notes?: string | null): string =>
+  notes?.trim()
+    ? `What this project has already decided (from NOTES.md):\n\n${notes.trim()}\n\n---\n\n`
+    : '';

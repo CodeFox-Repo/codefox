@@ -6,7 +6,7 @@ import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
-import { instructionsFor } from './instructions';
+import { instructionsFor, notesNote } from './instructions';
 import { sniff } from '../common/security/file_check';
 import {
   AVAILABLE_MODELS,
@@ -230,6 +230,8 @@ export interface ProjectAgentOptions {
   template?: string | null;
   /** What the user said they were making; read from the page's meta tag. */
   scenarioId?: string | null;
+  /** The project's NOTES.md, so decisions outlive the replay window. */
+  notes?: string | null;
   /** The user's own endpoint for this turn. Never logged, never stored. */
   credential?: UserCredential;
 }
@@ -355,6 +357,7 @@ export const runProjectAgent = async ({
   template,
   scenarioId,
   credential,
+  notes,
 }: ProjectAgentOptions) => {
   const workingDirectory = path.join(getProjectsDir(), projectPath);
 
@@ -371,7 +374,7 @@ export const runProjectAgent = async ({
   const asked = staged.length
     ? `${message}\n\nThe user attached ${staged.length === 1 ? 'this image' : 'these images'} — read ${staged.length === 1 ? 'it' : 'them'} before answering:\n${staged.map((f) => `- ${f}`).join('\n')}`
     : message;
-  const prompt = `${retell(history ?? [])}${handEditNote(handEdits ?? [])}${asked}`;
+  const prompt = `${notesNote(notes)}${retell(history ?? [])}${handEditNote(handEdits ?? [])}${asked}`;
 
   const agent = new HarnessAgent({
     harness: harnessFor(model, credential),

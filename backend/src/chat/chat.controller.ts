@@ -123,6 +123,23 @@ export class ChatController {
   }
 
   /**
+   * The project's own notes, if it has written any.
+   *
+   * A file, like the scenario meta tag and the design tokens — no column, no
+   * migration. Capped because it lands in every turn's prompt: a NOTES.md
+   * that grows without bound would quietly eat the context window.
+   */
+  private async notesOf(projectPath: string): Promise<string | null> {
+    try {
+      const workspace = await this.workspaces.for(projectPath);
+      const notes = await workspace.readFile('NOTES.md');
+      return notes ? notes.slice(0, 4000) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * What the page the turn just produced gets wrong, as design findings.
    *
    * Only page projects have a single artifact to judge — a Next app is a
@@ -253,6 +270,7 @@ export class ChatController {
       model: chatDto.model,
       template: project.template,
       scenarioId: await this.scenarioOf(project),
+      notes: await this.notesOf(project.projectPath),
       // Both or neither: a key with no endpoint would silently fall back to
       // ours and bill us for a turn the user meant to pay for themselves.
       credential:

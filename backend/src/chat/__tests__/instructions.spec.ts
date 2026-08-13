@@ -1,4 +1,4 @@
-import { instructionsFor } from '../instructions';
+import { instructionsFor, notesNote } from '../instructions';
 import { DESIGN_SYSTEMS } from '../../project/design-systems';
 
 /**
@@ -38,5 +38,39 @@ describe('assembled html instructions', () => {
 
   it('leaves Next projects alone', () => {
     expect(instructionsFor('next', null)).not.toContain('"kind":"style"');
+  });
+});
+
+/**
+ * The replay window is 20 turns. NOTES.md is the only thing that outlives it,
+ * so both kinds have to be told to keep it — a Next project forgets its
+ * constraints exactly as fast as a page does.
+ */
+describe('project memory instruction', () => {
+  it('tells both kinds to maintain NOTES.md', () => {
+    expect(instructionsFor('html', 'landing')).toContain('NOTES.md');
+    expect(instructionsFor('next', null)).toContain('NOTES.md');
+  });
+
+  it('says what NOT to write, or it fills with a changelog git already has', () => {
+    expect(instructionsFor('html', 'landing')).toMatch(/not log what you did/i);
+  });
+});
+
+describe('notesNote', () => {
+  it('labels the notes so they read as decisions, not as the user talking', () => {
+    const out = notesNote('- audience: solo founders');
+    expect(out).toContain('NOTES.md');
+    expect(out).toContain('- audience: solo founders');
+    // Separated from the replayed turns that follow it.
+    expect(out.endsWith('---\n\n')).toBe(true);
+  });
+
+  it('adds nothing when there are no notes', () => {
+    // A project without NOTES.md must not get an empty "already decided"
+    // header — that reads as "we decided nothing".
+    expect(notesNote(null)).toBe('');
+    expect(notesNote(undefined)).toBe('');
+    expect(notesNote('   \n  ')).toBe('');
   });
 });
