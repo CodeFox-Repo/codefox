@@ -66,7 +66,18 @@ export function DeployDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Closing drops a token the user did not ask us to remember. The
+        // dialog is never unmounted, so without this a typed credential sat
+        // in component state for the rest of the session — and reopening
+        // showed it pre-filled as if it had been saved.
+        if (!next && !remember) setToken('');
+        if (!next) setResult(null);
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Deploy to Vercel</DialogTitle>

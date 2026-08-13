@@ -28,6 +28,8 @@ interface ChatListProps {
   onRegenerate?: () => void;
   /** Sends the composed answer of a question card as the next user message. */
   onAnswerQuestions?: (answer: string) => void;
+  /** This chat's own project, for the style card. */
+  projectId?: string;
 }
 
 const isUserMessage = (role: string) => role.toLowerCase() === 'user';
@@ -48,6 +50,7 @@ export default function ChatList({
   loadingSubmit,
   onRegenerate,
   onAnswerQuestions,
+  projectId,
 }: ChatListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthContext();
@@ -241,6 +244,7 @@ export default function ChatList({
                           block={questionBlock}
                           interactive={questionsInteractive}
                           onSubmit={onAnswerQuestions}
+                          projectId={projectId}
                         />
                       )}
                     </div>

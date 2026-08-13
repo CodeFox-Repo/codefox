@@ -17,6 +17,9 @@ export interface ChatProps {
   onRegenerate?: () => void;
   /** Send the composed answer of the planner's question card. */
   onAnswerQuestions?: (answer: string) => void;
+  /** This chat's own project. The style card restyles THIS, not whatever
+   *  project the global context happens to hold. */
+  projectId?: string;
   /** True while an unanswered question card is the way forward. */
   inputHidden?: boolean;
   messages: Message[];
@@ -50,6 +53,7 @@ export default function ChatContent({
   onModelChange,
   onRegenerate,
   onAnswerQuestions,
+  projectId,
   inputHidden,
   loadingSubmit,
   activity,
@@ -78,6 +82,7 @@ export default function ChatContent({
           loadingSubmit={loadingSubmit}
           onRegenerate={onRegenerate}
           onAnswerQuestions={onAnswerQuestions}
+          projectId={projectId}
         />
       </div>
 

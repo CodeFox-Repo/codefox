@@ -284,6 +284,7 @@ export default function Chat() {
             onModelChange={changeModel}
             onRegenerate={regenerate}
             onAnswerQuestions={sendMessage}
+            projectId={projectId}
             inputHidden={questionsPending}
             messages={messages}
             input={input}
@@ -343,6 +344,7 @@ export default function Chat() {
             loadingSubmit={loadingSubmit || waitingForFirstTurn}
             activity={activity}
             onAnswerQuestions={sendMessage}
+            projectId={projectId}
             inputHidden={questionsPending}
             stop={stop}
             queued={queued}

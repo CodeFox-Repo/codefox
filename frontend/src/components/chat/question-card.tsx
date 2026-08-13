@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { Check, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,7 +10,6 @@ import {
   DesignSystemChoice,
   RESTYLE_PROJECT,
 } from '@/components/design-systems';
-import { ProjectContext } from '@/components/chat/code-engine/project-context';
 
 /** One clarifying question the agent asked before building. */
 export interface AgentQuestion {
@@ -146,10 +145,16 @@ export function QuestionCard({
   block,
   interactive,
   onSubmit,
+  projectId,
 }: {
   block: AgentQuestionBlock;
   interactive: boolean;
   onSubmit?: (answer: string) => void;
+  /** THIS chat's project. Passed down rather than read from context: the URL
+   *  carries a chat id, which never matches a project id, so context keeps
+   *  whatever `lastProjectId` localStorage held — and the card restyled a
+   *  different project than the one on screen. Same fix CodeEngine made. */
+  projectId?: string;
 }) {
   const [choices, setChoices] = useState<Record<string, string[]>>({});
   const [note, setNote] = useState('');
@@ -161,20 +166,15 @@ export function QuestionCard({
   }>(DESIGN_SYSTEMS, { skip: !hasStyle });
   const byId = new Map((styleData?.designSystems ?? []).map((s) => [s.id, s]));
 
-  // ponytail: the project comes from context rather than three layers of prop
-  // drilling — ProjectProvider already wraps the whole app.
-  const { curProject } = useContext(ProjectContext) ?? {};
   const [restyle] = useMutation(RESTYLE_PROJECT);
   /** Set when the swap could not be applied; posted with the answer so the
    *  agent knows to restyle by hand instead. */
   const [restyleNote, setRestyleNote] = useState('');
 
   const applyStyle = async (styleId: string) => {
-    if (!curProject?.id) return;
+    if (!projectId) return;
     try {
-      const { data } = await restyle({
-        variables: { projectId: curProject.id, styleId },
-      });
+      const { data } = await restyle({ variables: { projectId, styleId } });
       const result = data?.restyleProject;
       setRestyleNote(result?.ok ? '' : (result?.message ?? ''));
     } catch {
@@ -248,7 +248,12 @@ export function QuestionCard({
             </p>
             {q.kind === 'style' &&
             q.options.some((option) => byId.has(option)) ? (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              /* ponytail: fixed 2 columns, no sm: breakpoint. That keyed off
+                 the VIEWPORT, so at 1440 it went to 3 columns inside an ~18%
+                 chat panel and each card came out 56px wide — "Bru…". The
+                 panel is narrow at every viewport; a container query would
+                 need the plugin for one grid. */
+              <div className="grid grid-cols-2 gap-2">
                 {q.options.map((option) => {
                   const system = byId.get(option);
                   // A style id the catalog does not know is skipped rather
