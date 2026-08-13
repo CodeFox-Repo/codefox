@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { useLazyQuery, useMutation } from '@apollo/client';
 import { CHECK_TOKEN_QUERY, GET_USER_INFO } from '@/graphql/request';
-import { REFRESH_TOKEN_MUTATION } from '@/graphql/mutations/auth';
+import { LOGOUT, REFRESH_TOKEN_MUTATION } from '@/graphql/mutations/auth';
 import { LocalStore } from '@/lib/storage';
 import { LoadingPage } from '@/components/global-loading';
 import { User } from '@/graphql/type';
@@ -22,7 +22,7 @@ interface AuthContextValue {
   token: string | null;
   user: User | null;
   login: (accessToken: string, refreshToken: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshAccessToken: () => Promise<string | boolean | void>;
   validateToken: () => Promise<boolean>;
   refreshUserInfo: () => Promise<boolean>;
@@ -34,7 +34,7 @@ const AuthContext = createContext<AuthContextValue>({
   token: null,
   user: null,
   login: () => {},
-  logout: () => {},
+  logout: async () => {},
   refreshAccessToken: async () => {},
   validateToken: async () => false,
   refreshUserInfo: async () => false,
@@ -50,6 +50,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [checkToken] = useLazyQuery<{ checkToken: boolean }>(CHECK_TOKEN_QUERY);
   const [refreshTokenMutation] = useMutation(REFRESH_TOKEN_MUTATION);
   const [getUserInfo] = useLazyQuery<{ me: User }>(GET_USER_INFO);
+  // no-cache: a cached `true` would skip the network on the second logout of a
+  // session and leave that token live.
+  const [logoutQuery] = useLazyQuery<{ logout: boolean }>(LOGOUT, {
+    fetchPolicy: 'no-cache',
+  });
 
   const validateToken = useCallback(async () => {
     const storedToken = localStorage.getItem(LocalStore.accessToken);
@@ -138,7 +143,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [fetchUserInfo]
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Server first, while the token is still in storage for authMiddleware to
+    // attach — clearing it first left the session alive on the backend, so a
+    // copied token kept working after "log out". Best effort: a failed or
+    // already-dead token must not strand the user in a signed-in shell.
+    try {
+      await logoutQuery();
+    } catch (error) {
+      logger.error('Logout request failed:', error);
+    }
+
     setToken(null);
     setIsAuthorized(false);
     setUser(null);
@@ -149,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       router.push('/');
     }
-  }, [router]);
+  }, [router, logoutQuery]);
 
   useEffect(() => {
     async function initAuth() {

@@ -185,8 +185,8 @@ const ResponsiveToolbar = ({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } catch (error) {
-        console.error('Error downloading project:', error);
-        // Could add a toast notification here
+        logger.error('Project download failed:', error);
+        toast.error('Could not download this project');
       } finally {
         setIsDownloading(false);
       }

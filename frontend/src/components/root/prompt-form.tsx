@@ -127,10 +127,14 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
       {
         onCompleted: (data) => {
           setMessage(data.regenerateDescription);
+          // Only now is the prompt actually enhanced. The button used to flip
+          // to "Enhanced" on click, including on an empty box or a failure.
+          setIsEnhanced(true);
           setIsRegenerating(false);
         },
         onError: (error) => {
           logger.error('Error regenerating description:', error);
+          setIsEnhanced(false);
           setIsRegenerating(false);
         },
       }
@@ -155,7 +159,6 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         setIsRegenerating(true);
         regenerateDescriptionMutation({ variables: { input: message } });
       }
-      setIsEnhanced(!isEnhanced);
     };
 
     useEffect(() => {
@@ -181,7 +184,10 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         // Only pages carry a design system; the Next starter has its own.
         style: template === 'html' ? (chosenStyle?.id ?? '') : '',
       }),
-      clearMessage: () => setMessage(''),
+      clearMessage: () => {
+        setMessage('');
+        setIsEnhanced(false);
+      },
     }));
 
     const handleTypewriterInit = (typewriter: any) => {
@@ -199,7 +205,11 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         <div className="relative">
           <textarea
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => {
+              setMessage(e.target.value);
+              // Typing over the enhanced text makes the label stale.
+              setIsEnhanced(false);
+            }}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             placeholder=""

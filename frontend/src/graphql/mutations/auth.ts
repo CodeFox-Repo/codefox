@@ -46,6 +46,14 @@ export const RESEND_CONFIRMATION_EMAIL_MUTATION = gql`
   }
 `;
 
+// A query, not a mutation — that is how the backend declares it. It retires
+// the bearer token server-side, so it has to run before storage is cleared.
+export const LOGOUT = gql`
+  query Logout {
+    logout
+  }
+`;
+
 export const EMAIL_VERIFICATION_REQUIRED = gql`
   query EmailVerificationRequired {
     emailVerificationRequired

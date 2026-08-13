@@ -6,7 +6,11 @@ import { useMutation } from '@apollo/client';
 import { ArrowUpRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useChatList } from '@/hooks/useChatList';
-import { DELETE_CHAT, UPDATE_CHAT_TITLE } from '@/graphql/request';
+import {
+  DELETE_CHAT,
+  DELETE_PROJECT,
+  UPDATE_CHAT_TITLE,
+} from '@/graphql/request';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -62,6 +66,8 @@ export function Workbench({
     mode: 'rename' | 'delete';
     id: string;
     title: string;
+    /** Absent only for a chat that never got a project scaffolded. */
+    projectId?: string;
   } | null>(null);
   const [draft, setDraft] = useState('');
 
@@ -69,13 +75,18 @@ export function Workbench({
     onCompleted: () => refetchChats(),
     onError: () => toast.error('Could not rename the project'),
   });
-  const [deleteChat] = useMutation(DELETE_CHAT, {
+  const deleted = {
     onCompleted: () => {
       toast.success('Project deleted');
       refetchChats();
     },
     onError: () => toast.error('Could not delete the project'),
-  });
+  };
+  // deleteProject already marks every chat of the project deleted and reclaims
+  // the workspace, so it is the whole delete. deleteChat is the fallback for a
+  // chat whose project never got scaffolded — there is nothing else to reclaim.
+  const [deleteProject] = useMutation(DELETE_PROJECT, deleted);
+  const [deleteChat] = useMutation(DELETE_CHAT, deleted);
 
   const commitRename = () => {
     const next = draft.trim();
@@ -186,6 +197,7 @@ export function Workbench({
                                 mode: 'delete',
                                 id: chat.id,
                                 title: chat.title || 'Untitled',
+                                projectId: chat.project?.id,
                               }),
                             0
                           )
@@ -249,8 +261,8 @@ export function Workbench({
             <DialogHeader className="space-y-4">
               <DialogTitle>Delete project?</DialogTitle>
               <DialogDescription>
-                “{action?.title}” and its chat history will be removed. The
-                generated files stay on disk.
+                “{action?.title}”, its chat history, and the generated files
+                will be removed. This cannot be undone.
               </DialogDescription>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setAction(null)}>
@@ -259,8 +271,13 @@ export function Workbench({
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    if (action)
+                    if (action?.projectId) {
+                      deleteProject({
+                        variables: { projectId: action.projectId },
+                      });
+                    } else if (action) {
                       deleteChat({ variables: { chatId: action.id } });
+                    }
                     setAction(null);
                   }}
                 >

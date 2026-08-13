@@ -9,6 +9,7 @@ import PreviewTab from './tabs/preview-tab';
 import ConsoleTab from './tabs/console-tab';
 import ResponsiveToolbar from './responsive-toolbar';
 import SaveChangesBar from './save-changes-bar';
+import { toast } from 'sonner';
 import { logger } from '@/app/log/logger';
 // These routes check ownership now, so they need the bearer token — a bare
 // fetch got a 401 and the file tree retried it forever.
@@ -242,7 +243,10 @@ export function CodeEngine({
 
   const updateCode = async (value) => {
     const projectPath = activeProject?.projectPath || projectPathRef.current;
-    if (!projectPath || !filePath) return;
+    // Returning quietly here used to read as success to handleSave.
+    if (!projectPath || !filePath) {
+      throw new Error('No file is open to save to');
+    }
 
     try {
       const response = await authenticatedFetch('/api/file', {
@@ -262,13 +266,23 @@ export function CodeEngine({
       await response.json();
     } catch (error) {
       logger.error('Error updating file:', error);
+      // Rethrow: swallowing here is what let handleSave report a save that
+      // never reached disk.
+      throw error;
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    try {
+      await updateCode(newCode);
+    } catch {
+      // updateCode already logged it. Leave the bar up: it is the only way
+      // back to the edit, and dismissing it would lose the text.
+      toast.error('Could not save this file');
+      return;
+    }
     setSaving(false);
     setPrecode(newCode);
-    updateCode(newCode);
   };
 
   const updateSavingStatus = (value) => {

@@ -110,6 +110,14 @@ export const DELETE_CHAT = gql`
   }
 `;
 
+// Deleting the project is what reclaims the workspace and the cover image;
+// deleteChat only hides one conversation and leaves the files behind.
+export const DELETE_PROJECT = gql`
+  mutation DeleteProject($projectId: String!) {
+    deleteProject(projectId: $projectId)
+  }
+`;
+
 export const GET_USER_INFO = gql`
   query me {
     me {
