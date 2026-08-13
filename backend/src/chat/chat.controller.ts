@@ -351,12 +351,17 @@ export class ChatController {
 
     // Armed only by a "Reconnecting..." frame, and disarmed by the next part.
     //
-    // The reconnect budget upstream (SandboxChannel, 30s) is measured from the
-    // start of each reconnectLoop, and a fresh loop starts on every socket
-    // drop — so a flapping socket resets it forever and finalizeClose, which
-    // is what would fail the turn, is never reached. Hence a guard here rather
-    // than trusting exhaustion: for a socket that reconnects and dies
-    // repeatedly, exhaustion never happens. Observed 9min, server healthy.
+    // "Reconnecting... 1/5" is the codex CLI's own retry, surfaced as a bridge
+    // error frame — and the harness settles the turn on ANY error frame
+    // (codex-harness.ts `channel.on('error')` → settleError). So by the time
+    // the filter below swallows 1/5, the stream is already finished: no 2/5
+    // ever arrives, no exhaustion, nothing terminal. The filter was written
+    // for transients the harness recovers from, which this is not.
+    //
+    // Swallowing it is still right — the CLI does retry internally and killing
+    // a recoverable turn was the older bug — so the fix is a deadline rather
+    // than surfacing 1/5. Confirmed in r3-backend-8081.log: one 1/5 at
+    // 12:10:11, that chat never logs another line.
     //
     // ponytail: post-reconnect only, so an ordinary long think is untouched.
     const RECONNECT_SILENCE_MS = 90_000;
