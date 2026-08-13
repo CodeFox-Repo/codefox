@@ -156,6 +156,21 @@ current nav item and inline links.`,
  * is both the commonest answer and the safest thing to build from a vague
  * brief.
  */
+/**
+ * How a project remembers what it is: a meta tag in its own index.html.
+ * Written by the scaffold, read back on every turn — the two live in
+ * different modules, so both use these rather than their own copy.
+ */
+export const scenarioMeta = (id: string): string =>
+  `<meta name="codefox-scenario" content="${id}" />`;
+
+export const SCENARIO_META_RE = /name="codefox-scenario"\s+content="([\w-]+)"/;
+
+/** The scenario a page declares, or null for one scaffolded before this. */
+export function scenarioOfPage(html?: string | null): string | null {
+  return html?.match(SCENARIO_META_RE)?.[1] ?? null;
+}
+
 export function scenario(id?: string | null): Scenario {
   return SCENARIOS.find((s) => s.id === id) ?? SCENARIOS[0];
 }

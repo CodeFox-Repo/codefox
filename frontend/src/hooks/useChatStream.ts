@@ -188,13 +188,21 @@ export const useChatStream = ({
 
       setActivity(null);
 
-      // Here rather than beside refreshProjects below: that sits after an
-      // awaited saveMessage and behind an early `return` for an empty answer,
-      // so the file panels stayed stale for a whole round trip — or forever,
-      // on a turn that edited files but said nothing. This also lands in the
+      // Both refreshes here, before the early `return` for an empty answer
+      // and before the awaited saveMessage. Either one below that line goes
+      // stale for a whole round trip — or forever, on a turn that edited
+      // files but said nothing, which is a real turn with real edits and a
+      // cover image that no longer matches. turnFinished() also lands in the
       // same commit as the lint findings above, so the Changes list and its
       // findings repaint together instead of tearing.
-      if (touchedFiles) turnFinished();
+      if (touchedFiles) {
+        turnFinished();
+        // Not awaited: saving the reply must not queue behind a refetch. The
+        // backend rescue-saves a turn the client abandons, and widening that
+        // window to include a network round trip is how a reply gets stored
+        // twice or not at all.
+        void refreshProjects();
+      }
 
       // Only the answer is kept. The working notes exist to be watched while
       // the turn runs; storing them would replay "let me check X…" forever on
@@ -219,9 +227,6 @@ export const useChatStream = ({
           } as ChatInputType,
         },
       });
-
-      // Only re-read the project when the agent actually wrote something.
-      if (touchedFiles) await refreshProjects();
     } catch (err) {
       // An auto-started first turn that died before producing anything is the
       // caller's to retry — right after creation the backend may still be

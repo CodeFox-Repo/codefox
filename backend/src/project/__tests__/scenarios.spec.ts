@@ -1,4 +1,10 @@
-import { SCENARIOS, scenario, scenarioChoices } from '../scenarios';
+import {
+  SCENARIOS,
+  scenario,
+  scenarioChoices,
+  scenarioMeta,
+  scenarioOfPage,
+} from '../scenarios';
 
 /**
  * The scenario is what the user actually answers, and it decides two things
@@ -48,14 +54,18 @@ describe('scenarios', () => {
   // the scaffold writes and the pattern the turn reads back have to agree.
   // They sit in different files and would drift silently.
   it('round-trips through the meta tag the scaffold writes', () => {
-    const written = (id: string) =>
-      `<meta name="codefox-scenario" content="${id}" />`;
-    const read = /name="codefox-scenario"\s+content="([\w-]+)"/;
+    // Both sides imported, not re-declared: re-typing the tag and the regex
+    // here would assert this file against itself and pass no matter how far
+    // scaffold.ts and chat.controller.ts drifted apart.
     for (const s of SCENARIOS) {
-      expect(written(s.id).match(read)?.[1]).toBe(s.id);
+      expect(scenarioOfPage(scenarioMeta(s.id))).toBe(s.id);
     }
     // A page scaffolded before scenarios existed reads as nothing at all.
-    expect('<head><title>x</title></head>'.match(read)?.[1] ?? null).toBeNull();
+    expect(scenarioOfPage('<head><title>x</title></head>')).toBeNull();
+    expect(scenarioOfPage(null)).toBeNull();
+    // And the tag survives being embedded in a real <head>.
+    const head = `<head><meta charset="utf-8" />${scenarioMeta('deck')}<title>x</title></head>`;
+    expect(scenarioOfPage(head)).toBe('deck');
   });
 
   it("does not tell a deck to use scrollIntoView", () => {

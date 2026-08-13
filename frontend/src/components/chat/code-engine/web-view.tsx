@@ -221,7 +221,10 @@ function PreviewContent({
   // exits or times out, so a returned url already means the port answers —
   // and the browser cannot re-check it anyway (cross-origin, the preflight
   // is refused). What was here polled a function hardcoded to `true`.
-  const MAX_ATTEMPTS = 12; // ~1 min at 5s, past a cold `next dev` boot.
+  // Not ~1 min: each attempt awaits the backend's own 90s waitForPort before
+  // failing, so 12 attempts is ~19 min of real budget, not 12 × the 5s gap.
+  // Raising this to "give a slow box more time" would be raising 19 minutes.
+  const MAX_ATTEMPTS = 12;
 
   useEffect(() => {
     const initWebUrl = async () => {

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const src = readFileSync('frontend/src/components/chat/code-engine/tabs/code-tab.tsx', 'utf8');
+// Relative to this file, not the cwd — the other check scripts do the same,
+// and a cwd-relative path made this one fail when run from frontend/.
+const src = readFileSync(
+  new URL('../frontend/src/components/chat/code-engine/tabs/code-tab.tsx', import.meta.url),
+  'utf8',
+);
 assert.ok(src.includes('{changesLoading && !changes ? ('), 'spinner no longer gated on !changes — a refetch blanks the list');
 assert.ok(src.includes('{!changesLoading && lint && lint.length > 0 && ('), 'findings no longer gated on changesLoading — they tear from the file list');
 assert.ok(src.includes('}, [projectPath, turnsDone]);'), 'changes effect no longer refetches on turn end');

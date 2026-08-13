@@ -14,6 +14,7 @@ import { WorkspaceService } from '../project/workspace.service';
 import type { ChangedFile } from '../project/workspace';
 import { lintArtifact, type LintFinding } from './lint-artifact';
 import { busy, queueForProject } from '../project/project-queue';
+import { scenarioOfPage } from '../project/scenarios';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -114,9 +115,7 @@ export class ChatController {
     try {
       const workspace = await this.workspaces.for(project.projectPath);
       const html = await workspace.readFile('index.html');
-      return (
-        html?.match(/name="codefox-scenario"\s+content="([\w-]+)"/)?.[1] ?? null
-      );
+      return scenarioOfPage(html);
     } catch {
       return null;
     }

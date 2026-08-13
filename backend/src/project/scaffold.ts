@@ -6,7 +6,7 @@ import fsExtra from 'fs-extra';
 import simpleGit from 'simple-git';
 import { getProjectsDir, getRootDir } from '../common/utils/common-path';
 import { DesignSystem, designSystem } from './design-systems';
-import { Scenario, scenario } from './scenarios';
+import { Scenario, scenario, scenarioMeta } from './scenarios';
 
 const { copy, existsSync, readdirSync, remove, symlink } = fsExtra;
 const exec = promisify(execFile);
@@ -156,7 +156,7 @@ const htmlStarter = (style: DesignSystem, kind: Scenario): string => `<!doctype 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- What this page is. Read back on every turn to remind the agent what
          shape it is building; the style lives in :root the same way. -->
-    <meta name="codefox-scenario" content="${kind.id}" />
+    ${scenarioMeta(kind.id)}
     <title>New Project</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
