@@ -31,7 +31,7 @@ interface UserSettingsProps {
  * @returns UserSettings JSX element.
  */
 export const UserSettingsBar = ({ isSimple }: UserSettingsProps) => {
-  const { user, isLoading, logout } = useAuthContext();
+  const { user, isLoading, isAdmin, logout } = useAuthContext();
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -107,7 +107,7 @@ export const UserSettingsBar = ({ isSimple }: UserSettingsProps) => {
         {/* The console had no link anywhere; you had to know to type /admin.
             The API is role-gated regardless — this only stops offering it to
             people it would refuse. */}
-        {user?.roles?.includes('Admin') && (
+        {isAdmin && (
           <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
             <div
               className="flex w-full gap-2 p-1 items-center cursor-pointer"

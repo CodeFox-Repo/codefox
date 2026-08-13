@@ -21,6 +21,8 @@ interface AuthContextValue {
   isLoading: boolean;
   token: string | null;
   user: User | null;
+  /** Gates the console link only. The API is role-gated on its own. */
+  isAdmin: boolean;
   login: (accessToken: string, refreshToken: string) => void;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<string | boolean | void>;
@@ -33,6 +35,7 @@ const AuthContext = createContext<AuthContextValue>({
   isLoading: false,
   token: null,
   user: null,
+  isAdmin: false,
   login: () => {},
   logout: async () => {},
   refreshAccessToken: async () => {},
@@ -212,6 +215,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         token,
         user,
+        // 'Admin' is the seeded name — DefaultRoles.ADMIN, backend/src/common/enums/role.enum.ts.
+        isAdmin: !!user?.roles?.includes('Admin'),
         login,
         logout,
         refreshAccessToken,
