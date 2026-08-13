@@ -83,7 +83,12 @@ export function DesignSystemOptions({
   return (
     <>
       {groupByCategory(systems).map(([category, group]) => (
-        <SelectGroup key={category}>
+        /* aria-label as well as the visible SelectLabel: Radix points the
+           group at that label by id, but the a11y tree only exposes it while
+           the label node is rendered and non-empty. The explicit label is one
+           attribute and holds regardless — 23 groups that announce as one flat
+           list of 155 options is the difference between browsing and scrolling. */
+        <SelectGroup key={category} aria-label={category}>
           <SelectLabel>{category}</SelectLabel>
           {group.map((system) => (
             <SelectItem key={system.id} value={system.id}>

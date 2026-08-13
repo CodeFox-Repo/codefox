@@ -353,7 +353,10 @@ const ResponsiveToolbar = ({
                           phone-width menu is a scroll, not a choice. */}
                       <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
                         {groupByCategory(styleSystems).map(([cat, group]) => (
-                          <div key={cat}>
+                          /* A bare div is not a group to a screen reader —
+                             this menu had no grouping semantics at all, so
+                             155 items announced as one list. */
+                          <div key={cat} role="group" aria-label={cat}>
                             <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
                               {cat}
                             </DropdownMenuLabel>
