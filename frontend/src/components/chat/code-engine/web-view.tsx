@@ -195,121 +195,33 @@ function PreviewContent({
   const [history, setHistory] = useState<string[]>(['/']);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [scale, setScale] = useState(0.7);
-  const [isServiceReady, setIsServiceReady] = useState(false);
-  const [serviceCheckAttempts, setServiceCheckAttempts] = useState(0);
-  const [loadingMessage, setLoadingMessage] = useState('Loading preview...');
+  const [loadingMessage, setLoadingMessage] = useState('Loading preview…');
+  /** Set when the backend refused to start the preview. Its message is the
+   *  diagnosis, so it is shown rather than logged. */
+  const [failure, setFailure] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const iframeRef = useRef(null);
   const containerRef = useRef<{ projectPath: string; domain: string } | null>(
     null
   );
   const lastProjectPathRef = useRef<string | null>(null);
-  const serviceCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
   const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const MAX_CHECK_ATTEMPTS = 15; // Reduced max attempts since we have progressive intervals
-
-  // Function to check if the frontend service is ready
-  // The backend only returns a preview URL after its own waitForPort has
-  // confirmed the dev server accepts connections, so the page is ready by the
-  // time we get here. Re-probing it from the browser is not just redundant —
-  // it is cross-origin (localhost:3000 → 127.0.0.1:<port>), so the preflight
-  // OPTIONS gets a 400 from Next and the check never passes.
-  const checkServiceReady = async (_url: string) => true;
-
-  // Function to periodically check service readiness
-  const startServiceReadyCheck = async (url: string) => {
-    // Clear any existing timer
-    if (serviceCheckTimerRef.current) {
-      clearInterval(serviceCheckTimerRef.current);
-    }
-
-    setServiceCheckAttempts(0);
-    setIsServiceReady(false);
-    setLoadingMessage('Loading preview...');
-
-    // Try immediately first (don't wait for interval)
-    const initialReady = await checkServiceReady(url);
-    if (initialReady) {
-      logger.info('Frontend service is ready immediately!');
-      setIsServiceReady(true);
-      return; // Exit early if service is ready immediately
-    }
-
-    // Progressive check intervals (check more frequently at first)
-    const checkIntervals = [500, 1000, 1000, 1500, 1500]; // First few checks are faster
-    let checkIndex = 0;
-
-    // Set a fallback timer - show preview after 45 seconds no matter what
-    const fallbackTimer = setTimeout(() => {
-      logger.info('Fallback timer triggered - showing preview anyway');
-      setIsServiceReady(true);
-      if (serviceCheckTimerRef.current) {
-        clearInterval(serviceCheckTimerRef.current);
-        serviceCheckTimerRef.current = null;
-      }
-    }, 45000);
-
-    const runServiceCheck = async () => {
-      setServiceCheckAttempts((prev) => prev + 1);
-
-      // Update loading message with attempts
-      if (serviceCheckAttempts > 3) {
-        setLoadingMessage(
-          `Starting frontend service... (${serviceCheckAttempts}/${MAX_CHECK_ATTEMPTS})`
-        );
-      }
-
-      const ready = await checkServiceReady(url);
-
-      if (ready) {
-        logger.info('Frontend service is ready!');
-        setIsServiceReady(true);
-        clearTimeout(fallbackTimer);
-        if (serviceCheckTimerRef.current) {
-          clearInterval(serviceCheckTimerRef.current);
-          serviceCheckTimerRef.current = null;
-        }
-      } else if (serviceCheckAttempts >= MAX_CHECK_ATTEMPTS) {
-        // Service didn't become ready after max attempts
-        logger.info(
-          'Max attempts reached. Service might still be initializing.'
-        );
-        setLoadingMessage(
-          'Preview might not be fully loaded. Click refresh to try again.'
-        );
-
-        // Show the preview anyway after max attempts
-        setIsServiceReady(true);
-        clearTimeout(fallbackTimer);
-
-        if (serviceCheckTimerRef.current) {
-          clearInterval(serviceCheckTimerRef.current);
-          serviceCheckTimerRef.current = null;
-        }
-      } else {
-        // Schedule next check with dynamic interval
-        const nextInterval =
-          checkIndex < checkIntervals.length
-            ? checkIntervals[checkIndex++]
-            : 2000; // Default to 2000ms after initial fast checks
-
-        setTimeout(runServiceCheck, nextInterval);
-      }
-    };
-
-    // Start the first check
-    setTimeout(runServiceCheck, 500);
+  const attemptsRef = useRef(0);
+  /** Reset by the Retry button to re-run the effect below. */
+  const [retryToken, setRetryToken] = useState(0);
+  const retryPreview = () => {
+    lastProjectPathRef.current = null;
+    attemptsRef.current = 0;
+    setFailure('');
+    setRetryToken((n) => n + 1);
   };
 
-  useEffect(() => {
-    // Cleanup interval on component unmount
-    return () => {
-      if (serviceCheckTimerRef.current) {
-        clearInterval(serviceCheckTimerRef.current);
-        serviceCheckTimerRef.current = null;
-      }
-    };
-  }, []);
+  // ponytail: readiness is the /api/preview response, not a second probe.
+  // The backend awaits its own waitForPort and throws when the dev server
+  // exits or times out, so a returned url already means the port answers —
+  // and the browser cannot re-check it anyway (cross-origin, the preflight
+  // is refused). What was here polled a function hardcoded to `true`.
+  const MAX_ATTEMPTS = 12; // ~1 min at 5s, past a cold `next dev` boot.
 
   useEffect(() => {
     const initWebUrl = async () => {
@@ -329,14 +241,10 @@ function PreviewContent({
 
       lastProjectPathRef.current = projectPath;
 
-      // Reset service ready state for new project
-      setIsServiceReady(false);
-
       if (containerRef.current?.projectPath === projectPath) {
         const url = `${URL_PROTOCOL_PREFIX}://${containerRef.current.domain}`;
         setBaseUrl(url);
         setDisplayPath('/');
-        startServiceReadyCheck(url);
         return;
       }
 
@@ -351,15 +259,22 @@ function PreviewContent({
         logger.info('baseUrl:', baseUrl);
         setBaseUrl(baseUrl);
         setDisplayPath('/');
-
-        // Start checking if the service is ready
-        startServiceReadyCheck(baseUrl);
+        setFailure('');
+        attemptsRef.current = 0;
       } catch (error) {
         // A fresh project fails here while it scaffolds and its dev server
-        // boots — that is "not yet", not "failed". Say so and try again.
+        // boots — that is "not yet", not "failed". Retrying forever is what
+        // hid a dev server that was never going to come up, so give up after
+        // MAX_ATTEMPTS and show what the backend actually said.
         logger.error('Error getting web URL:', error);
-        setLoadingMessage('Preview is not ready yet — waiting for the app…');
         lastProjectPathRef.current = null;
+        if (++attemptsRef.current >= MAX_ATTEMPTS) {
+          setFailure(
+            (error as Error)?.message ?? 'The preview server did not respond.'
+          );
+          return;
+        }
+        setLoadingMessage('Preview is not ready yet — waiting for the app…');
         retryTimerRef.current = setTimeout(initWebUrl, 5000);
       }
     };
@@ -372,14 +287,14 @@ function PreviewContent({
         retryTimerRef.current = null;
       }
     };
-  }, [curProject, getWebUrl]);
+  }, [curProject, getWebUrl, retryToken]);
 
   useEffect(() => {
-    if (iframeRef.current && baseUrl && isServiceReady) {
+    if (iframeRef.current && baseUrl) {
       const fullUrl = `${baseUrl}${displayPath}`;
       iframeRef.current.src = fullUrl;
     }
-  }, [baseUrl, displayPath, isServiceReady]);
+  }, [baseUrl, displayPath]);
 
   const enterFullScreen = () => {
     if (iframeRef.current) {
@@ -420,12 +335,6 @@ function PreviewContent({
   };
 
   const reloadIframe = () => {
-    // Reset service ready check when manually reloading
-    if (baseUrl) {
-      setIsServiceReady(false);
-      startServiceReadyCheck(baseUrl);
-    }
-
     const iframe = document.getElementById('myIframe') as HTMLIFrameElement;
     if (iframe) {
       const src = iframe.src;
@@ -456,7 +365,7 @@ function PreviewContent({
             size="icon"
             className="h-6 w-6"
             onClick={goBack}
-            disabled={!baseUrl || currentIndex === 0 || !isServiceReady}
+            disabled={!baseUrl || currentIndex === 0}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -465,9 +374,7 @@ function PreviewContent({
             size="icon"
             className="h-6 w-6"
             onClick={goForward}
-            disabled={
-              !baseUrl || currentIndex >= history.length - 1 || !isServiceReady
-            }
+            disabled={!baseUrl || currentIndex >= history.length - 1}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -490,7 +397,7 @@ function PreviewContent({
             onChange={(e) => handlePathChange(e.target.value)}
             className="h-7 bg-secondary text-xs"
             placeholder="/"
-            disabled={!baseUrl || !isServiceReady}
+            disabled={!baseUrl}
           />
         </div>
 
@@ -501,7 +408,7 @@ function PreviewContent({
             size="icon"
             onClick={zoomOut}
             className="h-8 w-8"
-            disabled={!baseUrl || !isServiceReady}
+            disabled={!baseUrl}
           >
             <ZoomOut className="h-4 w-4" />
           </Button>
@@ -510,7 +417,7 @@ function PreviewContent({
             size="icon"
             onClick={zoomIn}
             className="h-8 w-8"
-            disabled={!baseUrl || !isServiceReady}
+            disabled={!baseUrl}
           >
             <ZoomIn className="h-4 w-4" />
           </Button>
@@ -519,7 +426,7 @@ function PreviewContent({
             size="icon"
             onClick={openInNewTab}
             className="h-8 w-8"
-            disabled={!baseUrl || !isServiceReady}
+            disabled={!baseUrl}
           >
             <ExternalLink className="h-4 w-4" />
           </Button>
@@ -528,7 +435,7 @@ function PreviewContent({
             size="icon"
             onClick={enterFullScreen}
             className="h-8 w-8"
-            disabled={!baseUrl || !isServiceReady}
+            disabled={!baseUrl}
           >
             <Maximize className="h-4 w-4" />
           </Button>
@@ -537,7 +444,7 @@ function PreviewContent({
 
       {/* Preview Container */}
       <div className="relative flex-1 w-full h-full">
-        {baseUrl && isServiceReady ? (
+        {baseUrl ? (
           <iframe
             id="myIframe"
             ref={iframeRef}
@@ -552,25 +459,25 @@ function PreviewContent({
             }}
           />
         ) : (
-          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-2">
+          <div className="absolute inset-0 flex w-full items-center justify-center bg-background p-6">
+            <div className="flex max-w-md flex-col items-center gap-3">
               <div className="flex items-center gap-2">
-                <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                {!failure && (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                )}
                 <p className="text-sm text-muted-foreground">
-                  {loadingMessage}
+                  {failure ? 'The preview could not start.' : loadingMessage}
                 </p>
               </div>
-              {serviceCheckAttempts > 5 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (baseUrl) {
-                      startServiceReadyCheck(baseUrl);
-                    }
-                  }}
-                >
-                  <RefreshCcw className="h-3 w-3 mr-1" /> Retry Check
+              {/* The backend's own message — which dev server died and how. */}
+              {failure && (
+                <p className="max-h-32 overflow-auto rounded border border-border bg-secondary px-3 py-2 font-mono text-xs text-muted-foreground">
+                  {failure}
+                </p>
+              )}
+              {failure && (
+                <Button variant="outline" size="sm" onClick={retryPreview}>
+                  <RefreshCcw className="mr-1 h-3 w-3" /> Retry
                 </Button>
               )}
             </div>

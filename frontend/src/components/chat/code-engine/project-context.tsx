@@ -594,9 +594,20 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         );
 
         if (!response.ok) {
-          throw new Error(
-            `Failed to get web URL: ${response.status} ${response.statusText}`
-          );
+          // The body carries Nest's message — which is the whole diagnosis
+          // when a dev server fails to boot ("exited during startup", "did
+          // not start in time"). Dropping it is why HANDOFF's "500 after
+          // ~2min" has stayed undiagnosed: the status alone says nothing.
+          const detail = await response.text().catch(() => '');
+          const message =
+            (() => {
+              try {
+                return JSON.parse(detail)?.message;
+              } catch {
+                return detail.slice(0, 300);
+              }
+            })() || response.statusText;
+          throw new Error(`Preview failed (${response.status}): ${message}`);
         }
 
         const data = await response.json();
