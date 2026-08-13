@@ -41,7 +41,7 @@ export const useChatStream = ({
   const pendingImagesRef = useRef<string[] | undefined>(undefined);
   const [currentChatId, setCurrentChatId] = useState<string>(chatId);
   const { token } = useAuthContext();
-  const { curProject, refreshProjects, setFilePath, editorRef } =
+  const { curProject, refreshProjects, setFilePath, editorRef, turnFinished } =
     useContext(ProjectContext);
   const [curProjectPath, setCurProjectPath] = useState('');
 
@@ -187,6 +187,14 @@ export const useChatStream = ({
       });
 
       setActivity(null);
+
+      // Here rather than beside refreshProjects below: that sits after an
+      // awaited saveMessage and behind an early `return` for an empty answer,
+      // so the file panels stayed stale for a whole round trip — or forever,
+      // on a turn that edited files but said nothing. This also lands in the
+      // same commit as the lint findings above, so the Changes list and its
+      // findings repaint together instead of tearing.
+      if (touchedFiles) turnFinished();
 
       // Only the answer is kept. The working notes exist to be watched while
       // the turn runs; storing them would replay "let me check X…" forever on

@@ -72,6 +72,10 @@ export interface ProjectContextType {
     projectPath?: string
   ) => Promise<void>;
   refreshProjects: () => Promise<void>;
+  /** Bumped once per finished turn. Panels that read the project's files
+   *  rather than its GraphQL row watch this to know they went stale. */
+  turnsDone: number;
+  turnFinished: () => void;
   editorRef?: React.MutableRefObject<any>;
 }
 
@@ -88,6 +92,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const editorRef = useRef<any>(null);
+  // Not folded into refreshProjects: that also runs on a 60s timer, and the
+  // file panels have nothing to re-read when no turn happened.
+  const [turnsDone, setTurnsDone] = useState(0);
+  const turnFinished = useCallback(() => setTurnsDone((n) => n + 1), []);
 
   interface ChatProjectCacheEntry {
     project: Project | null;
@@ -871,6 +879,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       getWebUrl,
       takeProjectScreenshot,
       refreshProjects,
+      turnsDone,
+      turnFinished,
       editorRef,
     }),
     [
@@ -886,6 +896,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       getWebUrl,
       takeProjectScreenshot,
       refreshProjects,
+      turnsDone,
+      turnFinished,
       editorRef,
     ]
   );

@@ -16,6 +16,7 @@ import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { LintFinding } from '@/api/ChatStreamAPI';
+import { ProjectContext } from '../project-context';
 
 /** One file the agent has touched, relative to the template baseline. */
 interface ChangedFile {
@@ -90,6 +91,7 @@ const CodeTab = ({
   lint,
 }: CodeTabProps) => {
   const theme = useTheme();
+  const { turnsDone = 0 } = useContext(ProjectContext) ?? {};
   const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false);
   const [isLoading] = useState(false);
   const [type, setType] = useState('javascript');
@@ -175,7 +177,16 @@ const CodeTab = ({
     return () => {
       cancelled = true;
     };
-  }, [projectPath]);
+  }, [projectPath, turnsDone]);
+
+  // Still lazy — nothing is fetched until History is actually open — but this
+  // owns both the first open and every turn after, so the tab click no longer
+  // carries its own load and the two cannot double-fire.
+  useEffect(() => {
+    if (view !== 'history' || !projectPath) return;
+    void loadVersions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, projectPath, turnsDone]);
 
   useEffect(() => {
     if (filePath) {
@@ -229,12 +240,7 @@ const CodeTab = ({
             <button
               key={v}
               type="button"
-              onClick={() => {
-                setView(v);
-                if (v === 'history' && versions === null && !versionsLoading) {
-                  void loadVersions();
-                }
-              }}
+              onClick={() => setView(v)}
               className={cn(
                 'rounded px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] transition-colors',
                 view === v
@@ -248,7 +254,7 @@ const CodeTab = ({
         </div>
         {view === 'changes' ? (
           <div className="p-2">
-            {changesLoading ? (
+            {changesLoading && !changes ? (
               <p className="px-2 py-3 font-mono text-xs text-muted-foreground">
                 Reading changes…
               </p>
@@ -299,8 +305,10 @@ const CodeTab = ({
               </ul>
             )}
             {/* Nothing at all when the page is clean — an empty "no issues"
-                panel is a claim the lint is not making. */}
-            {lint && lint.length > 0 && (
+                panel is a claim the lint is not making. Held back while the
+                file list refetches: findings arrive on the turn's stream and
+                the list over a fetch, so showing them apart tears. */}
+            {!changesLoading && lint && lint.length > 0 && (
               <ul className="mt-3 space-y-2 border-t border-border pt-3">
                 {lint.map((finding) => (
                   <li key={finding.id} className="px-2">
@@ -327,7 +335,7 @@ const CodeTab = ({
           </div>
         ) : view === 'history' ? (
           <div className="p-2">
-            {versionsLoading ? (
+            {versionsLoading && !versions ? (
               <p className="px-2 py-3 font-mono text-xs text-muted-foreground">
                 Reading history…
               </p>
