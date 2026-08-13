@@ -1,5 +1,6 @@
 import { ChatInputType } from '@/graphql/type';
 import authenticatedFetch from '@/lib/authenticatedFetch';
+import { userKey } from '@/lib/user-key';
 
 /** One thing the page the turn produced gets wrong, worst first. */
 export interface LintFinding {
@@ -51,7 +52,9 @@ export const startChatStream = async (
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ chatId, message, model, images }),
+    // Read at send time, not captured at module load: the user can set or
+    // clear their key mid-session and the next turn should honour it.
+    body: JSON.stringify({ chatId, message, model, images, ...userKey() }),
     signal,
   });
 

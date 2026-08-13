@@ -13,6 +13,7 @@ import { MessageRole, TurnStep } from './message.model';
 import { WorkspaceService } from '../project/workspace.service';
 import type { ChangedFile } from '../project/workspace';
 import { lintArtifact, type LintFinding } from './lint-artifact';
+import { validateExternalApiBaseUrl } from './external-url';
 import { busy, queueForProject } from '../project/project-queue';
 import { scenarioOfPage } from '../project/scenarios';
 
@@ -252,6 +253,15 @@ export class ChatController {
       model: chatDto.model,
       template: project.template,
       scenarioId: await this.scenarioOf(project),
+      // Both or neither: a key with no endpoint would silently fall back to
+      // ours and bill us for a turn the user meant to pay for themselves.
+      credential:
+        chatDto.apiKey && chatDto.baseUrl
+          ? {
+              apiKey: chatDto.apiKey,
+              baseUrl: validateExternalApiBaseUrl(chatDto.baseUrl),
+            }
+          : undefined,
     });
 
     // Already sent when this turn waited in the queue and said so.
@@ -339,8 +349,48 @@ export class ChatController {
       }
     });
 
+    // Armed only by a "Reconnecting..." frame, and disarmed by the next part.
+    //
+    // The reconnect budget upstream (SandboxChannel, 30s) is measured from the
+    // start of each reconnectLoop, and a fresh loop starts on every socket
+    // drop — so a flapping socket resets it forever and finalizeClose, which
+    // is what would fail the turn, is never reached. Hence a guard here rather
+    // than trusting exhaustion: for a socket that reconnects and dies
+    // repeatedly, exhaustion never happens. Observed 9min, server healthy.
+    //
+    // ponytail: post-reconnect only, so an ordinary long think is untouched.
+    const RECONNECT_SILENCE_MS = 90_000;
+    let deadline: NodeJS.Timeout | undefined;
+    let stalled: Promise<never> | undefined;
+    const armed = () => {
+      stalled = new Promise<never>((_, reject) => {
+        deadline = setTimeout(
+          () =>
+            reject(
+              new Error(
+                'The agent lost its connection and could not get it back.',
+              ),
+            ),
+          RECONNECT_SILENCE_MS,
+        );
+      });
+    };
+    const disarm = () => {
+      clearTimeout(deadline);
+      deadline = undefined;
+      stalled = undefined;
+    };
+    const iterator = result.stream[Symbol.asyncIterator]();
+
     try {
-      for await (const part of result.stream) {
+      for (;;) {
+        const next = await (stalled
+          ? Promise.race([iterator.next(), stalled])
+          : iterator.next());
+        if (next.done) break;
+        const part = next.value;
+        // Any part means the connection came back.
+        if (part.type !== 'error') disarm();
         if (clientGone) break;
 
         switch (part.type) {
@@ -373,6 +423,10 @@ export class ChatController {
             const detail = String((part as any).error ?? '');
             if (/^Reconnecting\.\.\./.test(detail)) {
               this.logger.warn(`[${chatDto.chatId}] transient: ${detail}`);
+              // Still transient — but from here silence is a dead socket, not
+              // a long think, so start the clock. Re-armed on each attempt.
+              disarm();
+              armed();
               break;
             }
             this.logger.error(`[${chatDto.chatId}] ${JSON.stringify(part)}`);
@@ -385,6 +439,7 @@ export class ChatController {
       this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
       if (!res.writableEnded) send({ t: 'error', v: explain(error) });
     } finally {
+      disarm();
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
       await endSession('stop', false);

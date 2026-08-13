@@ -55,17 +55,38 @@ const harnessCache = new Map<string, ReturnType<typeof createCodex>>();
  * so honouring the chat's model picker means keeping an instance per choice
  * rather than a single module-level default.
  */
-const harnessFor = (rawModel?: string) => {
+const harnessFor = (rawModel?: string, credential?: UserCredential) => {
+  // A user's own endpoint serves its own model list, so AVAILABLE_MODELS —
+  // which describes OUR endpoint — must not clamp their choice.
+  const model = credential
+    ? (rawModel ?? DEFAULT_MODEL)
+    : rawModel && AVAILABLE_MODELS.includes(rawModel)
+      ? rawModel
+      : DEFAULT_MODEL;
   // Two traps live here: a chat can carry a model the endpoint no longer
   // serves (env config changes between deploys), and a turn with no model at
   // all used to reach the CLI's own baked-in default — which the configured
   // endpoint does not serve either. Both land on OUR default instead.
-  const model =
-    rawModel && AVAILABLE_MODELS.includes(rawModel) ? rawModel : DEFAULT_MODEL;
-  if (rawModel && model !== rawModel) {
+  if (!credential && rawModel && model !== rawModel) {
     logger.warn(`Model ${rawModel} is not configured; using ${model}`);
   }
   const kind = agentHarness();
+
+  // Never cached: the cache is keyed kind:model, so user A's key would be
+  // handed to user B asking for the same model. Building one per turn costs
+  // an object; getting this wrong costs someone else's bill.
+  if (credential) {
+    return createCodex({
+      model,
+      auth: {
+        openaiCompatible: {
+          apiKey: credential.apiKey,
+          baseUrl: credential.baseUrl,
+        },
+      },
+    });
+  }
+
   const key = `${kind}:${model ?? ''}`;
   const cached = harnessCache.get(key);
   if (cached) return cached;
@@ -123,8 +144,6 @@ const harnessFor = (rawModel?: string) => {
   harnessCache.set(key, created as ReturnType<typeof createCodex>);
   return created;
 };
-
-
 
 /** One earlier turn, oldest first. */
 export interface PriorTurn {
@@ -211,6 +230,14 @@ export interface ProjectAgentOptions {
   template?: string | null;
   /** What the user said they were making; read from the page's meta tag. */
   scenarioId?: string | null;
+  /** The user's own endpoint for this turn. Never logged, never stored. */
+  credential?: UserCredential;
+}
+
+/** Codex only — an OpenAI-compatible endpoint cannot drive the claude CLI. */
+export interface UserCredential {
+  apiKey: string;
+  baseUrl: string;
 }
 
 const EXTENSIONS: Record<string, string> = {
@@ -327,6 +354,7 @@ export const runProjectAgent = async ({
   model,
   template,
   scenarioId,
+  credential,
 }: ProjectAgentOptions) => {
   const workingDirectory = path.join(getProjectsDir(), projectPath);
 
@@ -346,7 +374,7 @@ export const runProjectAgent = async ({
   const prompt = `${retell(history ?? [])}${handEditNote(handEdits ?? [])}${asked}`;
 
   const agent = new HarnessAgent({
-    harness: harnessFor(model),
+    harness: harnessFor(model, credential),
     instructions: instructionsFor(template, scenarioId),
     // html projects live on the host in every mode — their agent edits those
     // files directly. NOTE: that trades away microVM isolation for them;

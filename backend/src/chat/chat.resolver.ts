@@ -114,10 +114,13 @@ export class ChatResolver {
     @Args('chatId') chatId: string,
     @Args('model') model: string,
   ): Promise<Chat | null> {
-    // Only a model the endpoint actually serves; a typo here would silently
-    // poison every later turn of the chat.
+    // A typo here would silently poison every later turn of the chat, so an
+    // unknown model is worth saying out loud — but not throwing over: a user
+    // on their own key picks models OUR endpoint has never heard of, and
+    // harnessFor already sends those straight through. Refusing here made
+    // selecting one fail with "Could not save the model choice" every time.
     if (!AVAILABLE_MODELS.includes(model)) {
-      throw new Error(`Unknown model: ${model}`);
+      this.logger.log(`Model ${model} is not one of ours; assuming BYOK.`);
     }
     return this.chatService.updateChatModel(chatId, model);
   }

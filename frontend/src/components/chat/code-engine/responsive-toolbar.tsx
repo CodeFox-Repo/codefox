@@ -13,6 +13,7 @@ import {
   FileText,
   Palette,
   Rocket,
+  KeyRound,
   MoreHorizontal,
   Terminal,
   Loader,
@@ -37,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DeployDialog } from './deploy-dialog';
+import { KeyDialog } from './key-dialog';
 import { Select, SelectContent, SelectTrigger } from '@/components/ui/select';
 import {
   DESIGN_SYSTEMS,
@@ -121,6 +123,7 @@ const ResponsiveToolbar = ({
   const projectPath: string | undefined = projectData?.getProject?.projectPath;
   const [printing, setPrinting] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
+  const [keyOpen, setKeyOpen] = useState(false);
 
   // Restyling swaps the page's token block server-side. The preview polls the
   // file every few seconds, so it picks the new look up on its own — nothing
@@ -377,6 +380,11 @@ const ResponsiveToolbar = ({
                       Deploy
                     </DropdownMenuItem>
                   )}
+                  {/* Not page-only: the key drives every turn. */}
+                  <DropdownMenuItem onClick={() => setKeyOpen(true)}>
+                    <KeyRound className="w-3 h-3 mr-2" />
+                    API key
+                  </DropdownMenuItem>
                   {isPage && (
                     <DropdownMenuItem
                       disabled={!projectPath || printing}
@@ -570,6 +578,7 @@ const ResponsiveToolbar = ({
         open={deployOpen}
         onOpenChange={setDeployOpen}
       />
+      <KeyDialog open={keyOpen} onOpenChange={setKeyOpen} />
     </div>
   );
 };

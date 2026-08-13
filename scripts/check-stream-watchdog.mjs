@@ -54,4 +54,62 @@ assert.equal(
   'a hung stop must not block res.end()'
 );
 
-console.log('ok — endSession bounded, both exits covered, timer cleared');
+// ── Hang path 2: reconnect that never exhausts ──────────────────────────
+// SandboxChannel's 30s budget restarts with every reconnectLoop, and a new
+// loop starts on every socket drop — so a flapping socket never reaches
+// finalizeClose and nothing terminal is ever emitted.
+assert.ok(
+  /if \(part\.type !== 'error'\) disarm\(\);/.test(src),
+  'a non-error part no longer disarms — a recovered turn would be killed'
+);
+assert.ok(
+  /transient: \$\{detail\}`\);[\s\S]{0,200}?disarm\(\);\s*\n\s*armed\(\);/.test(
+    src
+  ),
+  'the Reconnecting branch no longer arms the guard — hang path 2 is back'
+);
+assert.ok(
+  /finally \{\s*\n\s*disarm\(\);/.test(src),
+  'the reconnect guard is not disarmed in finally'
+);
+
+// The guard must be armed ONLY by a reconnect: an ordinary long think has no
+// deadline at all, which is what the reverted watchdog got wrong.
+const step = async ({ arm, partAfterMs, deadlineMs }) => {
+  let stalled;
+  let timer;
+  if (arm) {
+    stalled = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('lost connection')), deadlineMs);
+    });
+    stalled.catch(() => {});
+  }
+  const next = new Promise((r) => setTimeout(() => r('part'), partAfterMs));
+  try {
+    return await (stalled ? Promise.race([next, stalled]) : next);
+  } catch {
+    return 'failed';
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+assert.equal(
+  await step({ arm: false, partAfterMs: 40 }),
+  'part',
+  'an unarmed long think must never be interrupted'
+);
+assert.equal(
+  await step({ arm: true, partAfterMs: 5, deadlineMs: 50 }),
+  'part',
+  'a reconnect that recovers must deliver its next part'
+);
+assert.equal(
+  await step({ arm: true, partAfterMs: 60, deadlineMs: 5 }),
+  'failed',
+  'silence after a reconnect must fail the turn, not hang it'
+);
+
+console.log(
+  'ok — endSession bounded, reconnect guard armed only post-reconnect'
+);
