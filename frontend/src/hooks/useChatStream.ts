@@ -155,6 +155,8 @@ export const useChatStream = ({
       };
 
       let touchedFiles = false;
+      // A turn that died mid-flight still said things the user read.
+      let died = false;
 
       // Cleared here rather than on the event: a clean turn sends no lint
       // event at all, so findings the agent has since fixed would otherwise
@@ -182,7 +184,10 @@ export const useChatStream = ({
           flush();
           setActivity({ tool, file: target });
         },
-        onError: (m) => toast.error(m),
+        onError: (m) => {
+          died = true;
+          toast.error(m);
+        },
         onLint: setLint,
       });
 
@@ -207,10 +212,18 @@ export const useChatStream = ({
       // Only the answer is kept. The working notes exist to be watched while
       // the turn runs; storing them would replay "let me check X…" forever on
       // every reload, where there is no longer anything to fold them into.
-      const answer = splitTurn(steps)
-        .answer.map((s) => (s.kind === 'text' ? s.text : ''))
-        .join('')
-        .trim();
+      const text = (parts: TurnStep[]) =>
+        parts
+          .map((s) => (s.kind === 'text' ? s.text : ''))
+          .join('')
+          .trim();
+
+      // splitTurn treats a turn ending on a tool call as "no answer yet",
+      // which is right for an abort — the agent is mid-thought and will be
+      // asked again — but wrong for a runtime that died: nothing is coming,
+      // and the text already on screen would vanish on the next reload. Keep
+      // whatever it said rather than the last paragraph only.
+      const answer = text(splitTurn(steps).answer) || (died ? text(steps) : '');
 
       if (!answer) return;
 
