@@ -646,9 +646,23 @@ export class ProjectService {
 
     return queueForProject(project.projectPath, async () => {
       const workspace = await this.workspaces.for(project.projectPath);
-      const files = await collectFiles(workspace);
+      const { files, skipped } = await collectFiles(workspace);
       try {
-        return await deployToVercel(token, project.projectName, files);
+        const result = await deployToVercel(
+          token,
+          project.projectName,
+          files,
+          undefined,
+          project.id,
+        );
+        // Say what did not go: a silently missing image looks like a broken
+        // deploy, and the user is the only one who can tell if it mattered.
+        return result.ok && skipped.length
+          ? {
+              ...result,
+              message: `Deployed. ${skipped.length} binary file${skipped.length === 1 ? '' : 's'} skipped (images and fonts are not supported yet): ${skipped.slice(0, 5).join(', ')}`,
+            }
+          : result;
       } catch (error) {
         // A network failure is not a server error — the user's token and the
         // provider are both outside our control. Say what happened.

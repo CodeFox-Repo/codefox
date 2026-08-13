@@ -25,34 +25,64 @@ export class DeployResult {
 const SKIP = /^(\.git|node_modules|\.agent-runs|\.codefox-uploads|\.next|dist|build)\//;
 
 /**
- * The files a static host should serve. Text only, read through the
- * workspace so this works the same on a host disk and in a sandbox.
+ * ponytail: skipped, not deployed. The workspace reads text — a PNG through
+ * a utf8 round-trip arrives corrupt, and a broken image is worse than a
+ * missing one because it looks deployed. Upgrade path: a bytes-capable
+ * readFile on ProjectWorkspace, then base64 these directly.
  */
-export async function collectFiles(
-  workspace: ProjectWorkspace,
-): Promise<{ file: string; data: string }[]> {
+const BINARY =
+  /\.(png|jpe?g|gif|webp|avif|ico|bmp|woff2?|ttf|otf|eot|mp[34]|webm|mov|pdf|zip|wasm)$/i;
+
+/**
+ * The files a static host should serve, and the binary ones it cannot yet.
+ * Read through the workspace so this works the same on a host disk and in a
+ * sandbox.
+ */
+export async function collectFiles(workspace: ProjectWorkspace): Promise<{
+  files: { file: string; data: string }[];
+  skipped: string[];
+}> {
   const paths = (await workspace.listFiles()).filter((p) => !SKIP.test(p));
   const files: { file: string; data: string }[] = [];
+  const skipped: string[] = [];
   for (const file of paths) {
+    if (BINARY.test(file)) {
+      skipped.push(file);
+      continue;
+    }
     const data = await workspace.readFile(file);
     if (data !== null) files.push({ file, data });
   }
-  return files;
+  return { files, skipped };
+}
+
+/**
+ * A Vercel project name: lowercase, alphanumeric and dashes, ≤100.
+ *
+ * Stripping non-ASCII leaves "我的网站" as nothing at all, so every
+ * Chinese-named project deployed to the SAME slug — and target:'production'
+ * means each one silently replaced the last. When nothing survives the
+ * strip, the project id is the name.
+ */
+export function slugFor(name: string, projectId = ''): string {
+  const stem = name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  const id = projectId.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+  return `codefox-${stem || id || 'page'}`.slice(0, 100).replace(/-$/, '');
 }
 
 /** The exact body Vercel expects. Split out so it can be tested without a token. */
 export function vercelPayload(
   name: string,
   files: { file: string; data: string }[],
+  /** Disambiguates a name with no ASCII left — see slugFor. */
+  projectId = '',
 ) {
   return {
-    // Vercel project names are lowercase, alphanumeric and dashes, ≤100.
-    name: `codefox-${name}`
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-')
-      .replace(/-+/g, '-')
-      .slice(0, 100)
-      .replace(/^-|-$/g, ''),
+    name: slugFor(name, projectId),
     files: files.map((f) => ({
       file: f.file,
       data: Buffer.from(f.data, 'utf8').toString('base64'),
@@ -74,18 +104,34 @@ export async function deployToVercel(
   name: string,
   files: { file: string; data: string }[],
   post = fetch,
+  projectId = '',
 ): Promise<DeployResult> {
   if (!files.length) {
     return { ok: false, url: '', message: 'This project has no files to deploy.' };
   }
-  const res = await post('https://api.vercel.com/v13/deployments', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(vercelPayload(name, files)),
-  });
+  let res: Response;
+  try {
+    res = await post('https://api.vercel.com/v13/deployments', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(vercelPayload(name, files, projectId)),
+      // This runs inside the project's write queue, so a hung upload blocks
+      // the user's next chat turn behind it. 60s is well past a page.
+      signal: AbortSignal.timeout(60_000),
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      url: '',
+      message:
+        (error as Error)?.name === 'TimeoutError'
+          ? 'Vercel did not respond within 60s. Nothing was deployed.'
+          : `Could not reach Vercel: ${(error as Error)?.message ?? error}`,
+    };
+  }
 
   const body = await res.text();
   const json = (() => {
