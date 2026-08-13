@@ -9,6 +9,7 @@ import {
   DESIGN_SYSTEMS,
   DesignSystemChoice,
   RESTYLE_PROJECT,
+  announceRestyled,
 } from '@/components/design-systems';
 
 /** One clarifying question the agent asked before building. */
@@ -177,6 +178,7 @@ export function QuestionCard({
       const { data } = await restyle({ variables: { projectId, styleId } });
       const result = data?.restyleProject;
       setRestyleNote(result?.ok ? '' : (result?.message ?? ''));
+      if (result?.ok) announceRestyled();
     } catch {
       // The pick still answers the question; the agent can do the work.
       setRestyleNote('The style could not be applied automatically.');

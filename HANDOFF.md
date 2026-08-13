@@ -196,7 +196,7 @@ and Console.
 
 ### Known-good check scripts
 
-`scripts/check-*.mjs`, eight of them, all runnable with bare `node` and no
+`scripts/check-*.mjs`, nine of them, all runnable with bare `node` and no
 framework. They exist because most of this session's logic is a branch that
 only fires when something is already broken, which no ordinary test run
 reaches. Each asserts against real source text plus a runtime case, and each

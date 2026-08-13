@@ -39,6 +39,17 @@ export const RESTYLE_PROJECT = gql`
   }
 `;
 
+/**
+ * A restyle rewrote the page, so the findings on screen describe a page that
+ * no longer exists. Both callers — the palette card and the toolbar picker —
+ * live in different subtrees from the lint state, so they announce instead of
+ * reaching for a setter.
+ */
+export const PROJECT_RESTYLED = 'codefox-project-restyled';
+
+export const announceRestyled = () =>
+  window.dispatchEvent(new Event(PROJECT_RESTYLED));
+
 /** A style, shown as itself: canvas, text, accent. */
 export function Swatch({ system }: { system?: DesignSystemChoice }) {
   if (!system) return null;

@@ -105,7 +105,8 @@ export function KeyDialog({
               autoComplete="off"
             />
             <p className="text-xs text-muted-foreground">
-              Must be https. OpenAI-compatible endpoints only.
+              Must be https. OpenAI-compatible endpoints only — these turns run
+              on the Codex runtime whatever this deployment otherwise uses.
             </p>
           </div>
 

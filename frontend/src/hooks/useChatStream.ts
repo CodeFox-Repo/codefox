@@ -8,6 +8,7 @@ import { useAuthContext } from '@/providers/AuthProvider';
 import { startChatStream, type LintFinding } from '@/api/ChatStreamAPI';
 import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { ChatInputType } from '@/graphql/type';
+import { PROJECT_RESTYLED } from '@/components/design-systems';
 
 export interface UseChatStreamProps {
   chatId: string;
@@ -34,6 +35,14 @@ export const useChatStream = ({
    *  the agent may well have fixed the previous set, and a stale finding is
    *  worse than none. */
   const [lint, setLint] = useState<LintFinding[]>([]);
+  // A restyle rewrites the page, so the findings on screen are about a page
+  // the user is no longer looking at. Both restyle paths announce; this is the
+  // only place the list lives.
+  useEffect(() => {
+    const clear = () => setLint([]);
+    window.addEventListener(PROJECT_RESTYLED, clear);
+    return () => window.removeEventListener(PROJECT_RESTYLED, clear);
+  }, []);
   const abortRef = useRef<AbortController | null>(null);
   /** Attachments for the turn being submitted. A ref because the first turn of
    *  a new chat is dispatched from createChat's onCompleted, outside the

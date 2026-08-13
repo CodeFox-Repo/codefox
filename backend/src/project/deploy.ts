@@ -22,7 +22,17 @@ export class DeployResult {
 }
 
 /** Never shipped: agent scratch, vcs data, the user's own uploads. */
-const SKIP = /^(\.git|node_modules|\.agent-runs|\.codefox-uploads|\.next|dist|build)\//;
+const SKIP =
+  /^(\.git|node_modules|\.agent-runs|\.codefox-uploads|\.next|dist|build)\//;
+
+/**
+ * Never shipped either, but a file rather than a directory. NOTES.md is the
+ * project's memory — the agent is told to record decisions in it ("no pricing
+ * until we have real numbers"), which is exactly what nobody wants served
+ * from their own domain. The share route is already `.html`-only, so deploy
+ * was the one publisher that would have.
+ */
+const SKIP_FILE = /^NOTES\.md$/;
 
 /**
  * ponytail: skipped, not deployed. The workspace reads text — a PNG through
@@ -42,7 +52,9 @@ export async function collectFiles(workspace: ProjectWorkspace): Promise<{
   files: { file: string; data: string }[];
   skipped: string[];
 }> {
-  const paths = (await workspace.listFiles()).filter((p) => !SKIP.test(p));
+  const paths = (await workspace.listFiles()).filter(
+    (p) => !SKIP.test(p) && !SKIP_FILE.test(p),
+  );
   const files: { file: string; data: string }[] = [];
   const skipped: string[] = [];
   for (const file of paths) {
@@ -70,7 +82,10 @@ export function slugFor(name: string, projectId = ''): string {
     .replace(/[^a-z0-9-]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
-  const id = projectId.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+  const id = projectId
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 8);
   return `codefox-${stem || id || 'page'}`.slice(0, 100).replace(/-$/, '');
 }
 
@@ -107,7 +122,11 @@ export async function deployToVercel(
   projectId = '',
 ): Promise<DeployResult> {
   if (!files.length) {
-    return { ok: false, url: '', message: 'This project has no files to deploy.' };
+    return {
+      ok: false,
+      url: '',
+      message: 'This project has no files to deploy.',
+    };
   }
   let res: Response;
   try {
@@ -157,6 +176,14 @@ export async function deployToVercel(
 
   const url = json?.url ?? json?.alias?.[0] ?? '';
   return url
-    ? { ok: true, url: `https://${String(url).replace(/^https?:\/\//, '')}`, message: '' }
-    : { ok: false, url: '', message: 'Vercel accepted the deploy but returned no URL.' };
+    ? {
+        ok: true,
+        url: `https://${String(url).replace(/^https?:\/\//, '')}`,
+        message: '',
+      }
+    : {
+        ok: false,
+        url: '',
+        message: 'Vercel accepted the deploy but returned no URL.',
+      };
 }

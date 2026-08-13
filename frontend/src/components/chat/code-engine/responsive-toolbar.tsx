@@ -46,6 +46,7 @@ import {
   DesignSystemOptions,
   groupByCategory,
   RESTYLE_PROJECT,
+  announceRestyled,
 } from '@/components/design-systems';
 
 interface ResponsiveToolbarProps {
@@ -141,8 +142,10 @@ const ResponsiveToolbar = ({
       const result = data?.restyleProject;
       // `ok: false` is a reason the user needs to read (the agent restructured
       // the styles, say), not a failure to log.
-      if (result?.ok) toast.success(result.message);
-      else toast.error(result?.message ?? 'Could not restyle this page');
+      if (result?.ok) {
+        announceRestyled();
+        toast.success(result.message);
+      } else toast.error(result?.message ?? 'Could not restyle this page');
     } catch (error) {
       logger.error('Restyle failed:', error);
       toast.error('Could not restyle this page');
@@ -538,6 +541,18 @@ const ResponsiveToolbar = ({
                   Deploy
                 </Button>
               )}
+              {/* Not page-only: the key drives every turn. It existed only in
+                  the ≤450px overflow menu, so desktop could not reach it. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-sm"
+                onClick={() => setKeyOpen(true)}
+                title="Use your own API key for these turns"
+              >
+                <KeyRound className="w-3 h-3 mr-1" />
+                Key
+              </Button>
               {isPage && (
                 <Button
                   variant="outline"

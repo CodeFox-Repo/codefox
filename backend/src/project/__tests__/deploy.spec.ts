@@ -6,13 +6,19 @@ import {
 } from '../deploy';
 
 const ok = (json: unknown) =>
-  ({ ok: true, status: 200, text: async () => JSON.stringify(json) }) as Response;
+  ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify(json),
+  }) as Response;
 const fail = (status: number, body: string) =>
   ({ ok: false, status, text: async () => body }) as Response;
 
 describe('vercelPayload', () => {
   it('base64s each file under its own path', () => {
-    const body = vercelPayload('p', [{ file: 'index.html', data: '<h1>hi</h1>' }]);
+    const body = vercelPayload('p', [
+      { file: 'index.html', data: '<h1>hi</h1>' },
+    ]);
     expect(body.files).toEqual([
       {
         file: 'index.html',
@@ -28,8 +34,12 @@ describe('vercelPayload', () => {
     expect(vercelPayload('My Site.v2', []).name).toBe('codefox-my-site-v2');
     // Was 'codefox' — the collision. A name with no ASCII left now falls
     // back to the project id, so two of them cannot share a slug.
-    expect(vercelPayload('---', [], 'ff00ff00-9').name).toBe('codefox-ff00ff00');
-    expect(vercelPayload('x'.repeat(200), []).name.length).toBeLessThanOrEqual(100);
+    expect(vercelPayload('---', [], 'ff00ff00-9').name).toBe(
+      'codefox-ff00ff00',
+    );
+    expect(vercelPayload('x'.repeat(200), []).name.length).toBeLessThanOrEqual(
+      100,
+    );
   });
 
   it('declares no framework, so Vercel serves the files as they are', () => {
@@ -39,34 +49,58 @@ describe('vercelPayload', () => {
 
 describe('deployToVercel', () => {
   it('returns the deployment url on success', async () => {
-    const res = await deployToVercel('tok', 'p', [{ file: 'index.html', data: 'x' }], async () =>
-      ok({ url: 'codefox-p-abc.vercel.app' }),
+    const res = await deployToVercel(
+      'tok',
+      'p',
+      [{ file: 'index.html', data: 'x' }],
+      async () => ok({ url: 'codefox-p-abc.vercel.app' }),
     );
-    expect(res).toEqual({ ok: true, url: 'https://codefox-p-abc.vercel.app', message: '' });
+    expect(res).toEqual({
+      ok: true,
+      url: 'https://codefox-p-abc.vercel.app',
+      message: '',
+    });
   });
 
   it('sends the token as a bearer', async () => {
     let seen = '';
-    await deployToVercel('secret-token', 'p', [{ file: 'a', data: 'b' }], async (_u, init) => {
-      seen = (init?.headers as Record<string, string>)?.Authorization ?? '';
-      return ok({ url: 'x.vercel.app' });
-    });
+    await deployToVercel(
+      'secret-token',
+      'p',
+      [{ file: 'a', data: 'b' }],
+      async (_u, init) => {
+        seen = (init?.headers as Record<string, string>)?.Authorization ?? '';
+        return ok({ url: 'x.vercel.app' });
+      },
+    );
     expect(seen).toBe('Bearer secret-token');
   });
 
   it("surfaces the provider's own message verbatim", async () => {
     // The whole point: "not authorized" and "name already taken" are both
     // 403, and only the body says which one the user has to fix.
-    const res = await deployToVercel('tok', 'p', [{ file: 'a', data: 'b' }], async () =>
-      fail(403, JSON.stringify({ error: { message: 'Not authorized: missing scope' } })),
+    const res = await deployToVercel(
+      'tok',
+      'p',
+      [{ file: 'a', data: 'b' }],
+      async () =>
+        fail(
+          403,
+          JSON.stringify({
+            error: { message: 'Not authorized: missing scope' },
+          }),
+        ),
     );
     expect(res.ok).toBe(false);
     expect(res.message).toBe('Not authorized: missing scope');
   });
 
   it('falls back to the raw body when the error is not JSON', async () => {
-    const res = await deployToVercel('tok', 'p', [{ file: 'a', data: 'b' }], async () =>
-      fail(502, 'upstream exploded'),
+    const res = await deployToVercel(
+      'tok',
+      'p',
+      [{ file: 'a', data: 'b' }],
+      async () => fail(502, 'upstream exploded'),
     );
     expect(res.message).toBe('upstream exploded');
   });
@@ -84,17 +118,27 @@ describe('deployToVercel', () => {
   it('reports a timeout instead of parking the project queue', async () => {
     // The deploy runs inside the project's write queue, so a hung upload
     // blocks the user's next chat turn behind it.
-    const res = await deployToVercel('tok', 'p', [{ file: 'a', data: 'b' }], async () => {
-      const err = new Error('timed out');
-      err.name = 'TimeoutError';
-      throw err;
-    });
+    const res = await deployToVercel(
+      'tok',
+      'p',
+      [{ file: 'a', data: 'b' }],
+      async () => {
+        const err = new Error('timed out');
+        err.name = 'TimeoutError';
+        throw err;
+      },
+    );
     expect(res.ok).toBe(false);
     expect(res.message).toMatch(/60s/);
   });
 
   it('does not claim success when no url comes back', async () => {
-    const res = await deployToVercel('tok', 'p', [{ file: 'a', data: 'b' }], async () => ok({}));
+    const res = await deployToVercel(
+      'tok',
+      'p',
+      [{ file: 'a', data: 'b' }],
+      async () => ok({}),
+    );
     expect(res.ok).toBe(false);
     expect(res.url).toBe('');
   });
@@ -117,7 +161,23 @@ describe('collectFiles', () => {
         'assets/style.css': 'css',
       }),
     );
-    expect(files.map((f) => f.file)).toEqual(['index.html', 'assets/style.css']);
+    expect(files.map((f) => f.file)).toEqual([
+      'index.html',
+      'assets/style.css',
+    ]);
+  });
+
+  it('never publishes NOTES.md — it is the project’s private memory', async () => {
+    const { files } = await collectFiles(
+      workspace({
+        'index.html': 'page',
+        'NOTES.md': 'no pricing until we have real numbers',
+        // Only the root file the agent is told to keep; a page that happens
+        // to be named notes.md is the user's own content.
+        'docs/notes.md': 'public',
+      }),
+    );
+    expect(files.map((f) => f.file)).toEqual(['index.html', 'docs/notes.md']);
   });
 
   it('drops a file that cannot be read rather than shipping null', async () => {
