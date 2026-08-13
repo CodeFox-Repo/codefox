@@ -1,4 +1,9 @@
-import { instructionsFor, notesNote } from '../instructions';
+import {
+  instructionsFor,
+  notesNote,
+  clipNotes,
+  NOTES_LIMIT,
+} from '../instructions';
 import { DESIGN_SYSTEMS } from '../../project/design-systems';
 
 /**
@@ -55,6 +60,15 @@ describe('project memory instruction', () => {
   it('says what NOT to write, or it fills with a changelog git already has', () => {
     expect(instructionsFor('html', 'landing')).toMatch(/not log what you did/i);
   });
+
+  it('shows the file, it does not just describe it', () => {
+    // #21's lesson: a model copies the nearest concrete example. Describing
+    // the format in prose while two other examples sit nearby lost once.
+    const html = instructionsFor('html', 'landing');
+    expect(html).toContain('# Notes');
+    expect(html.indexOf('# Notes')).toBeGreaterThan(html.indexOf('"kind":"style"'));
+    expect(instructionsFor('next', null)).toContain('# Notes');
+  });
 });
 
 describe('notesNote', () => {
@@ -72,5 +86,25 @@ describe('notesNote', () => {
     expect(notesNote(null)).toBe('');
     expect(notesNote(undefined)).toBe('');
     expect(notesNote('   \n  ')).toBe('');
+  });
+});
+
+describe('clipNotes', () => {
+  it('passes a short file through untouched', () => {
+    expect(clipNotes('- audience: solo founders')).toBe('- audience: solo founders');
+  });
+
+  it('truncates AND says it truncated', () => {
+    // Silent truncation is worse than truncation: the agent would believe it
+    // had the whole memory and contradict the half it never saw.
+    const clipped = clipNotes('x'.repeat(NOTES_LIMIT + 500))!;
+    expect(clipped.length).toBeLessThan(NOTES_LIMIT + 500);
+    expect(clipped).toMatch(/the rest was cut/i);
+  });
+
+  it('treats missing or blank as no memory at all', () => {
+    expect(clipNotes(null)).toBeNull();
+    expect(clipNotes(undefined)).toBeNull();
+    expect(clipNotes('   \n ')).toBeNull();
   });
 });
