@@ -121,3 +121,13 @@ export const SCENARIOS = gql`
     }
   }
 `;
+
+export const DEPLOY_PROJECT = gql`
+  mutation DeployProject($projectId: ID!, $provider: String!, $token: String!) {
+    deployProject(projectId: $projectId, provider: $provider, token: $token) {
+      ok
+      url
+      message
+    }
+  }
+`;

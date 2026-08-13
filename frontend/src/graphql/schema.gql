@@ -114,6 +114,12 @@ input CreateProjectInput {
 """Date custom scalar type"""
 scalar Date
 
+type DeployResult {
+  message: String!
+  ok: Boolean!
+  url: String!
+}
+
 type DesignSystemChoice {
   accent: String!
   bg: String!
@@ -180,6 +186,7 @@ type Mutation {
   createProject(createProjectInput: CreateProjectInput!): Chat!
   deleteChat(chatId: String!): Boolean!
   deleteProject(projectId: String!): Boolean!
+  deployProject(projectId: ID!, provider: String!, token: String!): DeployResult!
   dropLastAssistantReply(chatId: String!): Boolean!
   forkProject(projectId: ID!): Chat!
   login(input: LoginUserInput!): LoginResponse!

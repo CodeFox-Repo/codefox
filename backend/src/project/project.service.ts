@@ -37,6 +37,7 @@ import { WorkspaceService } from './workspace.service';
 import { DESIGN_SYSTEMS, designSystem, swapTokens } from './design-systems';
 import { scenario } from './scenarios';
 import { queueForProject } from './project-queue';
+import { collectFiles, deployToVercel } from './deploy';
 import {
   SANDBOX_ROOT,
   sandboxHandle,
@@ -601,6 +602,59 @@ export class ProjectService {
       await workspace.snapshot(`Before restyle to ${system.name}`);
       await workspace.writeFile('index.html', restyled);
       return { ok: true, message: `Restyled to ${system.name}.` };
+    });
+  }
+
+  /**
+   * Publish a page project to the user's own Vercel account.
+   *
+   * The token is passed through per deploy and never stored — it is the
+   * user's credential, and a stolen database should not be a stolen Vercel
+   * account. Behind the project queue for the same reason restyle is: reading
+   * files while the agent writes them ships half a turn.
+   */
+  async deployProject(
+    userId: string,
+    projectId: string,
+    provider: string,
+    token: string,
+  ): Promise<{ ok: boolean; url: string; message: string }> {
+    const project = await this.getProjectById(projectId);
+    this.checkProjectOwnership(project, userId);
+
+    if (project.template !== 'html') {
+      return {
+        ok: false,
+        url: '',
+        message: 'Only page projects can be deployed for now.',
+      };
+    }
+    if (provider !== 'vercel') {
+      return {
+        ok: false,
+        url: '',
+        message: `Unsupported provider: ${provider}. Vercel is the only one wired up.`,
+      };
+    }
+    if (!token.trim()) {
+      return { ok: false, url: '', message: 'A Vercel token is required.' };
+    }
+
+    return queueForProject(project.projectPath, async () => {
+      const workspace = await this.workspaces.for(project.projectPath);
+      const files = await collectFiles(workspace);
+      try {
+        return await deployToVercel(token, project.projectName, files);
+      } catch (error) {
+        // A network failure is not a server error — the user's token and the
+        // provider are both outside our control. Say what happened.
+        this.logger.warn(`Deploy failed for ${projectId}: ${error}`);
+        return {
+          ok: false,
+          url: '',
+          message: `Could not reach Vercel: ${(error as Error)?.message ?? error}`,
+        };
+      }
     });
   }
 

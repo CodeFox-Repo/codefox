@@ -12,6 +12,7 @@ import {
   Share2,
   FileText,
   Palette,
+  Rocket,
   Terminal,
   Loader,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ import { ProjectContext } from './project-context';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { shareUrl } from '@/lib/share';
 import { cn } from '@/lib/utils';
+import { DeployDialog } from './deploy-dialog';
 import { Select, SelectContent, SelectTrigger } from '@/components/ui/select';
 import {
   DESIGN_SYSTEMS,
@@ -106,6 +108,7 @@ const ResponsiveToolbar = ({
   const isPage = projectData?.getProject?.template === 'html';
   const projectPath: string | undefined = projectData?.getProject?.projectPath;
   const [printing, setPrinting] = useState(false);
+  const [deployOpen, setDeployOpen] = useState(false);
 
   // Restyling swaps the page's token block server-side. The preview polls the
   // file every few seconds, so it picks the new look up on its own — nothing
@@ -387,9 +390,21 @@ const ResponsiveToolbar = ({
                   </SelectContent>
                 </Select>
               )}
-              {/* Pages only: printing a Next app means printing whatever its
-                  dev server happens to be serving, which is not a
-                  deliverable anyone asked for. */}
+              {/* Pages only, same as PDF: a Next app needs a build, which is
+                  a different deploy than posting files to a static host. */}
+              {isPage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                  disabled={isLoading || !projectId}
+                  onClick={() => setDeployOpen(true)}
+                  title="Publish this page to your own Vercel account"
+                >
+                  <Rocket className="w-3 h-3 mr-1" />
+                  Deploy
+                </Button>
+              )}
               {isPage && (
                 <Button
                   variant="outline"
@@ -428,6 +443,11 @@ const ResponsiveToolbar = ({
           )}
         </div>
       </div>
+      <DeployDialog
+        projectId={projectId}
+        open={deployOpen}
+        onOpenChange={setDeployOpen}
+      />
     </div>
   );
 };

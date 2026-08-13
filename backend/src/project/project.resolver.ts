@@ -29,6 +29,7 @@ import {
   RestyleResult,
 } from './design-systems';
 import { ScenarioChoice, scenarioChoices } from './scenarios';
+import { DeployResult } from './deploy';
 
 @Resolver(() => Project)
 export class ProjectsResolver {
@@ -162,6 +163,22 @@ export class ProjectsResolver {
    * Swap a page's design system after the fact. Snapshotted, so the previous
    * look stays in History — the picker is not a one-way door.
    */
+  /**
+   * Publish a page to the user's own host. The token is a pass-through
+   * credential — it is never written to the database or the logs.
+   */
+  @Mutation(() => DeployResult)
+  @JWTAuth()
+  async deployProject(
+    @GetUserIdFromToken() userId: string,
+    @Args('projectId', { type: () => ID }) projectId: string,
+    @Args('provider') provider: string,
+    @Args('token') token: string,
+  ): Promise<DeployResult> {
+    this.logger.log(`User ${userId} deploying ${projectId} to ${provider}`);
+    return this.projectService.deployProject(userId, projectId, provider, token);
+  }
+
   @Mutation(() => RestyleResult)
   @JWTAuth()
   async restyleProject(
