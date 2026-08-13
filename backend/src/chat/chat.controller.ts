@@ -320,8 +320,43 @@ export class ChatController {
       }
     });
 
+    // A dead bridge never ends this stream. `agent.stream()` drops the `done`
+    // promise that `generate()` awaits, and that promise is the only thing the
+    // adapter rejects when the bridge closes mid-turn ("codex bridge closed
+    // before the turn finished") — no `finish` part is ever emitted. So the
+    // `for await` below parks forever, `res.end()` never runs, and the composer
+    // sits on "Stop" until the user reloads. Watched for 10 minutes.
+    //
+    // ponytail: a silence timer, not a turn deadline — a working turn can think
+    // for minutes between parts, and a wall-clock cap would kill it. Raise
+    // SILENCE_MS if a model legitimately goes quiet longer than this.
+    const SILENCE_MS = 5 * 60_000;
+    let ticker: NodeJS.Timeout | undefined;
+    const silence = () =>
+      new Promise<never>((_, reject) => {
+        ticker = setTimeout(
+          () =>
+            reject(
+              new Error(
+                'The agent stopped responding — its runtime went away.',
+              ),
+            ),
+          SILENCE_MS,
+        );
+      });
+    let silent = silence();
+    const iterator = result.stream[Symbol.asyncIterator]();
+
     try {
-      for await (const part of result.stream) {
+      for (;;) {
+        // Whichever settles first: the next part, or the silence deadline.
+        const next = await Promise.race([iterator.next(), silent]);
+        if (next.done) break;
+        const part = next.value;
+        // Restart the clock on every part, so only silence trips it.
+        clearTimeout(ticker);
+        silent = silence();
+
         if (clientGone) break;
 
         switch (part.type) {
@@ -366,6 +401,8 @@ export class ChatController {
       this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
       if (!res.writableEnded) send({ t: 'error', v: explain(error) });
     } finally {
+      // Or the last one keeps the process awake for its full delay.
+      clearTimeout(ticker);
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
       await endSession('stop', false);
