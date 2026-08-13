@@ -25,6 +25,8 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { logger } from '@/app/log/logger';
 import {
   DESIGN_SYSTEMS,
+  SCENARIOS,
+  ScenarioChoice,
   DesignSystemChoice,
   DesignSystemOptions,
   Swatch,
@@ -35,7 +37,7 @@ export interface PromptFormRef {
     message: string;
     isPublic: boolean;
     model: string;
-    template: string;
+    scenario: string;
     style: string;
   };
   clearMessage: () => void;
@@ -65,7 +67,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
     const [message, setMessage] = useState('');
     // Light by default: a page, not a toolchain. The full Next starter is
     // the plug-in choice for when a real app is the goal.
-    const [template, setTemplate] = useState<'html' | 'next'>('html');
+    const [scenarioId, setScenarioId] = useState('landing');
     const [style, setStyle] = useState('');
 
     // The list is public and static; the picker only shows for page projects,
@@ -73,6 +75,13 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
     const { data: styleData } = useQuery<{
       designSystems: DesignSystemChoice[];
     }>(DESIGN_SYSTEMS);
+    const { data: scenarioData } = useQuery<{
+      scenarios: ScenarioChoice[];
+    }>(SCENARIOS);
+    const scenarios = scenarioData?.scenarios ?? [];
+    const chosenScenario = scenarios.find((s) => s.id === scenarioId);
+    // Only page scenarios carry a design system; the Next starter has its own.
+    const isPage = chosenScenario ? chosenScenario.id !== 'app' : true;
     const designSystems = styleData?.designSystems ?? [];
     const chosenStyle =
       designSystems.find((s) => s.id === style) ?? designSystems[0];
@@ -149,9 +158,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         message,
         isPublic: visibility === 'public',
         model: selectedModel,
-        template,
+        scenario: scenarioId,
         // Only pages carry a design system; the Next starter has its own.
-        style: template === 'html' ? (chosenStyle?.id ?? '') : '',
+        style: isPage ? (chosenStyle?.id ?? '') : '',
       }),
       clearMessage: () => {
         setMessage('');
@@ -307,13 +316,12 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               </Select>
             )}
 
-            {/* Kind: a page by default, the full starter when asked. */}
+            {/* What you are making — not which toolchain. The scenario
+                picks the kind and tells the agent the shape. */}
             <Select
-              value={template}
+              value={scenarioId}
               onValueChange={(value) =>
-                !isLoading &&
-                !isRegenerating &&
-                setTemplate(value as 'html' | 'next')
+                !isLoading && !isRegenerating && setScenarioId(value)
               }
               disabled={isLoading || isRegenerating}
             >
@@ -331,33 +339,27 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                 {/* Not <SelectValue/>: it clones the item's two-line content
                     (title + blurb) into the h-9 trigger and blows it up. */}
                 <span className="whitespace-nowrap font-semibold">
-                  {template === 'html' ? 'Page' : 'Next.js app'}
+                  {chosenScenario?.name ?? 'Landing page'}
                 </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="html">
-                  <div className="flex flex-col items-start">
-                    <span className="font-semibold">Page</span>
-                    <span className="text-xs text-muted-foreground">
-                      Self-contained HTML — instant preview
-                    </span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="next">
-                  <div className="flex flex-col items-start">
-                    <span className="font-semibold">Next.js app</span>
-                    <span className="text-xs text-muted-foreground">
-                      Full starter with a dev server
-                    </span>
-                  </div>
-                </SelectItem>
+                {scenarios.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">{s.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {s.blurb}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
             {/* Style: the page's design system. Pages only — the Next
                 starter ships with its own. Swatches over names: the point
                 of a style is what it looks like. */}
-            {template === 'html' && designSystems.length > 0 && (
+            {isPage && designSystems.length > 0 && (
               <Select
                 value={chosenStyle?.id ?? ''}
                 onValueChange={(value) =>

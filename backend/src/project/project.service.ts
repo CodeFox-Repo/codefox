@@ -35,6 +35,7 @@ import { UserService } from 'src/user/user.service';
 import { PreviewService } from './preview.service';
 import { WorkspaceService } from './workspace.service';
 import { DESIGN_SYSTEMS, designSystem, swapTokens } from './design-systems';
+import { scenario } from './scenarios';
 import {
   SANDBOX_ROOT,
   sandboxHandle,
@@ -196,8 +197,15 @@ export class ProjectService {
       project.userId = userId;
       project.isPublic = input.public || false;
       project.uniqueProjectId = uuidv4();
-      // Light by default: most generated sites are a page, not a toolchain.
-      project.template = input.template === 'next' ? 'next' : 'html';
+      // The user picks what they are making; the scenario decides the
+      // workspace kind. `template` is still what the other 16 call sites
+      // branch on, so it stays the stored answer.
+      // `template` still wins when a client sends only that.
+      project.template = input.scenario
+        ? scenario(input.scenario).template
+        : input.template === 'next'
+          ? 'next'
+          : 'html';
 
       // Save project — the generated id names the project directory.
       const savedProject = await this.projectsRepository.save(project);
@@ -211,6 +219,7 @@ export class ProjectService {
           savedProject.projectPath = await scaffoldHtmlProject(
             savedProject.id,
             input.style,
+            input.scenario,
           );
         } else {
           savedProject.projectPath =

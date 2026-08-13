@@ -28,6 +28,7 @@ import {
   designSystemChoices,
   RestyleResult,
 } from './design-systems';
+import { ScenarioChoice, scenarioChoices } from './scenarios';
 
 @Resolver(() => Project)
 export class ProjectsResolver {
@@ -147,6 +148,14 @@ export class ProjectsResolver {
   @Public()
   designSystems(): DesignSystemChoice[] {
     return designSystemChoices();
+  }
+
+  /** What you can make. Public for the same reason: the composer is on the
+   *  landing page, before anyone signs in. */
+  @Query(() => [ScenarioChoice])
+  @Public()
+  scenarios(): ScenarioChoice[] {
+    return scenarioChoices();
   }
 
   /**

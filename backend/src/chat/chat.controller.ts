@@ -98,6 +98,30 @@ export class ChatController {
   }
 
   /**
+   * What the user said they were making, from the page's own meta tag.
+   *
+   * Stored in the file rather than a column: the same trick the design system
+   * uses, and it means no migration and no DB_SYNCHRONIZE deploy. Null for a
+   * Next app or a page scaffolded before scenarios existed — the agent then
+   * gets its plain instructions, which is what it had all along.
+   */
+  private async scenarioOf(project: {
+    projectPath: string;
+    template?: string | null;
+  }): Promise<string | null> {
+    if (project.template !== 'html') return null;
+    try {
+      const workspace = await this.workspaces.for(project.projectPath);
+      const html = await workspace.readFile('index.html');
+      return (
+        html?.match(/name="codefox-scenario"\s+content="([\w-]+)"/)?.[1] ?? null
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * What the page the turn just produced gets wrong, as design findings.
    *
    * Only page projects have a single artifact to judge — a Next app is a
@@ -244,6 +268,7 @@ export class ChatController {
       handEdits,
       model: chatDto.model,
       template: project.template,
+      scenarioId: await this.scenarioOf(project),
     });
 
     // Already sent when this turn waited in the queue and said so.

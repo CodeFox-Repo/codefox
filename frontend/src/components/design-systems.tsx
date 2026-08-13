@@ -103,3 +103,21 @@ export function DesignSystemOptions({
     </>
   );
 }
+
+/** What you can make. Lives here beside the style catalog: both are the
+ *  composer's public "shape of the thing" queries. */
+export interface ScenarioChoice {
+  id: string;
+  name: string;
+  blurb: string;
+}
+
+export const SCENARIOS = gql`
+  query Scenarios {
+    scenarios {
+      id
+      name
+      blurb
+    }
+  }
+`;

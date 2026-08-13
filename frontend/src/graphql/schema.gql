@@ -106,6 +106,7 @@ input CreateProjectInput {
   model: String
   projectName: String
   public: Boolean
+  scenario: String
   style: String
   template: String
 }
@@ -246,6 +247,7 @@ type Query {
   logout: Boolean!
   me: User!
   registrationOpen: Boolean!
+  scenarios: [ScenarioChoice!]!
 }
 
 type RefreshTokenResponse {
@@ -267,6 +269,12 @@ input ResendEmailInput {
 type RestyleResult {
   message: String!
   ok: Boolean!
+}
+
+type ScenarioChoice {
+  blurb: String!
+  id: String!
+  name: String!
 }
 
 enum Role {

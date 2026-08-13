@@ -55,9 +55,17 @@ export class CreateProjectInput {
   @Field(() => String, { nullable: true })
   model?: string;
 
-  /** 'html' (light, default) or 'next' (full starter). */
+  /** 'html' (light, default) or 'next' (full starter). Superseded by
+   *  `scenario`, which picks the kind from what the user is making; still
+   *  honoured so an older client keeps working. */
   @Field(() => String, { nullable: true })
   template?: string;
+
+  /** What the user is making — 'landing', 'dashboard', 'deck', 'email',
+   *  'docs', 'app'. Decides the workspace kind and the shape guidance the
+   *  agent gets. Nothing stores it: it is baked into the scaffolded page. */
+  @Field(() => String, { nullable: true })
+  scenario?: string;
 
   /** Design system id for html projects; unknown ids fall back to the first.
    *  Nothing stores it — it is baked into the scaffolded page's tokens. */

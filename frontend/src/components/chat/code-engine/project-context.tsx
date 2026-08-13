@@ -52,7 +52,7 @@ export interface ProjectContextType {
     prompt: string,
     isPublic: boolean,
     model?: string,
-    template?: string,
+    scenario?: string,
     style?: string
   ) => Promise<string | null>;
   /** Resolves to the new chat id so the caller can navigate into the fork. */
@@ -659,7 +659,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       // No default: the backend picks LLM_DEFAULT_MODEL, which is the one the
       // configured endpoint actually serves.
       model?: string,
-      template?: string,
+      /** What the user is making; the backend maps it to a workspace kind. */
+      scenario?: string,
       /** Design system id for page projects; the backend falls back on its
        *  own for an unknown or missing one. */
       style?: string
@@ -682,7 +683,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               description: prompt,
               public: isPublic,
               model: model,
-              template: template,
+              scenario: scenario,
               style: style,
             },
           },

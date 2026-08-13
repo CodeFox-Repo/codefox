@@ -6,6 +6,7 @@ import fsExtra from 'fs-extra';
 import simpleGit from 'simple-git';
 import { getProjectsDir, getRootDir } from '../common/utils/common-path';
 import { DesignSystem, designSystem } from './design-systems';
+import { Scenario, scenario } from './scenarios';
 
 const { copy, existsSync, readdirSync, remove, symlink } = fsExtra;
 const exec = promisify(execFile);
@@ -148,11 +149,14 @@ export async function copyProject(
  * pick colors, which is what keeps a generated page looking deliberate
  * instead of like default Tailwind.
  */
-const htmlStarter = (style: DesignSystem): string => `<!doctype html>
+const htmlStarter = (style: DesignSystem, kind: Scenario): string => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- What this page is. Read back on every turn to remind the agent what
+         shape it is building; the style lives in :root the same way. -->
+    <meta name="codefox-scenario" content="${kind.id}" />
     <title>New Project</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -193,12 +197,13 @@ ${style.tokens}
 export async function scaffoldHtmlProject(
   projectId: string,
   style?: string | null,
+  scenarioId?: string | null,
 ): Promise<string> {
   const target = path.join(getProjectsDir(), projectId);
   await fsExtra.ensureDir(target);
   await fsExtra.writeFile(
     path.join(target, 'index.html'),
-    htmlStarter(designSystem(style)),
+    htmlStarter(designSystem(style), scenario(scenarioId)),
   );
 
   try {

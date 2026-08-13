@@ -8,6 +8,7 @@ import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
 import { sniff } from '../common/security/file_check';
 import { DESIGN_SYSTEMS } from '../project/design-systems';
+import { scenario } from '../project/scenarios';
 import {
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
@@ -178,10 +179,23 @@ const PLAN_SECTION = INSTRUCTIONS.slice(
   INSTRUCTIONS.indexOf('Match the conventions'),
 );
 
-const instructionsFor = (template?: string | null): string =>
-  template === 'html'
-    ? `${HTML_INSTRUCTIONS}\n${PLAN_SECTION}\nFinish with a short summary of what you changed.`
-    : INSTRUCTIONS;
+const instructionsFor = (
+  template?: string | null,
+  scenarioId?: string | null,
+): string => {
+  if (template !== 'html') return INSTRUCTIONS;
+  // What the user said they were making, so the agent builds that shape
+  // rather than defaulting every project to a centered hero.
+  const shape = scenarioId ? scenario(scenarioId).guidance : '';
+  return [
+    HTML_INSTRUCTIONS,
+    shape,
+    PLAN_SECTION,
+    'Finish with a short summary of what you changed.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+};
 
 /** One earlier turn, oldest first. */
 export interface PriorTurn {
@@ -266,6 +280,8 @@ export interface ProjectAgentOptions {
   model?: string;
   /** 'html' runs on host files with the light instructions. */
   template?: string | null;
+  /** What the user said they were making; read from the page's meta tag. */
+  scenarioId?: string | null;
 }
 
 const EXTENSIONS: Record<string, string> = {
@@ -381,6 +397,7 @@ export const runProjectAgent = async ({
   handEdits,
   model,
   template,
+  scenarioId,
 }: ProjectAgentOptions) => {
   const workingDirectory = path.join(getProjectsDir(), projectPath);
 
@@ -401,7 +418,7 @@ export const runProjectAgent = async ({
 
   const agent = new HarnessAgent({
     harness: harnessFor(model),
-    instructions: instructionsFor(template),
+    instructions: instructionsFor(template, scenarioId),
     // html projects live on the host in every mode — their agent edits those
     // files directly. NOTE: that trades away microVM isolation for them;
     // seed-a-sandbox is the follow-up before registration opens.
