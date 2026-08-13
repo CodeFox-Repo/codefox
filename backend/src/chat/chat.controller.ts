@@ -297,13 +297,32 @@ export class ChatController {
     // is a leak when nobody is coming back. An abandoned turn is not resumed
     // — the UI starts a fresh one — so it gets `destroy`, which ends the
     // runtime outright.
+    //
+    // Bounded, because neither call is guaranteed to return. When the bridge
+    // dies mid-turn the harness leaves turnState !== 'idle', so `stop()` goes
+    // through suspendCurrentTurn → doSuspendTurn(), a request/response to a
+    // process that is already gone — no timeout of its own. Awaiting it here
+    // is what left `res.end()` unreached and the composer on "Stop" forever.
+    // Losing resume state on a dead runtime costs nothing; hanging costs the
+    // whole turn.
     const endSession = async (why: string, abandoned: boolean) => {
       if (stopped) return;
       stopped = true;
+      let timer: NodeJS.Timeout | undefined;
       try {
-        await (abandoned ? session.destroy?.() : session.stop?.());
+        await Promise.race([
+          abandoned ? session.destroy?.() : session.stop?.(),
+          new Promise((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`${why} timed out after 30s`)),
+              30_000,
+            );
+          }),
+        ]);
       } catch (error) {
         this.logger.warn(`[${chatDto.chatId}] ${why} failed: ${error}`);
+      } finally {
+        clearTimeout(timer);
       }
     };
     res.on('close', () => {
@@ -320,43 +339,8 @@ export class ChatController {
       }
     });
 
-    // A dead bridge never ends this stream. `agent.stream()` drops the `done`
-    // promise that `generate()` awaits, and that promise is the only thing the
-    // adapter rejects when the bridge closes mid-turn ("codex bridge closed
-    // before the turn finished") — no `finish` part is ever emitted. So the
-    // `for await` below parks forever, `res.end()` never runs, and the composer
-    // sits on "Stop" until the user reloads. Watched for 10 minutes.
-    //
-    // ponytail: a silence timer, not a turn deadline — a working turn can think
-    // for minutes between parts, and a wall-clock cap would kill it. Raise
-    // SILENCE_MS if a model legitimately goes quiet longer than this.
-    const SILENCE_MS = 5 * 60_000;
-    let ticker: NodeJS.Timeout | undefined;
-    const silence = () =>
-      new Promise<never>((_, reject) => {
-        ticker = setTimeout(
-          () =>
-            reject(
-              new Error(
-                'The agent stopped responding — its runtime went away.',
-              ),
-            ),
-          SILENCE_MS,
-        );
-      });
-    let silent = silence();
-    const iterator = result.stream[Symbol.asyncIterator]();
-
     try {
-      for (;;) {
-        // Whichever settles first: the next part, or the silence deadline.
-        const next = await Promise.race([iterator.next(), silent]);
-        if (next.done) break;
-        const part = next.value;
-        // Restart the clock on every part, so only silence trips it.
-        clearTimeout(ticker);
-        silent = silence();
-
+      for await (const part of result.stream) {
         if (clientGone) break;
 
         switch (part.type) {
@@ -401,8 +385,6 @@ export class ChatController {
       this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
       if (!res.writableEnded) send({ t: 'error', v: explain(error) });
     } finally {
-      // Or the last one keeps the process awake for its full delay.
-      clearTimeout(ticker);
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
       await endSession('stop', false);
