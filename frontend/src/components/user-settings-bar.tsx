@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, memo, useEffect } from 'react';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { LogOut } from 'lucide-react';
+import { LogOut, Shield } from 'lucide-react';
 import { mediaUrl } from '@/lib/media';
 
 interface UserSettingsProps {
@@ -103,6 +103,21 @@ export const UserSettingsBar = ({ isSimple }: UserSettingsProps) => {
             Settings
           </div>
         </DropdownMenuItem>
+
+        {/* The console had no link anywhere; you had to know to type /admin.
+            The API is role-gated regardless — this only stops offering it to
+            people it would refuse. */}
+        {user?.roles?.includes('Admin') && (
+          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <div
+              className="flex w-full gap-2 p-1 items-center cursor-pointer"
+              onClick={() => router.push('/admin')}
+            >
+              <Shield className="w-4 h-4" strokeWidth={1.4} />
+              Admin
+            </div>
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuItem className="">
           <div

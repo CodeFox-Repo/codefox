@@ -126,6 +126,7 @@ export const GET_USER_INFO = gql`
       email
       avatarUrl
       githubInstallationId
+      roles
     }
   }
 `;

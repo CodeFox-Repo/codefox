@@ -314,6 +314,7 @@ type User {
   isEmailConfirmed: Boolean!
   lastEmailSendTime: Date!
   projects: [Project!]!
+  roles: [String!]!
   subscribedProjects: [Project!] @deprecated(reason: "Use projects with forkedFromId instead")
   updatedAt: Date!
   username: String!

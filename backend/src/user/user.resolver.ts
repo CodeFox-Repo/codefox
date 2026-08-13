@@ -4,7 +4,9 @@ import {
   Field,
   Mutation,
   ObjectType,
+  Parent,
   Query,
+  ResolveField,
   Resolver,
 } from '@nestjs/graphql';
 import { User } from './user.model';
@@ -94,6 +96,18 @@ export class UserResolver {
   async me(@GetUserIdFromToken() id: string): Promise<User> {
     Logger.log('me id:', id);
     return this.userService.getUser(id);
+  }
+
+  /**
+   * Role names, so the client can offer the operator console to the people who
+   * can actually open it. Names rather than the Role entity: the GraphQL type
+   * `Role` is already the message-author enum, and this is all a client needs.
+   * Resolved on demand — `me` does not load the relation.
+   */
+  @ResolveField(() => [String])
+  async roles(@Parent() user: User): Promise<string[]> {
+    const { roles } = await this.authService.getUserRoles(user.id);
+    return roles.map((role) => role.name);
   }
 
   /** Rename yourself. The settings page called this "not editable yet". */

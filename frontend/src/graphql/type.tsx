@@ -164,9 +164,11 @@ export type DesignSystemChoice = {
   accent: Scalars['String']['output'];
   bg: Scalars['String']['output'];
   blurb: Scalars['String']['output'];
+  category: Scalars['String']['output'];
   fg: Scalars['String']['output'];
   id: Scalars['String']['output'];
   name: Scalars['String']['output'];
+  surface: Scalars['String']['output'];
 };
 
 export type EmailConfirmationResponse = {
@@ -236,6 +238,7 @@ export type Mutation = {
   regenerateDescription: Scalars['String']['output'];
   registerUser: User;
   resendConfirmationEmail: EmailConfirmationResponse;
+  restyleProject: RestyleResult;
   saveMessage: Scalars['Boolean']['output'];
   updateChatModel?: Maybe<Chat>;
   updateChatTitle?: Maybe<Chat>;
@@ -313,6 +316,11 @@ export type MutationRegisterUserArgs = {
 
 export type MutationResendConfirmationEmailArgs = {
   input: ResendEmailInput;
+};
+
+export type MutationRestyleProjectArgs = {
+  projectId: Scalars['ID']['input'];
+  styleId: Scalars['String']['input'];
 };
 
 export type MutationSaveMessageArgs = {
@@ -435,6 +443,12 @@ export type ResendEmailInput = {
   email: Scalars['String']['input'];
 };
 
+export type RestyleResult = {
+  __typename: 'RestyleResult';
+  message: Scalars['String']['output'];
+  ok: Scalars['Boolean']['output'];
+};
+
 export type Role = 'Assistant' | 'System' | 'User';
 
 export type TurnStepInput = {
@@ -475,6 +489,7 @@ export type User = {
   isEmailConfirmed: Scalars['Boolean']['output'];
   lastEmailSendTime: Scalars['Date']['output'];
   projects: Array<Project>;
+  roles: Array<Scalars['String']['output']>;
   /** @deprecated Use projects with forkedFromId instead */
   subscribedProjects?: Maybe<Array<Project>>;
   updatedAt: Scalars['Date']['output'];
@@ -624,6 +639,7 @@ export type ResolversTypes = ResolversObject<{
   RefreshTokenResponse: ResolverTypeWrapper<RefreshTokenResponse>;
   RegisterUserInput: RegisterUserInput;
   ResendEmailInput: ResendEmailInput;
+  RestyleResult: ResolverTypeWrapper<RestyleResult>;
   Role: Role;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   TurnStepInput: TurnStepInput;
@@ -669,6 +685,7 @@ export type ResolversParentTypes = ResolversObject<{
   RefreshTokenResponse: RefreshTokenResponse;
   RegisterUserInput: RegisterUserInput;
   ResendEmailInput: ResendEmailInput;
+  RestyleResult: RestyleResult;
   String: Scalars['String']['output'];
   TurnStepInput: TurnStepInput;
   TurnStepType: TurnStepType;
@@ -852,9 +869,11 @@ export type DesignSystemChoiceResolvers<
   accent?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   bg?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   blurb?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  category?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   fg?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  surface?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1022,6 +1041,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationResendConfirmationEmailArgs, 'input'>
+  >;
+  restyleProject?: Resolver<
+    ResolversTypes['RestyleResult'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationRestyleProjectArgs, 'projectId' | 'styleId'>
   >;
   saveMessage?: Resolver<
     ResolversTypes['Boolean'],
@@ -1232,6 +1257,16 @@ export type RefreshTokenResponseResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type RestyleResultResolvers<
+  ContextType = any,
+  ParentType extends
+    ResolversParentTypes['RestyleResult'] = ResolversParentTypes['RestyleResult'],
+> = ResolversObject<{
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ok?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type TurnStepTypeResolvers<
   ContextType = any,
   ParentType extends
@@ -1281,6 +1316,7 @@ export type UserResolvers<
     ParentType,
     ContextType
   >;
+  roles?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   subscribedProjects?: Resolver<
     Maybe<Array<ResolversTypes['Project']>>,
     ParentType,
@@ -1313,6 +1349,7 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   Project?: ProjectResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   RefreshTokenResponse?: RefreshTokenResponseResolvers<ContextType>;
+  RestyleResult?: RestyleResultResolvers<ContextType>;
   TurnStepType?: TurnStepTypeResolvers<ContextType>;
   Upload?: GraphQLScalarType;
   User?: UserResolvers<ContextType>;

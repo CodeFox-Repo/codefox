@@ -4,6 +4,14 @@ import { useQuery, useMutation } from '@apollo/client';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import {
   ADMIN_DELETE_PROJECT,
   ADMIN_OVERVIEW,
   ADMIN_PROJECTS,
@@ -163,6 +171,13 @@ export default function AdminConsole() {
   const users = useQuery(ADMIN_USERS, { fetchPolicy: 'cache-and-network' });
 
   const [pending, setPending] = useState<string | null>(null);
+  // Delete is irreversible and hits someone else's project — it reclaims the
+  // workspace off disk, not just a row. One stray click was enough.
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    name: string;
+    owner: string;
+  } | null>(null);
   const refetchAll = () =>
     Promise.all([overview.refetch(), projects.refetch(), users.refetch()]);
 
@@ -379,12 +394,11 @@ export default function AdminConsole() {
                       danger
                       busy={pending === p.id}
                       onClick={() =>
-                        run(
-                          p.id,
-                          () =>
-                            deleteProject({ variables: { projectId: p.id } }),
-                          'Project deleted'
-                        )
+                        setConfirmDelete({
+                          id: p.id,
+                          name: p.projectName,
+                          owner: p.ownerEmail,
+                        })
                       }
                     >
                       delete
@@ -461,6 +475,43 @@ export default function AdminConsole() {
           </table>
         </div>
       </Section>
+
+      <Dialog
+        open={confirmDelete !== null}
+        onOpenChange={(o) => !o && setConfirmDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader className="space-y-4">
+            <DialogTitle>Delete this project?</DialogTitle>
+            <DialogDescription>
+              “{confirmDelete?.name}” belongs to {confirmDelete?.owner}. Its
+              chat history and generated files will be removed. This cannot be
+              undone.
+            </DialogDescription>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmDelete(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  const target = confirmDelete;
+                  setConfirmDelete(null);
+                  if (target)
+                    run(
+                      target.id,
+                      () =>
+                        deleteProject({ variables: { projectId: target.id } }),
+                      'Project deleted'
+                    );
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
