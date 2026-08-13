@@ -93,6 +93,26 @@ assert.deepEqual(
   'good ids were replaced',
 );
 
+// `kind` survives the parser: it is what switches a question from an option
+// row to the palette cards, and `{ ...q, id }` is the only thing carrying it.
+assert.equal(
+  extract(
+    block({
+      questions: [
+        { id: 'style', kind: 'style', label: 'Look', options: ['neon'] },
+      ],
+    }),
+  )[0].kind,
+  'style',
+  'kind was dropped — a style question would render as plain options',
+);
+// A question with no kind is a plain one; the card must not guess.
+assert.equal(
+  extract(block(two({ id: 'a' }, { id: 'b' })))[0].kind,
+  undefined,
+  'a kind appeared where the model set none',
+);
+
 // Shapes that must not render as a card at all.
 assert.equal(extract('no fence here'), null, 'matched without a fence');
 assert.equal(
@@ -112,4 +132,4 @@ assert.equal(
   'an unclosed block produced a card',
 );
 
-console.log('ok — question card parser survives 9 model-written shapes');
+console.log('ok — question card parser survives 11 model-written shapes');

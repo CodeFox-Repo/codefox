@@ -121,6 +121,7 @@ type DesignSystemChoice {
   fg: String!
   id: String!
   name: String!
+  surface: String!
 }
 
 type EmailConfirmationResponse {

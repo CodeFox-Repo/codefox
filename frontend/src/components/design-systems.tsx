@@ -10,6 +10,7 @@ export interface DesignSystemChoice {
   category: string;
   blurb: string;
   bg: string;
+  surface: string;
   fg: string;
   accent: string;
 }
@@ -22,6 +23,7 @@ export const DESIGN_SYSTEMS = gql`
       category
       blurb
       bg
+      surface
       fg
       accent
     }

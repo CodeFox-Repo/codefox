@@ -229,8 +229,9 @@ export class DesignSystemChoice {
   @Field() name: string;
   @Field() category: string;
   @Field() blurb: string;
-  /** The canvas swatch, so the picker shows the style instead of naming it. */
+  /** The swatch, so the picker shows the style instead of naming it. */
   @Field() bg: string;
+  @Field() surface: string;
   @Field() fg: string;
   @Field() accent: string;
 }
@@ -257,6 +258,7 @@ export const designSystemChoices = (): DesignSystemChoice[] =>
     category: s.category,
     blurb: s.blurb,
     bg: token(s, 'bg'),
+    surface: token(s, 'surface'),
     fg: token(s, 'fg'),
     accent: token(s, 'accent'),
   }));

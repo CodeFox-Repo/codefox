@@ -7,6 +7,7 @@ import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
 import { sniff } from '../common/security/file_check';
+import { DESIGN_SYSTEMS } from '../project/design-systems';
 import {
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
@@ -139,6 +140,14 @@ fonts or sizes, and give every new page you add the same :root block so
 the site stays one design. Change a token's VALUE only when the user asks
 for a different look — then change it in :root, where it restyles
 everything at once, never by hardcoding a hex somewhere in the markup.
+
+When the look is what is open — the user asks for a restyle, or the brief
+leaves the visual direction unsaid — offer it as a question whose id is
+"style" and whose "kind" is "style". Its options are design system ids from
+the list below, and the UI renders each as a palette the user can see and
+picks it up from there, so pick 3 to 5 that contrast with each other rather
+than listing everything. Use ids from this list exactly; anything else is
+dropped from the card: ${DESIGN_SYSTEMS.map((s) => s.id).join(', ')}.
 `;
 
 const INSTRUCTIONS = `You are CodeFox, building a Next.js 15 + Tailwind + shadcn/ui app.

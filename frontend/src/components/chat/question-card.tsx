@@ -1,9 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useContext, useState } from 'react';
+import { useMutation, useQuery } from '@apollo/client';
 import { Check, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
+import {
+  DESIGN_SYSTEMS,
+  DesignSystemChoice,
+  RESTYLE_PROJECT,
+} from '@/components/design-systems';
+import { ProjectContext } from '@/components/chat/code-engine/project-context';
 
 /** One clarifying question the agent asked before building. */
 export interface AgentQuestion {
@@ -11,6 +18,9 @@ export interface AgentQuestion {
   label: string;
   multi?: boolean;
   options: string[];
+  /** 'style' renders the options as palette cards and applies the pick to the
+   *  project's tokens. Anything else is a plain option row. */
+  kind?: string;
 }
 
 export interface AgentQuestionBlock {
@@ -80,6 +90,54 @@ export function extractQuestions(content: string): {
 }
 
 /**
+ * One style as a card: the palette itself, then the name and blurb. A style
+ * is a look, so the card shows the look rather than describing it.
+ */
+function StyleCard({
+  system,
+  selected,
+  interactive,
+  onPick,
+}: {
+  system: DesignSystemChoice;
+  selected: boolean;
+  interactive: boolean;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={!interactive}
+      onClick={onPick}
+      className={cn(
+        'flex w-full flex-col gap-2 rounded-lg border p-2 text-left transition-colors',
+        selected ? 'border-primary bg-primary/10' : 'border-border',
+        interactive ? 'hover:border-primary' : 'cursor-default opacity-70'
+      )}
+    >
+      <span
+        aria-hidden
+        className="flex h-10 overflow-hidden rounded border border-border/60"
+      >
+        <span className="flex-1" style={{ background: system.bg }} />
+        <span className="flex-1" style={{ background: system.surface }} />
+        <span className="flex-1" style={{ background: system.fg }} />
+        <span className="flex-[2]" style={{ background: system.accent }} />
+      </span>
+      <span className="flex items-center gap-1.5">
+        {selected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+        <span className="truncate text-sm font-medium text-foreground">
+          {system.name}
+        </span>
+      </span>
+      <span className="line-clamp-2 text-xs text-muted-foreground">
+        {system.blurb}
+      </span>
+    </button>
+  );
+}
+
+/**
  * The planner's checklist. Interactive only for the trailing message —
  * answered questions stay visible in history but read-only, since the answer
  * itself is the next user message.
@@ -95,6 +153,35 @@ export function QuestionCard({
 }) {
   const [choices, setChoices] = useState<Record<string, string[]>>({});
   const [note, setNote] = useState('');
+
+  // Only fetched when the agent actually asked a style question.
+  const hasStyle = block.questions.some((q) => q.kind === 'style');
+  const { data: styleData } = useQuery<{
+    designSystems: DesignSystemChoice[];
+  }>(DESIGN_SYSTEMS, { skip: !hasStyle });
+  const byId = new Map((styleData?.designSystems ?? []).map((s) => [s.id, s]));
+
+  // ponytail: the project comes from context rather than three layers of prop
+  // drilling — ProjectProvider already wraps the whole app.
+  const { curProject } = useContext(ProjectContext) ?? {};
+  const [restyle] = useMutation(RESTYLE_PROJECT);
+  /** Set when the swap could not be applied; posted with the answer so the
+   *  agent knows to restyle by hand instead. */
+  const [restyleNote, setRestyleNote] = useState('');
+
+  const applyStyle = async (styleId: string) => {
+    if (!curProject?.id) return;
+    try {
+      const { data } = await restyle({
+        variables: { projectId: curProject.id, styleId },
+      });
+      const result = data?.restyleProject;
+      setRestyleNote(result?.ok ? '' : (result?.message ?? ''));
+    } catch {
+      // The pick still answers the question; the agent can do the work.
+      setRestyleNote('The style could not be applied automatically.');
+    }
+  };
 
   const toggle = (q: AgentQuestion, option: string) => {
     if (!interactive) return;
@@ -126,6 +213,11 @@ export function QuestionCard({
     const answer = [
       'My choices:',
       ...lines,
+      // The tokens were not swapped, so the agent has to do it — saying so in
+      // the answer is what tells it that.
+      restyleNote
+        ? `Note: ${restyleNote} Please apply the style yourself.`
+        : null,
       note.trim() ? `Note: ${note.trim()}` : null,
     ]
       .filter(Boolean)
@@ -154,31 +246,57 @@ export function QuestionCard({
                 </span>
               )}
             </p>
-            <div className="flex flex-wrap gap-2">
-              {q.options.map((option) => {
-                const selected = (choices[q.id] ?? []).includes(option);
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    disabled={!interactive}
-                    onClick={() => toggle(q, option)}
-                    className={cn(
-                      'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors',
-                      selected
-                        ? 'border-primary bg-primary/10 text-foreground'
-                        : 'border-border text-muted-foreground',
-                      interactive
-                        ? 'hover:border-primary hover:text-foreground'
-                        : 'cursor-default opacity-70'
-                    )}
-                  >
-                    {selected && <Check className="h-3.5 w-3.5 text-primary" />}
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
+            {q.kind === 'style' &&
+            q.options.some((option) => byId.has(option)) ? (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {q.options.map((option) => {
+                  const system = byId.get(option);
+                  // A style id the catalog does not know is skipped rather
+                  // than rendered as an empty card.
+                  if (!system) return null;
+                  return (
+                    <StyleCard
+                      key={option}
+                      system={system}
+                      selected={(choices[q.id] ?? []).includes(option)}
+                      interactive={interactive}
+                      onPick={() => {
+                        toggle(q, option);
+                        void applyStyle(option);
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {q.options.map((option) => {
+                  const selected = (choices[q.id] ?? []).includes(option);
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      disabled={!interactive}
+                      onClick={() => toggle(q, option)}
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors',
+                        selected
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-border text-muted-foreground',
+                        interactive
+                          ? 'hover:border-primary hover:text-foreground'
+                          : 'cursor-default opacity-70'
+                      )}
+                    >
+                      {selected && (
+                        <Check className="h-3.5 w-3.5 text-primary" />
+                      )}
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
       </div>
