@@ -13,6 +13,7 @@ import {
   FileText,
   Palette,
   Rocket,
+  MoreHorizontal,
   Terminal,
   Loader,
 } from 'lucide-react';
@@ -25,12 +26,23 @@ import { ProjectContext } from './project-context';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { shareUrl } from '@/lib/share';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DeployDialog } from './deploy-dialog';
 import { Select, SelectContent, SelectTrigger } from '@/components/ui/select';
 import {
   DESIGN_SYSTEMS,
   DesignSystemChoice,
   DesignSystemOptions,
+  groupByCategory,
   RESTYLE_PROJECT,
 } from '@/components/design-systems';
 
@@ -268,6 +280,116 @@ const ResponsiveToolbar = ({
             <Terminal className="w-3 h-3 mr-1" />
             Console
           </Button>
+        )}
+        {/* Whatever the width gates hid. Without this Code and Console are
+            unreachable on a phone — there is no other way to switch tabs. */}
+        {(visibleTabs < 3 || compactIcons) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-2"
+                aria-label="More actions"
+              >
+                <MoreHorizontal className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {visibleTabs < 2 && (
+                <DropdownMenuItem onClick={() => setActiveTab('code')}>
+                  <CodeIcon className="w-3 h-3 mr-2" />
+                  Code
+                </DropdownMenuItem>
+              )}
+              {visibleTabs < 3 && (
+                <DropdownMenuItem onClick={() => setActiveTab('console')}>
+                  <Terminal className="w-3 h-3 mr-2" />
+                  Console
+                </DropdownMenuItem>
+              )}
+              {compactIcons && (
+                <>
+                  <DropdownMenuItem
+                    disabled={!projectId || isPublic === undefined}
+                    onClick={async () => {
+                      if (!projectId || isPublic === undefined) return;
+                      setTogglingVisibility(true);
+                      await setProjectPublicStatus(projectId, !isPublic);
+                      await refetchProject();
+                      setTogglingVisibility(false);
+                    }}
+                  >
+                    {isPublic ? (
+                      <Globe className="w-3 h-3 mr-2" />
+                    ) : (
+                      <Lock className="w-3 h-3 mr-2" />
+                    )}
+                    {isPublic ? 'Public' : 'Private'}
+                  </DropdownMenuItem>
+                  {share && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `${window.location.origin}${share}`
+                        );
+                        toast.success('Share link copied — anyone can open it');
+                      }}
+                    >
+                      <Share2 className="w-3 h-3 mr-2" />
+                      Share
+                    </DropdownMenuItem>
+                  )}
+                  {isPage && styleSystems.length > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <Palette className="w-3 h-3 mr-2" />
+                        Style
+                      </DropdownMenuSubTrigger>
+                      {/* Grouped, like the desktop Select — 155 flat rows in a
+                          phone-width menu is a scroll, not a choice. */}
+                      <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
+                        {groupByCategory(styleSystems).map(([cat, group]) => (
+                          <div key={cat}>
+                            <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                              {cat}
+                            </DropdownMenuLabel>
+                            {group.map((sys) => (
+                              <DropdownMenuItem
+                                key={sys.id}
+                                disabled={restyling}
+                                onClick={() => handleRestyle(sys.id)}
+                              >
+                                {sys.name}
+                              </DropdownMenuItem>
+                            ))}
+                          </div>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
+                  {isPage && (
+                    <DropdownMenuItem
+                      disabled={!projectId}
+                      onClick={() => setDeployOpen(true)}
+                    >
+                      <Rocket className="w-3 h-3 mr-2" />
+                      Deploy
+                    </DropdownMenuItem>
+                  )}
+                  {isPage && (
+                    <DropdownMenuItem
+                      disabled={!projectPath || printing}
+                      onClick={handlePrint}
+                    >
+                      <FileText className="w-3 h-3 mr-2" />
+                      PDF
+                    </DropdownMenuItem>
+                  )}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
