@@ -271,16 +271,16 @@ type RestyleResult {
   ok: Boolean!
 }
 
-type ScenarioChoice {
-  blurb: String!
-  id: String!
-  name: String!
-}
-
 enum Role {
   Assistant
   System
   User
+}
+
+type ScenarioChoice {
+  blurb: String!
+  id: String!
+  name: String!
 }
 
 input TurnStepInput {

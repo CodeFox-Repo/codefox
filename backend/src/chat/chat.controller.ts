@@ -366,9 +366,6 @@ export class ChatController {
       this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
       if (!res.writableEnded) send({ t: 'error', v: explain(error) });
     } finally {
-      // Set before `end()`: the close handler must be able to tell a finished
-      // turn from an abandoned one, and it runs after this.
-      finished = true;
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
       await endSession('stop', false);
@@ -384,6 +381,14 @@ export class ChatController {
         const findings = await this.lintPage(project.projectPath);
         if (findings.length) send({ t: 'lint', v: findings });
       }
+      // Last, immediately before `end()`. It used to be set at the top of this
+      // block, ahead of the session stop, the snapshot and the lint — three
+      // awaits, seconds of them. A client that hung up in that window was
+      // treated as a finished turn, so the rescue save was skipped for a reply
+      // it had never received: the answer existed only in this function and
+      // died with it. The close handler runs after this line, so setting it
+      // here still stops the double save on a normal end.
+      finished = true;
       res.end();
     }
   }
