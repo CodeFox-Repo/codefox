@@ -78,3 +78,23 @@ export class AdminProject {
   @Field() onDisk: boolean;
   @Field() createdAt: Date;
 }
+
+/**
+ * One page of rows plus how many the filter matched in total.
+ *
+ * `total` is what the pager needs and a bare list cannot carry: without it the
+ * console cannot say "51 users" or know whether a next page exists. Both lists
+ * used to load every row and count chats per row, so the cost of opening the
+ * console grew with the deployment.
+ */
+@ObjectType()
+export class AdminUserPage {
+  @Field(() => [AdminUser]) items: AdminUser[];
+  @Field(() => Int) total: number;
+}
+
+@ObjectType()
+export class AdminProjectPage {
+  @Field(() => [AdminProject]) items: AdminProject[];
+  @Field(() => Int) total: number;
+}

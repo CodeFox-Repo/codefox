@@ -1,9 +1,14 @@
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { GetUserIdFromToken } from '../common/decorators/get-auth-token.decorator';
 import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { AdminOverview, AdminProject, AdminUser } from './admin.model';
+import {
+  AdminOverview,
+  AdminProjectPage,
+  AdminUserPage,
+} from './admin.model';
 import { AdminService } from './admin.service';
 
 /**
@@ -27,14 +32,28 @@ export class AdminResolver {
     return this.admin.overview();
   }
 
-  @Query(() => [AdminUser])
-  adminUsers(): Promise<AdminUser[]> {
-    return this.admin.listUsers();
+  @Query(() => AdminUserPage)
+  adminUsers(
+    @Args('search', { nullable: true }) search?: string,
+    @Args('offset', { type: () => Int, nullable: true }) offset?: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<AdminUserPage> {
+    return this.admin.listUsers(search, offset ?? 0, limit);
   }
 
-  @Query(() => [AdminProject])
-  adminProjects(): Promise<AdminProject[]> {
-    return this.admin.listProjects();
+  @Query(() => AdminProjectPage)
+  adminProjects(
+    @Args('search', { nullable: true }) search?: string,
+    @Args('offset', { type: () => Int, nullable: true }) offset?: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<AdminProjectPage> {
+    return this.admin.listProjects(search, offset ?? 0, limit);
+  }
+
+  /** The grantable role names, so the console does not hardcode them. */
+  @Query(() => [String])
+  adminRoles(): Promise<string[]> {
+    return this.admin.listRoles();
   }
 
   @Mutation(() => Boolean)
@@ -54,10 +73,29 @@ export class AdminResolver {
 
   @Mutation(() => Boolean)
   adminSetUserActive(
+    @GetUserIdFromToken() actingUserId: string,
     @Args('userId') userId: string,
     @Args('isActive') isActive: boolean,
   ): Promise<boolean> {
-    return this.admin.setUserActive(userId, isActive);
+    return this.admin.setUserActive(actingUserId, userId, isActive);
+  }
+
+  /**
+   * Grant or revoke a role.
+   *
+   * The acting user comes from `GetUserIdFromToken`, which verifies the
+   * signature — never from an argument. A client-supplied "who am I" is how
+   * the self-lockout guard in the service would be trivially stepped around:
+   * name someone else as the actor and revoke your own Admin anyway.
+   */
+  @Mutation(() => Boolean)
+  adminSetUserRole(
+    @GetUserIdFromToken() actingUserId: string,
+    @Args('userId') userId: string,
+    @Args('role') role: string,
+    @Args('granted') granted: boolean,
+  ): Promise<boolean> {
+    return this.admin.setUserRole(actingUserId, userId, role, granted);
   }
 
   @Mutation(() => Boolean)

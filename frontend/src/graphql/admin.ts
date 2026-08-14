@@ -32,32 +32,44 @@ export const ADMIN_OVERVIEW = gql`
 `;
 
 export const ADMIN_PROJECTS = gql`
-  query AdminProjects {
-    adminProjects {
-      id
-      projectName
-      projectPath
-      isPublic
-      ownerEmail
-      chats
-      onDisk
-      createdAt
+  query AdminProjects($search: String, $offset: Int, $limit: Int) {
+    adminProjects(search: $search, offset: $offset, limit: $limit) {
+      total
+      items {
+        id
+        projectName
+        projectPath
+        isPublic
+        ownerEmail
+        chats
+        onDisk
+        createdAt
+      }
     }
   }
 `;
 
 export const ADMIN_USERS = gql`
-  query AdminUsers {
-    adminUsers {
-      id
-      email
-      username
-      isActive
-      roles
-      projects
-      chats
-      createdAt
+  query AdminUsers($search: String, $offset: Int, $limit: Int) {
+    adminUsers(search: $search, offset: $offset, limit: $limit) {
+      total
+      items {
+        id
+        email
+        username
+        isActive
+        roles
+        projects
+        chats
+        createdAt
+      }
     }
+  }
+`;
+
+export const ADMIN_ROLES = gql`
+  query AdminRoles {
+    adminRoles
   }
 `;
 
@@ -76,6 +88,16 @@ export const ADMIN_SET_PROJECT_PUBLIC = gql`
 export const ADMIN_SET_USER_ACTIVE = gql`
   mutation AdminSetUserActive($userId: String!, $isActive: Boolean!) {
     adminSetUserActive(userId: $userId, isActive: $isActive)
+  }
+`;
+
+export const ADMIN_SET_USER_ROLE = gql`
+  mutation AdminSetUserRole(
+    $userId: String!
+    $role: String!
+    $granted: Boolean!
+  ) {
+    adminSetUserRole(userId: $userId, role: $role, granted: $granted)
   }
 `;
 
