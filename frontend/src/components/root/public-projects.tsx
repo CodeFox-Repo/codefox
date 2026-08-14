@@ -132,7 +132,10 @@ export function PublicProjects({
 
   return (
     // The id is the empty state's "see what others made" target.
-    <section id="built-with-codefox" className={showHeader ? 'mt-14 pb-4' : 'pb-4'}>
+    <section
+      id="built-with-codefox"
+      className={showHeader ? 'mt-14 pb-4' : 'pb-4'}
+    >
       {showHeader && (
         <div className="mb-5 flex items-baseline justify-between border-t-[3px] border-border pt-6">
           <h2 className="font-mono text-sm tracking-[0.12em] text-primary">
@@ -140,7 +143,10 @@ export function PublicProjects({
           </h2>
           <span className="font-mono text-xs text-muted-foreground">
             remix any of them ·{' '}
-            <Link href="/explore" className="underline underline-offset-2 hover:text-foreground">
+            <Link
+              href="/explore"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
               see all
             </Link>
           </span>

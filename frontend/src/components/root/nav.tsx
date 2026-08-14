@@ -127,7 +127,7 @@ const FloatingNavbar = ({
               <div className="ml-1 flex items-center gap-1">
                 <button
                   onClick={() => setShowSignIn(true)}
-                  className="rounded-full px-3 py-1.5 font-mono text-sm text-muted-foreground transition-colors duration-200 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-sm text-muted-foreground transition-colors duration-200 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Sign In
                 </button>
@@ -135,7 +135,7 @@ const FloatingNavbar = ({
                 {canSignUp && (
                   <button
                     onClick={() => setShowSignUp(true)}
-                    className="rounded-full bg-primary px-4 py-1.5 font-mono text-sm font-semibold text-primary-foreground transition-all duration-200 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="whitespace-nowrap rounded-full bg-primary px-4 py-1.5 font-mono text-sm font-semibold text-primary-foreground transition-all duration-200 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Sign Up
                   </button>

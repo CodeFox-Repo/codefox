@@ -255,10 +255,10 @@ function ReadOnlyValue({ value }: { value?: string | null }) {
   return (
     <span
       aria-readonly="true"
-      className="inline-flex items-center gap-2.5 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-sm text-muted-foreground"
+      className="inline-flex max-w-full items-center gap-2.5 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-sm text-muted-foreground"
     >
-      {value || '—'}
-      <span className="text-[10px] uppercase tracking-[0.12em] text-primary">
+      <span className="min-w-0 break-all">{value || '—'}</span>
+      <span className="shrink-0 whitespace-nowrap text-[10px] uppercase tracking-[0.12em] text-primary">
         read-only
       </span>
     </span>
@@ -282,7 +282,7 @@ export default function UserSetting() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 pb-24 pt-10 sm:px-8">
+    <div className="mx-auto w-full max-w-[880px] px-5 pb-24 pt-10 sm:px-8">
       <h1 className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
         Settings
       </h1>

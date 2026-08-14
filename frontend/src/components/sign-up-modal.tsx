@@ -339,7 +339,7 @@ export function SignUpModal({
                       <Label htmlFor="name">Name</Label>
                       <Input
                         id="name"
-                        placeholder="Name"
+                        placeholder="Ada Lovelace"
                         type="text"
                         value={name}
                         onChange={(e) => {
@@ -354,7 +354,7 @@ export function SignUpModal({
                       <Label htmlFor="email">Email</Label>
                       <Input
                         id="email"
-                        placeholder="Email"
+                        placeholder="you@example.com"
                         type="email"
                         value={email}
                         onChange={(e) => {
@@ -369,7 +369,7 @@ export function SignUpModal({
                       <Label htmlFor="password">Password</Label>
                       <Input
                         id="password"
-                        placeholder="Password"
+                        placeholder="6+ characters…"
                         type="password"
                         value={password}
                         onChange={(e) => {
@@ -455,7 +455,7 @@ export function SignUpModal({
                       <Label htmlFor="passwordConfirm">Confirm Password</Label>
                       <Input
                         id="passwordConfirm"
-                        placeholder="Confirm Password"
+                        placeholder="Same one again…"
                         type="password"
                         value={passwordConfirm}
                         onChange={(e) => {

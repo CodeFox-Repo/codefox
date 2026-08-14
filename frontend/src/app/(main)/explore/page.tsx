@@ -24,8 +24,8 @@ export default function ExplorePage() {
             Built with CodeFox
           </h1>
           <p className="mt-2 max-w-[52ch] text-pretty text-sm leading-relaxed text-muted-foreground">
-            Every public project, made by one prompt each. Open any of them —
-            or remix one into your own workspace and start from there.
+            Every public project, made by one prompt each. Open any of them — or
+            remix one into your own workspace and start from there.
           </p>
         </div>
 
