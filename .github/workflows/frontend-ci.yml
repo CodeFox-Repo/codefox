@@ -5,6 +5,7 @@ on:
     paths:
       - 'frontend/**'
       - 'codefox-common/**'
+      - 'scripts/**'
   workflow_dispatch:
 jobs:
   build:
