@@ -5,7 +5,8 @@ import type { Request, Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { Project } from './project.model';
 import { WorkspaceService } from './workspace.service';
-import { withSocialCard } from './social-card';
+import { publicOrigin, withSocialCard } from './social-card';
+import { shareChrome, socialTagsFor } from './share-chrome';
 import { sharedPagePath } from './shared-page-path';
 
 /**
@@ -60,6 +61,9 @@ export class ShareController {
 
     const project = await this.projects.findOne({
       where: { uniqueProjectId: id, isDeleted: false },
+      // Just the byline. `user` is the publisher's row, so only the username
+      // is ever rendered — see share-chrome.
+      relations: ['user'],
     });
 
     // One message for "no such project", "not public" and "not a page": a
@@ -103,6 +107,31 @@ export class ShareController {
     // Short: the owner keeps editing, and a shared link showing yesterday's
     // page would look broken to them.
     res.setHeader('Cache-Control', 'public, max-age=60');
+
+    // The front door gets our chrome — a thin bar with the byline and a
+    // Remix button — around the page in an iframe. Everything else (the
+    // iframe's own request, and the site's other pages, which are reached by
+    // links from inside that frame) is served bare, or every in-page link
+    // would stack another bar.
+    //
+    // Both responses keep the sandbox CSP: the chrome is ours, but it is
+    // still served from the origin a stranger's page runs on, and the header
+    // costs nothing here.
+    if (file === 'index.html' && req.query.raw === undefined) {
+      return res.send(
+        shareChrome({
+          project,
+          head: socialTagsFor(project, req),
+          frameSrc: `/share/${id}?raw=1`,
+          // The host the visitor actually used — in production `/share` is
+          // rewritten from the app's own domain, so this IS the app. Falls
+          // back to the configured frontend url, which is what makes the
+          // links work when the backend is reached directly (dev).
+          appOrigin: publicOrigin(req) || (process.env.FRONTEND_URL ?? ''),
+        }),
+      );
+    }
+
     return res.send(withSocialCard(html, project, req));
   }
 
