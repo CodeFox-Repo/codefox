@@ -148,6 +148,18 @@ export async function scaffoldProject(projectId: string): Promise<string> {
     '\n# the app database is data, not source\ndata/\n'
   );
 
+  // The template carries the full shadcn set under the registry path it was
+  // generated with (src/registry/new-york-v4/ui), which no model reaches for
+  // on its own — left like that, the agent hand-rolls every primitive in raw
+  // Tailwind and every app comes out looking default. Give it the canonical
+  // import path instead. A copy, not a symlink: the sandbox upload does not
+  // preserve links, and the registry originals stay for the demos that
+  // reference them.
+  await copy(
+    path.join(target, 'src/registry/new-york-v4/ui'),
+    path.join(target, 'src/components/ui')
+  );
+
   // ponytail: shared node_modules, one install for every project. Fine while
   // every project comes from the same template — give a project its own
   // install once the agent is allowed to add dependencies.

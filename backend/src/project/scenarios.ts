@@ -273,6 +273,14 @@ do not.`,
     guidance: `You are building a full-stack web app on the Next.js starter —
 App Router, Server Components by default, interactivity in client components.
 
+Build the UI with the shadcn components that are already in the project:
+@/components/ui (button, card, dialog, select, tabs, table, form, chart —
+the full set). Never hand-roll a primitive that exists there, and never
+reach for a CDN or a new dependency: every package they need is already
+installed. Style with Tailwind and the tokens in globals.css. A page of raw
+<div>s with utility classes is the failure mode — composed, quiet,
+consistent components are the goal.
+
 The app has a real database: \`import { getDb } from '@/lib/db'\` gives a
 better-sqlite3 handle on a file inside the project (data/app.db, WAL on). It
 needs no setup — call it and query. There are no migrations: create tables
