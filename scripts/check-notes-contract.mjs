@@ -99,7 +99,7 @@ assert.match(
 // appends NOTES_SECTION on the Next path too.
 assert.match(
   instructions,
-  /if \(template !== 'html'\) return `\$\{INSTRUCTIONS\}\\n\\n\$\{NOTES_SECTION\}`/,
+  /\[INSTRUCTIONS, shape, NOTES_SECTION\]/,
   'Next projects no longer get the notes section — the button should then be page-only'
 );
 
