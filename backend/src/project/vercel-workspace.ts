@@ -83,6 +83,15 @@ export class VercelWorkspace implements ProjectWorkspace {
     return { out: await result.stdout(), code: result.exitCode ?? 0 };
   }
 
+  async pendingEdits(): Promise<ChangedFile[]> {
+    const { out, code } = await this.sh(
+      `git rev-parse --git-dir >/dev/null 2>&1 || exit 3
+       git status --porcelain`,
+    );
+    if (code !== 0) return [];
+    return parsePorcelain(out);
+  }
+
   /**
    * The sandbox has no committer identity configured, so every commit would
    * fail with "Please tell me who you are". Passed per command rather than
@@ -128,9 +137,13 @@ export class VercelWorkspace implements ProjectWorkspace {
       throw new BadRequestException('Not a version id');
     }
     await this.snapshot('Before restore');
+    // `read-tree -u --reset`, not `checkout <sha> -- .`: the latter only
+    // overwrites paths the old version contains, so a file the agent added
+    // afterwards survived a restore that was supposed to predate it. Same
+    // reasoning as HostWorkspace.restore().
     const { code } = await this.sh(
       `git cat-file -e ${versionId}^{commit} 2>/dev/null || exit 5
-       git checkout ${versionId} -- .`,
+       git read-tree -u --reset ${versionId}`,
     );
     if (code === 5) {
       throw new BadRequestException('No such version in this project');

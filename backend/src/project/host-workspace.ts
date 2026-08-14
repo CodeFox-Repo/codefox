@@ -109,6 +109,16 @@ export class HostWorkspace implements ProjectWorkspace {
     }
   }
 
+  async pendingEdits(): Promise<ChangedFile[]> {
+    if (!this.hasGit) return [];
+    try {
+      const { stdout } = await this.git('status', '--porcelain');
+      return parsePorcelain(stdout);
+    } catch {
+      return [];
+    }
+  }
+
   /** git, in the project, never touching the user's own identity config. */
   private git(...args: string[]) {
     return execFileAsync('git', ['-C', this.root, ...args], {
@@ -182,11 +192,17 @@ export class HostWorkspace implements ProjectWorkspace {
     // HEAD version — and it earns its keep when the user has edited a file
     // in the editor since the last turn.
     await this.snapshot('Before restore');
-    // `checkout <sha> -- .` moves the files while leaving HEAD where it is,
-    // so the restore lands as a normal change the user can review and the
-    // history stays linear — a detached HEAD would strand every later
-    // snapshot.
-    await this.git('checkout', versionId, '--', '.');
+    // `read-tree -u --reset` makes the tree BE that version, rather than
+    // `checkout <sha> -- .`, which only overwrites paths the old version
+    // contains — a file the agent added afterwards was left behind, so
+    // restoring a page to "before the about page" kept about.html and every
+    // link to it. HEAD stays put either way, so the restore lands as a normal
+    // change the user can review and the history stays linear; a detached
+    // HEAD would strand every later snapshot.
+    //
+    // Untracked and ignored files survive (node_modules, .agent-runs), which
+    // is what we want: they were never part of the version.
+    await this.git('read-tree', '-u', '--reset', versionId);
     await this.snapshot(`Restored to ${versionId.slice(0, 7)}`);
   }
 

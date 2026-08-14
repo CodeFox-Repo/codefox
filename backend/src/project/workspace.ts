@@ -46,6 +46,17 @@ export interface ProjectWorkspace {
   changedFiles(): Promise<ChangedFile[] | null>;
 
   /**
+   * What is in the working tree but not yet committed — the user's own edits
+   * since the last turn, and nothing else.
+   *
+   * Deliberately NOT `changedFiles()`, which diffs against the ROOT commit
+   * and therefore reports everything the agent has ever done. Callers that
+   * ask "what did the user touch" need the working tree alone; the two
+   * questions have different answers the moment a turn commits.
+   */
+  pendingEdits(): Promise<ChangedFile[]>;
+
+  /**
    * Commit whatever the turn changed, so it becomes a point the project can
    * be brought back to. No-op when nothing changed or there is no git.
    * Returns the new version's id, or null when nothing was committed.

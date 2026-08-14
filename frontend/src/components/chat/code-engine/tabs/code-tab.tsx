@@ -16,6 +16,7 @@ import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { LintFinding } from '@/api/ChatStreamAPI';
+import { fixLintMessage } from '@/lib/lint-request';
 import { ProjectContext } from '../project-context';
 
 /** One file the agent has touched, relative to the template baseline. */
@@ -77,6 +78,10 @@ interface CodeTabProps {
   setFilePath: (path: string | null) => void;
   /** Design findings for the page the last turn produced; empty when clean. */
   lint?: LintFinding[];
+  /** Send a turn asking the agent to fix the findings. */
+  onFixLint?: (message: string) => void;
+  /** A turn is already streaming — a second one would only queue behind it. */
+  turnRunning?: boolean;
 }
 
 const CodeTab = ({
@@ -89,9 +94,11 @@ const CodeTab = ({
   filePath,
   setFilePath,
   lint,
+  onFixLint,
+  turnRunning = false,
 }: CodeTabProps) => {
   const theme = useTheme();
-  const { turnsDone = 0 } = useContext(ProjectContext) ?? {};
+  const { turnsDone = 0, turnFinished } = useContext(ProjectContext) ?? {};
   const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false);
   const [isLoading] = useState(false);
   const [type, setType] = useState('javascript');
@@ -145,6 +152,10 @@ const CodeTab = ({
       setChanges(data.changes ?? null);
       setFilePath(null);
       await loadVersions();
+      // A restore rewrites the tree the same way a turn does — files can
+      // disappear, not just change — so everything keyed off a finished turn
+      // has to repaint: the file tree, and the cover the preview shoots.
+      turnFinished?.();
       toast.success('Files restored to that version');
     } catch {
       // A restore that silently did nothing would read as "the button is
@@ -321,6 +332,34 @@ const CodeTab = ({
                 the list over a fetch, so showing them apart tears. */}
             {!changesLoading && lint && lint.length > 0 && (
               <ul className="mt-3 space-y-2 border-t border-border pt-3">
+                {/* The panel used to end at the advice: the user read what was
+                    wrong and then retyped it into the composer themselves.
+                    This sends that turn. Hidden mid-turn — a second turn only
+                    queues, and the findings describe a page being rewritten
+                    right now. */}
+                {onFixLint && (
+                  <li className="flex items-center justify-between gap-2 px-2">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                      {lint.length} design{' '}
+                      {lint.length === 1 ? 'note' : 'notes'}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={turnRunning}
+                      onClick={() => onFixLint(fixLintMessage(lint))}
+                      className={cn(
+                        'rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em]',
+                        'text-muted-foreground transition-colors',
+                        'hover:bg-secondary hover:text-foreground',
+                        'focus-visible:bg-secondary focus-visible:text-foreground',
+                        turnRunning && 'cursor-not-allowed opacity-50'
+                      )}
+                      title="Ask the agent to fix these"
+                    >
+                      Fix these
+                    </button>
+                  </li>
+                )}
                 {lint.map((finding) => (
                   <li key={finding.id} className="px-2">
                     <div className="flex items-start gap-2">

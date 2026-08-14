@@ -21,15 +21,27 @@ export function CodeEngine({
   isProjectReady = false,
   projectId,
   lint,
+  onFixLint,
+  turnRunning = false,
 }: {
   chatId: string;
   isProjectReady?: boolean;
   projectId?: string;
   /** Design findings for the page the last turn produced; empty when clean. */
   lint?: LintFinding[];
+  /** Send a turn asking the agent to fix the findings. Same path a typed
+   *  message takes, so the fix is a version like any other turn. */
+  onFixLint?: (message: string) => void;
+  /** A turn is already streaming — a second one would only queue. */
+  turnRunning?: boolean;
 }) {
-  const { curProject, projectLoading, pollChatProject, editorRef } =
-    useContext(ProjectContext);
+  const {
+    curProject,
+    projectLoading,
+    pollChatProject,
+    editorRef,
+    turnsDone = 0,
+  } = useContext(ProjectContext);
   const [localProject, setLocalProject] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filePath, setFilePath] = useState<string | null>(null);
@@ -169,6 +181,18 @@ export function CodeEngine({
     fileStructureData,
   ]);
 
+  // The effect above only fires while the tree is empty, so once loaded it
+  // never refetched: a turn that added a file, and a restore that removed
+  // one, both left "All files" showing the previous shape until the panel
+  // was remounted. turnsDone is the signal both already raise.
+  const treeAt = useRef(turnsDone);
+  useEffect(() => {
+    if (treeAt.current === turnsDone) return;
+    treeAt.current = turnsDone;
+    fetchFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnsDone]);
+
   // Effect for selecting default file once structure is loaded
   useEffect(() => {
     if (
@@ -304,6 +328,8 @@ export function CodeEngine({
             filePath={filePath}
             setFilePath={setFilePath}
             lint={lint}
+            onFixLint={onFixLint}
+            turnRunning={turnRunning}
           />
         );
       case 'preview':
@@ -316,6 +342,16 @@ export function CodeEngine({
   };
 
   useEffect(() => {
+    // Set when this effect is superseded — the file the user picked changed
+    // while its read was in flight. Without it a slow read for a big file
+    // landed after a fast read for a small one and put the WRONG contents in
+    // the editor while `filePath`, the tree highlight and the tab all still
+    // named the file the user actually picked. Typing one character then
+    // saving wrote that other file's whole body over it, and nothing refetched
+    // to reveal it — `preCode` was poisoned too, so Reset restored it as well.
+    // Same guard code-tab.tsx already uses one file over.
+    let superseded = false;
+
     async function getCode() {
       const projectPath = activeProject?.projectPath || projectPathRef.current;
       if (!projectPath || !filePath) return;
@@ -336,6 +372,7 @@ export function CodeEngine({
         }
 
         const data = await res.json();
+        if (superseded) return;
         setCode(data.content);
         setPrecode(data.content);
       } catch (error) {
@@ -344,6 +381,9 @@ export function CodeEngine({
     }
 
     getCode();
+    return () => {
+      superseded = true;
+    };
   }, [filePath, activeProject, fileStructureData]);
 
   // Determine if we're truly ready to render
