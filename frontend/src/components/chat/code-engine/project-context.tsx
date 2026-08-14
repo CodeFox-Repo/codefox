@@ -693,7 +693,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         logger.error('Error creating project:', error);
         if (isMounted.current) {
-          toast.error('Failed to create project from prompt');
+          // Same as fork: the quota refusal names the limit, the current
+          // count and the way out. A generic "failed" hides all three.
+          const message = (error as Error)?.message ?? '';
+          toast.error(
+            message.includes('which is the limit of')
+              ? message
+              : 'Failed to create project from prompt'
+          );
         }
         return null;
       } finally {
@@ -723,10 +730,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         logger.error('Error forking project:', error);
         if (isMounted.current) {
+          const message = (error as Error)?.message ?? '';
           toast.error(
-            (error as Error)?.message?.includes('your own')
+            message.includes('your own')
               ? 'You already own this project'
-              : 'Failed to fork project'
+              : // The quota message already names the limit, the count and
+                // what to do about it — replacing it with "Failed to fork"
+                // would throw away the only actionable part.
+                message.includes('which is the limit of')
+                ? message
+                : 'Failed to fork project'
           );
         }
         return null;
@@ -830,8 +843,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
                 });
               }
 
-              // Try to get web URL in background
-              if (isMounted.current && project.projectPath) {
+              // Try to get web URL in background. Next apps only: an html
+              // project is a file, has no package.json and never gets a dev
+              // server, so this asked the backend to boot one for every page
+              // project — a 500 per poll, forever, and a red console for a
+              // product whose DEFAULT kind is html. The preview pane renders
+              // those from the file itself (HtmlPreview).
+              if (
+                isMounted.current &&
+                project.projectPath &&
+                project.template !== 'html'
+              ) {
                 getWebUrl(project.projectPath).catch((error) => {
                   logger.warn('Background web URL fetch failed:', error);
                 });
