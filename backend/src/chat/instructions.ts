@@ -92,10 +92,14 @@ export const instructionsFor = (
   template?: string | null,
   scenarioId?: string | null,
 ): string => {
-  if (template !== 'html') return `${INSTRUCTIONS}\n\n${NOTES_SECTION}`;
-  // What the user said they were making, so the agent builds that shape
-  // rather than defaulting every project to a centered hero.
+  // The scenario's guidance rides every turn, whichever kind of project it
+  // is. It used to be html-only: the app guidance (the database helper, the
+  // component library) was written, tested for presence, and never shipped
+  // to the model — a next project's prompt said nothing about either.
   const shape = scenarioId ? scenario(scenarioId).guidance : '';
+  if (template !== 'html') {
+    return [INSTRUCTIONS, shape, NOTES_SECTION].filter(Boolean).join('\n\n');
+  }
   // STYLE_SECTION after PLAN_SECTION, not before: PLAN_SECTION carries its
   // own question example using `"id":"style"` with free-text options, and a
   // model copies the nearest example. Ordered the other way the style rules

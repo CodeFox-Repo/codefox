@@ -47,6 +47,26 @@ describe('assembled html instructions', () => {
 });
 
 /**
+ * The app scenario's guidance must actually ship. It was written into
+ * scenarios.ts and asserted there — and instructionsFor dropped it for every
+ * non-html project, so the prompt said nothing about the database helper or
+ * the component library. Presence in the table is not delivery; this reads
+ * the prompt itself.
+ */
+describe('app scenario guidance', () => {
+  it('ships with an app turn', () => {
+    const prompt = instructionsFor('next', 'app');
+    expect(prompt).toContain('@/lib/db');
+    expect(prompt).toContain('@/components/ui');
+  });
+
+  it('stays absent for legacy projects with no scenario', () => {
+    expect(instructionsFor('next', null)).not.toContain('@/lib/db');
+    expect(instructionsFor(null, null)).not.toContain('@/lib/db');
+  });
+});
+
+/**
  * The replay window is 20 turns. NOTES.md is the only thing that outlives it,
  * so both kinds have to be told to keep it — a Next project forgets its
  * constraints exactly as fast as a page does.

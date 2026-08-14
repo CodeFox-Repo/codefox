@@ -116,17 +116,19 @@ export class ChatController {
   }
 
   /**
-   * What the user said they were making, from the page's own meta tag.
+   * What the user said they were making.
    *
-   * Stored in the file rather than a column: the same trick the design system
-   * uses, and it means no migration and no DB_SYNCHRONIZE deploy. Null for a
-   * Next app or a page scaffolded before scenarios existed — the agent then
-   * gets its plain instructions, which is what it had all along.
+   * Page projects carry it in the page's own meta tag — a file, like the
+   * design tokens: no column, no migration, no DB_SYNCHRONIZE deploy. A Next
+   * app is the 'app' scenario by construction (it is the only next kind
+   * today), and its guidance is exactly what a turn needs: the database
+   * helper and the component library only help if the model is told.
    */
   private async scenarioOf(project: {
     projectPath: string;
     template?: string | null;
   }): Promise<string | null> {
+    if (project.template === 'next') return 'app';
     if (project.template !== 'html') return null;
     try {
       const workspace = await this.workspaces.for(project.projectPath);
