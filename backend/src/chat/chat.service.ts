@@ -7,6 +7,39 @@ import { User } from 'src/user/user.model';
 import { NewChatInput, UpdateChatTitleInput } from 'src/chat/dto/chat.input';
 import { Project } from 'src/project/project.model';
 
+/**
+ * The role, spelled the one way `getChatHistory` can read back.
+ *
+ * `ChatInputType.role` reaches GraphQL as a plain `String` (see the comment
+ * there — typing it as the enum flips the accepted spelling and breaks every
+ * client), so anything at all arrives here. A value outside the enum is
+ * written to the messages JSON column and then makes `getChatHistory` throw
+ * `Enum "Role" cannot represent value: …` — for that chat, permanently. The
+ * user sees "This project could not be opened" on a project they own, and no
+ * product path can undo it.
+ *
+ * Case is the whole failure mode in practice ("Assistant" vs "assistant"), so
+ * that is what this folds. An unrecognised role is the caller being wrong
+ * about something this function cannot guess, and is refused rather than
+ * silently relabelled.
+ *
+ * ponytail: one guard on the single write path, rather than validation in
+ * each of saveMessage's callers.
+ */
+export function normaliseRole(role: string): MessageRole {
+  const found = Object.values(MessageRole).find(
+    (r) => r.toLowerCase() === String(role).toLowerCase(),
+  );
+  if (!found) {
+    throw new NotFoundException(
+      `Unknown message role "${role}" — expected one of ${Object.values(
+        MessageRole,
+      ).join(', ')}`,
+    );
+  }
+  return found;
+}
+
 @Injectable()
 export class ChatService {
   constructor(
@@ -26,6 +59,13 @@ export class ChatService {
    * atomic append for a JSON column — the writes have to take turns.
    *
    * Static because the invariant is per chat, not per injected instance.
+   *
+   * ponytail: a Map of promises, in process — correct for one backend, and
+   * NOT a lock. A second instance has its own Map, so the browser's
+   * `saveMessage` and the server's rescue save landing on different replicas
+   * both read the array, both push, and the last write wins: exactly the
+   * lost-message failure above, back again. Same ceiling and same upgrade
+   * path as project-queue.ts (advisory lock in postgres, or redis).
    */
   private static readonly writes = new Map<string, Promise<unknown>>();
 
@@ -277,7 +317,7 @@ export class ChatService {
       const message = {
         id: `${chat.id}/${chat.messages.length}`,
         content: messageContent,
-        role: role,
+        role: normaliseRole(role),
         ...(steps?.length ? { steps } : {}),
         createdAt: new Date(),
         updatedAt: new Date(),
