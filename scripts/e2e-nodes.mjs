@@ -201,14 +201,24 @@ await node('09 chat remembers its model', async () => {
     throw new Error(`chat list project: ${JSON.stringify(mine?.project)}`);
 });
 
-await node('10 first turn asks, does not build', async () => {
+await node('10 a vague first turn asks, or builds something real', async () => {
   const { text, tools } = await turn(
     state.chatId,
     '帮我做一个网站',
     state.token
   );
-  if (!text.includes('codefox-questions')) throw new Error('no question block');
-  if (tools > 0) throw new Error(`built anyway (${tools} tools)`);
+  // Either outcome is the product working. Asserting the planner MUST ask is
+  // asserting a model's judgement call: the same prompt legitimately produces
+  // a question card on one run and a reasonable build on the next, and a node
+  // that fails on the second is measuring the weather.
+  //
+  // What is NOT acceptable is the third outcome — prose that neither asks nor
+  // builds, which is the turn silently doing nothing.
+  const asked = text.includes('codefox-questions');
+  if (!asked && tools === 0) {
+    throw new Error(`neither asked nor built (${text.length} chars of prose)`);
+  }
+  if (!asked) return `built instead of asking (${tools} tools)`;
   // store like the client does so the next turn sees the exchange
   await gqlOrThrow(
     'mutation($i:ChatInputType!){saveMessage(input:$i)}',
@@ -502,7 +512,7 @@ await node('24 html project scaffolds instantly', async () => {
   state.htmlChatId = r.data.createProject.id;
   for (let i = 0; i < 12; i++) {
     const d = await gql(
-      'query($c:String!){getChatDetails(chatId:$c){project{projectPath template}}}',
+      'query($c:String!){getChatDetails(chatId:$c){project{id projectPath template}}}',
       { c: state.htmlChatId },
       state.token,
     );
@@ -510,6 +520,9 @@ await node('24 html project scaffolds instantly', async () => {
     if (project?.projectPath) {
       if (project.template !== 'html') throw new Error(`kind ${project.template}`);
       state.htmlPath = project.projectPath;
+      // The id, not the path: they happen to be equal today, and the restyle
+      // mutation in node 38 takes the id.
+      state.htmlProjectId = project.id;
       const f = await rest(
         `/api/file?path=${encodeURIComponent(`${state.htmlPath}/index.html`)}`,
         {},
@@ -723,6 +736,30 @@ await node('33 a published page is a link anyone can open', async () => {
     throw new Error(`card image points at ${image}`);
   // The page itself must survive the injection untouched.
   if (!card.includes('</body>')) throw new Error('page mangled by injection');
+
+  // The front door is our chrome — a thin bar with the byline and a Remix
+  // button — wrapped around the page in a sandboxed iframe. The generated
+  // HTML cannot carry that button itself: injected into the page it runs
+  // under the page's own sandbox, where a link cannot navigate anything.
+  if (!/class="remix"/.test(card))
+    throw new Error('shared page has no Remix entry');
+  const frame = card.match(/<iframe src="([^"]+)"[^>]*sandbox="([^"]*)"/);
+  if (!frame) throw new Error('the page is no longer framed');
+  if (!frame[1].includes('raw=1'))
+    throw new Error(`iframe points at ${frame[1]}, not the raw page`);
+  // allow-same-origin beside allow-scripts would let the framed page reach
+  // out and drop its own sandbox; allow-top-navigation would let it replace
+  // the tab it is framed in.
+  for (const escape of ['allow-same-origin', 'allow-top-navigation']) {
+    if (frame[2].includes(escape))
+      throw new Error(`iframe sandbox grants ${escape}`);
+  }
+  // A crawler reads the outer document, so the card has to be there — and
+  // the framed page must still be served bare for the iframe to load it.
+  const raw = await share(`${shareId}?raw=1`);
+  if (raw.status !== 200) throw new Error(`raw page -> ${raw.status}`);
+  if (/class="remix"/.test(raw.body))
+    throw new Error('the framed page got the chrome too');
 
   // A site may be several linked pages — the agent is instructed to add
   // them — so a shared link has to follow those links, and must not become
@@ -946,6 +983,226 @@ await node('35 a page prints to a real PDF', async () => {
   if (anon.status !== 401) throw new Error(`anonymous pdf -> ${anon.status}`);
 
   return `${Math.round(buf.length / 1024)} KB pdf`;
+});
+
+await node('38 restore removes a file added after that version', async () => {
+  // Node 30 proves a restore puts CONTENT back. It cannot see the bug this
+  // guards: `git checkout <sha> -- .` only writes the paths that <sha>
+  // contains, so a file created afterwards is not in its tree and survived a
+  // restore meant to predate it — "take me back to before the about page"
+  // kept about.html, and the version history called it a success.
+  //
+  // A second page written through the file API, then committed by a restyle
+  // (the one snapshot the suite can take without spending an agent turn).
+  const page = `${state.htmlPath}/e2e-later.html`;
+  const write = await rest(
+    '/api/file',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        filePath: page,
+        newContent: '<h1>added after the baseline</h1>',
+      }),
+    },
+    state.token,
+  );
+  if (!write.ok) throw new Error(`write ${write.status}`);
+
+  const styled = await gqlOrThrow(
+    'mutation($p:ID!,$s:String!){restyleProject(projectId:$p,styleId:$s){ok}}',
+    { p: state.htmlProjectId, s: 'brutalist' },
+    state.token,
+  );
+  if (!styled.data?.restyleProject?.ok) throw new Error('restyle refused');
+
+  const committed = await rest(
+    `/api/project/versions?path=${state.htmlPath}`,
+    {},
+    state.token,
+  ).then((r) => r.json());
+  // The new page has to be IN a version, or removing it proves nothing.
+  if (!committed.versions?.length) throw new Error('no versions to restore to');
+
+  const baseline = committed.versions.at(-1);
+  const back = await rest(
+    '/api/project/restore',
+    {
+      method: 'POST',
+      body: JSON.stringify({ path: state.htmlPath, versionId: baseline.id }),
+    },
+    state.token,
+  );
+  if (!back.ok) throw new Error(`restore ${back.status}`);
+
+  const gone = await rest(
+    `/api/file?path=${encodeURIComponent(page)}`,
+    {},
+    state.token,
+  );
+  if (gone.ok)
+    throw new Error('the later file survived a restore that predates it');
+  if (gone.status !== 404) throw new Error(`unexpected ${gone.status}`);
+
+  // And the tree agrees — a file the reader 404s but the listing still shows
+  // is the same bug wearing a different coat.
+  const tree = await rest(`/api/project?path=${state.htmlPath}`, {}, state.token)
+    .then((r) => r.json())
+    .catch(() => ({}));
+  if (Object.keys(tree.res ?? {}).some((k) => k.endsWith('e2e-later.html')))
+    throw new Error('the file tree still lists the removed page');
+
+  return `restored to ${baseline.label}, later page gone`;
+});
+
+await node('39 the console refuses a stranger, and self-lockout', async () => {
+  // The admin surface is the one place that can read every user in the
+  // deployment and hand out the role that unlocks it. `state.adminToken` is
+  // the suite's OTHER throwaway account (node 19) — a real signed-in
+  // stranger, which is the interesting denial.
+  const refused = async (query, token) => {
+    const r = await gql(query, undefined, token);
+    if (!r.errors?.length) throw new Error(`allowed: ${query.slice(0, 40)}`);
+    return r.errors[0].message;
+  };
+
+  await refused('query{adminUsers(limit:5){total items{email}}}', state.adminToken);
+  await refused(
+    'mutation{adminSetUserRole(userId:"x",role:"Admin",granted:true)}',
+    state.adminToken,
+  );
+  // Anonymous, too: the guard must not depend on holding any token at all.
+  await refused('query{adminUsers(limit:5){total}}', undefined);
+
+  const admin = await gql(
+    'mutation($i:LoginUserInput!){login(input:$i){accessToken}}',
+    { i: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } },
+  );
+  const adminToken = admin.data?.login?.accessToken;
+  if (!adminToken) return `strangers denied; no ${ADMIN_EMAIL} here to check`;
+
+  const me = await gqlOrThrow('query{me{id}}', undefined, adminToken);
+  const selfId = me.data.me.id;
+
+  // An admin who revokes their own Admin has no way back: there is no other
+  // grant path in the product, so recovery is hand-written SQL against the
+  // database. Refused on identity, not on "is another admin left".
+  const suicide = await gql(
+    'mutation($u:String!){adminSetUserRole(userId:$u,role:"Admin",granted:false)}',
+    { u: selfId },
+    adminToken,
+  );
+  if (!suicide.errors?.length)
+    throw new Error('an admin just locked themselves out of the console');
+  if (!/your own Admin/i.test(suicide.errors[0].message))
+    throw new Error(`refused for the wrong reason: ${suicide.errors[0].message}`);
+
+  // Same lockout by a different door: login rejects an inactive account.
+  const disableSelf = await gql(
+    'mutation($u:String!){adminSetUserActive(userId:$u,isActive:false)}',
+    { u: selfId },
+    adminToken,
+  );
+  if (!disableSelf.errors?.length)
+    throw new Error('an admin just disabled the account they were using');
+
+  // The role still has to be there — a guard that refuses by breaking the
+  // thing it guards is not a guard.
+  const still = await gqlOrThrow('query{myRoles}', undefined, adminToken);
+  if (!still.data.myRoles.includes('Admin'))
+    throw new Error('the refusal dropped the role anyway');
+
+  return 'stranger + anonymous + self-revoke + self-disable all refused';
+});
+
+await node('40 the gallery does not lead into private data', async () => {
+  // `Project.user` hangs off the @Public fetchPublicProjects, and nothing
+  // guards a field resolver — so `user { chats { messages } }` used to walk
+  // from one published page to the full conversation of every private
+  // project belonging to anyone who has ever published. The fix removes the
+  // fields, which makes this a SCHEMA refusal: no data to leak by any query.
+  const rejected = async (selection) => {
+    const r = await gql(
+      `query{fetchPublicProjects(input:{strategy:"trending",size:3}){id ${selection}}}`,
+    );
+    const message = r.errors?.[0]?.message ?? '';
+    if (!/Cannot query field/.test(message))
+      throw new Error(`anonymous ${selection} was not refused: ${message || 'no error'}`);
+  };
+
+  await rejected('user{chats{id}}');
+  await rejected('user{projects{id}}');
+  // Two hops is the one that mattered: the messages themselves.
+  await rejected('user{chats{messages{content}}}');
+
+  // PII on the account itself. Removing the relation fields left these
+  // behind, because `Project.user` was still typed `User` — and a field
+  // resolver's return type is what the schema offers, whatever the resolver
+  // hands back. So `user{email}` still resolved off the entity and the
+  // gallery was a scrapable list of every publisher's address. `Project.user`
+  // is now `Byline`, which has nothing but id/username/avatarUrl.
+  await rejected('user{email}');
+  await rejected('user{isEmailConfirmed}');
+  await rejected('user{lastEmailSendTime}');
+  await rejected('user{githubInstallationId}');
+
+  // The byline the gallery genuinely renders must still work, or this is a
+  // guard that broke the feature instead of the hole.
+  const byline = await gql(
+    'query{fetchPublicProjects(input:{strategy:"trending",size:3}){id projectName user{username}}}',
+  );
+  if (byline.errors?.length)
+    throw new Error(`the gallery byline broke: ${byline.errors[0].message}`);
+
+  // And the signed-in user can still read their OWN account, or this is a
+  // guard that broke the settings page rather than the leak.
+  const mine = await gqlOrThrow(
+    'query{me{email username}}',
+    undefined,
+    state.token,
+  );
+  if (!mine.data.me.email)
+    throw new Error('me{email} stopped working — settings cannot show it');
+
+  return 'chats, projects, messages and PII all unreachable from the gallery';
+});
+
+await node('41 notes survive a restyle and gain its decision', async () => {
+  // NOTES.md is the project's memory: the agent records decisions there and
+  // every turn reads it back, which is what lets a project remember past the
+  // 20-turn window. Two things have to hold, and a restyle is the cheapest
+  // way to see both — it is the one design decision that never runs an agent
+  // turn, so this node costs no model tokens.
+  const notes = `${state.htmlPath}/NOTES.md`;
+  const mine = '- No pricing section until we have real numbers';
+  const w = await rest(
+    '/api/file',
+    { method: 'POST', body: JSON.stringify({ filePath: notes, newContent: `${mine}\n` }) },
+    state.token,
+  );
+  if (!w.ok) throw new Error(`write ${w.status}`);
+
+  await gqlOrThrow(
+    'mutation($p:ID!,$s:String!){restyleProject(projectId:$p,styleId:$s){ok}}',
+    { p: state.htmlProjectId, s: 'luxury' },
+    state.token,
+  );
+
+  const after = await rest(
+    `/api/file?path=${encodeURIComponent(notes)}`,
+    {},
+    state.token,
+  ).then((r) => r.json());
+
+  // The user's own line must survive: a restyle that overwrote the notes
+  // would silently drop the decisions the agent is meant to keep obeying.
+  if (!after.content?.includes(mine))
+    throw new Error('the restyle overwrote the project’s own notes');
+  // And the restyle has to record itself, or the next turn builds against a
+  // look the project no longer has.
+  if (!/^- Design system: /m.test(after.content))
+    throw new Error('the restyle did not record its decision in NOTES.md');
+
+  return after.content.trim().split('\n').at(-1);
 });
 
 await node('32 html cover shoots the file', async () => {

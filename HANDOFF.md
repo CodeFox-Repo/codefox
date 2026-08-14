@@ -3,6 +3,193 @@
 State of the product as of this session. Facts and open questions only; no
 proposed fixes.
 
+## 这一晚 — 2026-08-13(三个 agent,125 个文件,全部未提交)
+
+早上好。下面是**你需要决定的三件事**和**这一晚改了什么**。细节都在各自的
+章节里,这一节只做索引。
+
+### 需要你点头的三件事
+
+1. **部署。** 计划写在 `/tmp/commit-plan.md`:8 组 commit、逐条 `git add`、
+   写好的 message、push 顺序、部署后验证的 curl。**先读下面那节「部署前必读」**
+   —— 生产此刻正在泄露私有对话,这批改动里有修复。
+2. **CI 补口。** 三个 workflow 的 diff 写在 `/tmp/ci-gap.md`,没有落地(工作区
+   规则:CI 改动要批准)。核心是:**只改 `scripts/` 的 PR 目前不跑任何检查**,
+   而 33 个 check 脚本全住在那里。
+3. **两个生产动作**:Railway 上设 `FRONTEND_URL=https://codefox.sma1lboy.me`
+   (不设的话密码重置邮件里的链接指向 localhost);以及查一下存量脏数据
+   `select id from chat where messages like '%"role":"Assistant"%'` —— 见下面
+   role 那条,守卫只挡新写入,不修存量。
+
+### 修了什么
+
+| 类别 | 数量 | 最该知道的一条 |
+|---|---|---|
+| 安全 | 5 | 匿名任何人能从公开画廊读到**每一条私有对话的全文** + 所有者邮箱。生产已实测复现。 |
+| 竞态 / 数据完整性 | 9 | 一个大小写写错的 `role` 会**永久锁死一个 chat**(UI 显示成"项目打不开"),产品里无路可修。 |
+| 查询效率 | 2 | 画廊每张卡都重查一次项目**并连带取出它的全部对话**,只为读 user 的三个字段:6 张卡 14 次查询 → 2 次。 |
+| 移动端 | 3 | 390px 上 **Sign Up 按钮在屏幕外** —— 手机访客注册不了;登录后项目类型和风格选择器同样够不着。 |
+| 可访问性 | 2 | 按 Esc 关弹窗后焦点掉到 `<body>`,键盘用户位置全丢。修在共享组件,覆盖全部 30 个弹窗。 |
+| 新能力 | 7 | 密码重置闭环、控制台搜索/分页/角色管理、项目笔记可见可编辑、配额、remix 署名、分享页 chrome。 |
+
+### 验证到什么程度
+
+- `pnpm check` **37/37**(其中 ~28 个是这一晚写的;runner 现在跑完全部并列出所有失败,
+  而不是停在第一个 —— 今晚真出现过"守卫完好但 check 的正则被格式化改坏"的永红)
+- 后端 `npx jest` **253 tests / 36 suites**
+- E2E `node scripts/e2e-nodes.mjs` **40/40**(隔离栈实跑,含 4 个新节点)
+- 双端 tsc 干净,`npx turbo build --force` 2/2
+
+**每一个新增的 check / E2E 节点都实测过"把修复还原后它会变红"** —— 改源码、
+重新 build、重启后端、跑一遍确认变红再还原。不会失败的检查不算检查。
+
+### 遗留(按"会不会咬人"排)
+
+- **存量脏 role 数据**:守卫只挡新写入。上面第 3 条那句 SQL 查一下。
+- **`ignoreBuildErrors: true`**(`frontend/next.config.mjs`,先于这一晚存在):
+  前端类型错误无法让 CI 失败。今晚每个前端改动都靠人手动 `tsc` 兜住。
+- **CI 跑 Node 18,本地 Node 26**。这个差异今晚**真的抓到过一个可移植性 bug**
+  (`Dirent.parentPath` 是 Node 20.12+),所以我建议**保留**这个差异而不是对齐。
+- **未走查的面**:软键盘遮挡输入框(headless 测不了)、share chrome 的键盘可用性
+  (它当时还在改)、真读屏软件(VoiceOver)验证。
+- **`.env` 陷阱、schema.gql 启动覆盖、Chrome 三条链路** —— 都写在下面各自的小节。
+
+其它 agent 的遗留清单在它们自己的章节里,这里不复制。
+
+## 部署前必读 — 2026-08-13 生产冒烟走查(只读)
+
+没有部署任何东西,没有碰生产数据或 env。以下全部是对
+`codefox.sma1lboy.me` / `backend-production-88a19.up.railway.app` 的**只读探测**
+结果,加上"如果现在 push 会发生什么"的逐项评估。
+
+### 🔴 会咬人 — 一个正在流血的洞,现在就在生产上
+
+**匿名任何人都能读到生产上每一条私有对话的全文,以及所有者的邮箱。**
+
+这不是"部署以后会有的风险",是**此刻线上的状态**。实测(无 token,一条
+GraphQL 查询):
+
+```
+fetchPublicProjects → user → chats → messages { content }
+```
+
+拿到的东西:`541898146chen@gmail.com`、8 个项目(**其中 2 个是私有的**,
+带 `projectPath` —— 也就是文件路由用的目录名)、以及聊天标题和真实消息
+正文。画廊的项目 id 是公开的,所以入口是敞开的。
+
+原因就是 bug-agent 今晚修的那条:`Project.user` 挂在 `@Public` 的
+`fetchPublicProjects` 上,而 **field resolver 不经过任何 guard**
+(`fieldResolverEnhancers` 没设,APP_GUARD 到不了)。
+
+**结论:今晚这批改动不是"可以部署",而是应该尽快部署** —— 修复已经在本地
+写好并被 E2E 节点 40 守住(`user{chats}` / `user{projects}` /
+`user{chats{messages}}` 全部变成 schema 级拒绝)。生产上每多留一天,这个洞
+就多敞开一天。
+
+一个**残留缺口**,修复没有覆盖到:`user { email }` 仍然可查(`chats` 和
+`projects` 已经摘掉了,`email` 还在 `User` 的暴露字段里)。严重性比"读全部
+私有对话"低一个量级,但仍然是 PII。已转给 bug-agent。
+
+### 🟡 要注意 — 部署时会咬人的点
+
+**1. `adminUsers` / `adminProjects` 是 breaking change,而两端不是原子部署。**
+
+返回类型从 `[AdminUser!]!` 变成 `AdminUserPage`(`{ items, total }`)。
+Vercel 前端和 Railway 后端各自独立部署,中间态一定存在。实测了旧前端的原查询
+打新后端:
+
+```
+Cannot query field "id" on type "AdminUserPage".
+```
+
+**影响面被限制住了**:唯一的调用点是 `/admin` 的 console,只有 Admin 角色
+的人会打开它。中间态期间,一个管理员看到的是用户/项目两张表报错,**产品的
+其他部分完全不受影响**(普通用户、画廊、聊天、生成都不碰这两个 query)。
+
+Railway 的部署延迟历来比 Vercel 长(HANDOFF 记录是 25–40 分钟,出现过 70
+分钟),所以中间态大概率是**新前端 + 旧后端**:新前端发
+`adminUsers(search:…){total items{…}}`,旧后端不认识 `search` 参数,同样报错。
+两个方向都只伤 `/admin`。
+
+不需要做什么,知道就行:部署后如果打开 console 看到两张表报错,**等后端追上
+再刷新**,不是回归。
+
+**2. `pnpm check` 有 18 个脚本,CI 会卡。**
+
+今晚从 9 个涨到 18 个(三个 agent 各自加的)。这些是 CI 步骤,任何一个红了
+push 就不算完成。本地当前 18/18 全绿。
+
+**3. `schema.gql` 会被本地后端启动时静默覆盖。**
+
+`app.module.ts` 的 `autoSchemaFile` 指向
+`frontend/src/graphql/schema.gql` —— 那是一个 **checked-in 文件**。任何人在
+本地起一次后端,它就会被当时的源码状态重写。
+
+这个坑今晚真的踩到了:做安全修复的"坏实现验证"时临时加回一个 `@Field()`
+并重启后端,`chats: [Chat!]!` 就被写回了那个共享文件,
+`check-public-traversal.mjs` 当场变红 —— 而源码其实是对的。
+
+**每次跑完本地后端,`git diff frontend/src/graphql/schema.gql` 看一眼。**
+它的改动应该只来自你真正改过的 resolver。
+
+### 🟢 无风险 — 逐项查过,不用管
+
+| 项 | 结论 |
+|---|---|
+| **新 env 变量** | **一个都没有**。整晚的 diff 里没有新增 `process.env.*` 读取。 |
+| **新数据库列 / 新表** | **没有**。四个 `.model.ts` 改动全是 declaration-only:三个是**摘掉** `@Field()`(GraphQL 暴露面,不是数据库),一个是 `RefreshToken.userId` 从 `number` 改成 `string` —— 那一列 TypeORM 建的本来就是 varchar(类型取自上面的 relation),声明一直是错的。**不需要 `DB_SYNCHRONIZE=true` 那套动作。** |
+| **密码重置的 token 存储** | 无表。token 用账户当前密码哈希派生的 key 做 HMAC 签名 —— 改密码即失效,天然单次使用,没有要清理的行。 |
+| **jwt_cache** | 内存 SQLite,重启即空,没有持久化 schema。确认无影响。 |
+| **Postgres vs SQLite** | 生产是 Postgres,新增的 admin 搜索/分页只在 SQLite 上测过,所以专门查了生成的 SQL:搜索是 `LOWER(col) LIKE ?`(**刻意避开了 Postgres-only 的 `ILike`**,参数化,ANSI 标准,两边一致);分页是 TypeORM 的 `getManyAndCount`,它对带 join 的分页生成 `SELECT DISTINCT "distinctAlias"."project_id", "distinctAlias"."project_createdAt" … ORDER BY "distinctAlias"."project_createdAt"` —— **排序列被显式选进了 DISTINCT 列表**,这正是 Postgres 的硬性要求(`for SELECT DISTINCT, ORDER BY expressions must appear in select list`)。可移植。大小写不敏感搜索实测通过(搜 `DEMO` 命中 `demo@codefox.test`)。 |
+| **生产 introspection** | 已关闭(探测确认),所以上面的版本判断是靠行为探测做的,不是 `__schema`。 |
+| **注册开关** | 生产仍是 `registrationOpen: false`。今晚的改动没有碰它。 |
+
+### puppeteer 的 Chrome 从哪来(三条链路,别去后端代码里找)
+
+封面截图和 PDF 导出都走 `puppeteer.launch()`,而**后端代码里没有 `executablePath`** ——
+这是对的,不是漏了。`PUPPETEER_EXECUTABLE_PATH` 是 puppeteer 自己读的环境变量,
+应用层不需要转发它。
+
+- **生产 Railway** — `railway.json` 的 `startCommand` 前缀:
+  `PUPPETEER_EXECUTABLE_PATH=$(command -v chromium || command -v chromium-browser)`。
+  nixpacks 装的 chromium 不在 puppeteer 的默认缓存路径,这行动态解析后喂给它。
+- **本地 E2E / 后端** — `~/.cache/puppeteer` 里的 Chrome for Testing,默认路径,零配置。
+- **本地 visual-qa 脚本** — 显式 `executablePath` 指向系统 Chrome,`CHROME_PATH` 可覆盖。
+
+在后端代码里搜 `executablePath` 搜不到而困惑时,答案是上面第一条:
+问题在启动命令那一层解决了。
+
+### `frontend/.env` 会盖掉你传的后端地址
+
+`frontend/.env` 里硬编码了 `NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8080/graphql`,
+**优先级高于命令行传进去的同名环境变量**。所以把后端起在 8080 以外的端口做本地
+调试时,前端仍然去打 8080 —— 如果那里恰好有一个旧进程在跑(这台机器上就有一个
+2026-07-29 的 `node dist/main`),表现是"登录一直失败 / 数据对不上",而直接 curl
+后端一切正常,非常难查。
+
+绕法:临时写一个 `frontend/.env.local`(Next 里 `.env.local` 覆盖 `.env`),用完
+删掉。注意这个文件是共享的 —— 多个 agent 同时调试时会互相覆盖。
+
+### 生产落后程度(行为探测,introspection 关着)
+
+| 探测 | 结果 | 说明 |
+|---|---|---|
+| `adminSetUserRole` | `Cannot query field` | 第二轮的角色管理未上线 |
+| `resetPassword` | `Cannot query field` | 密码重置未上线 |
+| `adminUsers{id}`(旧数组写法) | 通过校验,只报 401 | 生产**仍然是旧的数组返回类型** |
+| `user{chats{messages}}` | **返回真实数据** | 安全修复未上线(见上面的 🔴) |
+
+生产 = `a419612` 或更早。今晚三个 agent 的 ~57 个文件改动**一行都没上**,
+且全部未 commit —— 所以一次 push 会同时触发两个平台的部署。
+
+### 怎么部署(仍然需要你点头)
+
+按 [[codefox-deploy-paths]]:**push 到 main 就是部署**,两个平台都是
+git-connected。Vercel 认的是根目录的 `codefox` 项目(它持有域名);
+`frontend/` 下那个 `frontend` 项目是个失效的陷阱,别去修它。
+
+由于没有新列,**不需要** `DB_SYNCHRONIZE=true` 那一轮开关操作。
+
 ## Read this first — where the product stands (2026-07-29 03:00)
 
 Two overnight sessions. Everything below is deployed (Railway + Vercel) and
@@ -1409,3 +1596,1038 @@ html cover shooting a 137KB png.
 文件就叫 by-hand.html,而那段历史还在聊天里——"我刚手改了哪个文件"于是有
 一个非常可信的错误答案摆在眼前,模型两次都答了它。换成干净项目 + 一个本身
 不含任何提示的文件名后,断言才真的在测 wire 而不是测模型的联想能力。
+
+## 设计 linter 从单向变成闭环 —— 它一直在评判,但没人听得见
+
+open-design 的两个明显方向都已经做完了(158 套设计系统、zip/PDF/share/
+Vercel deploy),所以这轮挖的是**已经移植进来、但只走了一半的东西**。
+
+`lint-artifact.ts`(976 行,从 open-design 逐行搬来的反 slop 规则)在每轮
+turn **结束时**跑,findings 推到 Changes 面板。它自己的文件头就写着这件事:
+"nothing feeds them back to the agent, so it does not self-correct"。于是:
+
+1. **写出 slop 的那个 agent 永远看不到判决** —— 它在 turn 结束后才跑。
+   同一个页面下一轮回来还是那个紫色渐变,因为没有任何东西把结论带回去。
+2. **用户读到"把紫色渐变换成纯色"之后,只能自己把这句话重新打一遍**
+   到输入框里。面板是只读的死胡同。
+
+两半都补上,都是**复用**而不是新机器:
+
+- `lint-note.ts`(新):findings → prompt 段落。**每轮开头重新算,不存**
+  —— restyle / restore / 手改都会让页面变样,记住的列表描述的是一个不存在
+  的页面。复用的是已经存在的 `lintPage()`,只是也在 turn 开头调一次。
+- 只带 P0/P1(P2 是建议,不值得每轮的 prompt 预算),上限 8 条 —— 一个满
+  盘皆输的页面不能把用户真正的请求挤掉。干净页面**一个字都不加**:空的
+  "没问题"前言是花预算说没新闻,还会训练模型跳过这个块。
+- 措辞上明确写了 findings 是 **advisory**:linter 自己承认是 greppy 的,
+  不加这句,一个刻意的设计选择会被每轮"修"掉一次。
+- 面板加 "Fix these":走 `sendMessage`,和手打的一模一样 —— 所以它是历史
+  里的一条 turn、有 snapshot、能回滚。turn 进行中禁用(否则只是排队),
+  两种布局(手机 / 桌面)都接了线。
+
+验证:`scripts/check-lint-feedback.mjs`(新,已并入 `pnpm check`,11 个
+全绿),**逐一验证过三处 wiring 各自还原后这个 check 会失败** —— 不会失败
+的 check 不是 check。另外拿真页面实测走了一遍真链路:一个含渐变/emoji 图标/
+sans display/lorem 的页面 → 真 linter 出 4 条 P0 → 真的变成 1455 字节的
+prompt 段落;一个干净页面 → 空字符串。后端 164 测试全绿,前后端 tsc 干净,
+**`next build` 绿**(第一次 lint 时我自己写的那行正好踩中 prettier 报错 ——
+就是 HANDOFF 记过两次的那个"tsc 干净但 build 挂"的事故模式,已修)。
+
+已知边界:findings 只喂给 agent,**不强制它修** —— 一个 turn 结束后页面仍
+然可能带着同样的 P0(模型判断该保留),这是有意的,linter 是 greppy 的。
+Next 项目不参与两边(没有单一 artifact 可判),和原本的行为一致。
+
+## 项目的设计合约一直存在,只是没人看得见 —— NOTES.md 可见可编辑了
+
+open-design 的核心概念之一是"每个项目一份 DESIGN.md,所有渲染都遵循它"。
+侦察下来 **codefox 早就有这个东西了,而且比想象中更像合约**:`NOTES.md`
+由 agent 维护(instructions 里明确要求),记的是"受众是手机上评估的独立
+开发者"、"accent 保持 #c96a3a,用户拒绝过蓝色两次"、"没有真实数字前不要
+定价区",并且**每一轮 turn 开头都会被读回 prompt**(`notesNote()`)。
+deploy 还专门把它排除在发布之外(`SKIP_FILE = /^NOTES\.md$/`),理由是
+"这正是没人想从自己域名上服务出去的东西"——说明它被当真了。
+
+**唯一的问题是它对用户完全不可见。** `grep -rn "NOTES" frontend/src` 零
+结果。也就是说:一个文件在左右每一轮构建,用户既看不到 agent 相信了什么,
+也无法纠正写错的一条——只能用散文再说一遍然后祈祷。
+
+所以这轮做的不是加一个新概念,是**把已有的合约露出来**:
+
+- `frontend/src/components/chat/code-engine/notes-dialog.tsx`(新):工具栏
+  Notes 按钮打开,读/写 NOTES.md。**没有任何新后端**——`/api/file` 的
+  GET/POST 早就在了,带 JWT + ownership 校验,写入时自动建文件。这个 dialog
+  就是把那个端点指向一个约定路径。
+- **404 = 空合约,不是错误**:新项目 agent 还没写过 notes,`readFile` 回
+  null、controller 抛 404。当成错误的话,这个功能就只在"agent 恰好写过"的
+  项目上能用——而用户最想立规矩的时刻恰恰是项目刚建的时候。现在给一个
+  `# Notes\n- ` 的起点。
+- **读失败绝不能变成空保存**(真正会毁数据的那条):加载失败时不显示空
+  textarea,`failed` 态 + Save 禁用。否则"加载挂了 → 框是空的 → 用户点保存
+  → agent 记的东西全没了"。保存失败则**保持 dialog 打开**并明说"你的文字还
+  在",关掉就等于把用户刚写的扔了。
+- 手改归属**复用已有机器**:保存只写工作区不提交,turn 前的
+  `snapshotPendingEdits()` 会把它变成用户自己的一条 "Your edits" 版本,并
+  告诉 agent 用户动了 NOTES.md。不需要新代码。
+- 桌面和 compact 两套布局都接了线——这仓库出过 API key 只在 ≤450px 溢出菜单
+  里、桌面够不着的事故。不按 `isPage` 分支:两种项目都有 notes
+  (`instructionsFor` 在 Next 分支也拼了 NOTES_SECTION)。
+
+验证:`scripts/check-notes-contract.mjs`(新,已并入 `pnpm check`,**13 个
+全绿**),**逐一验证过四处还原后 check 会失败**(写错文件名 / 不处理 404 /
+读失败后 Save 仍可点 / 少接一套布局)。另外拿真 HostWorkspace 走了一遍真
+往返:文件不存在回 null → 写入后逐字读回 → 中文和 `"` `<script>` `&` 原样
+存活 → 超长文件被 clip **并且说了自己被 clip** → 空白 notes 对 prompt 一个
+字都不加。后端 **168/168** 全绿,前后端 tsc 干净。
+
+**踩到一个值得记的坑(不是我的代码)**:`next build` 报
+`/_not-found` 和 `/` 预渲染失败(`Cannot read properties of undefined
+(reading 'call')`)。先怀疑是自己,于是把改动挪开重建 —— 干净;再放回来 ——
+还是挂。真正原因是 **`.next` 增量缓存陈旧**:`rm -rf .next` 后同样的代码
+连续两次构建全绿。**这个报错完全不指向缓存,长得像模块解析错误**,下次别
+再顺着 import 查。
+
+已知边界:合约只是 prompt 里的一段,**不强制** agent 遵守;它和 158 套设计
+系统各管一边(系统管 token,notes 管产品决策),这轮没有把选过的设计系统
+自动沉淀进 notes——那需要在 restyle 路径上写文件,是另一个改动。
+
+## 换风格这个决策,以前没有任何人告诉 agent
+
+第三轮:把设计决策沉淀进 NOTES.md。**结论是只有一条路径需要改,另一条不该
+碰** —— 这个取舍本身是这轮的主要产出。
+
+**planner 问答不写。** question card 的答案是通过 `sendMessage` 走一轮**真
+正的 turn** 的("My choices: - 风格: …"),而 agent 的 instructions 早就要求
+它把决策写进 NOTES.md。后端在这条路上再写一遍就是双写:同一个决策两条措辞
+不同的记录,谁也不知道该信哪条,而且 agent 下一轮"纠正"其中一条时另一条还
+在。**已经有人负责的事情不要再插一手。**
+
+**restyle 必须写。** 它是唯一一个**从不跑 turn** 的设计决策 ——
+`restyleProject` 是个 GraphQL mutation,换掉 `:root` 的 token 块就返回了。
+于是没有任何东西告诉过 agent 外观变了,**下一轮它仍然按旧风格在建**。
+
+- `backend/src/project/style-note.ts`(新,43 行):一个纯字符串函数。
+- 写在**已有的 `queueForProject` 块内部**,和 index.html 的写在一起 ——
+  它们是同一个决策,一个并发的 turn 不能插在中间。没有新队列、新表、新端点。
+- **替换自己那一行,不追加**:NOTES.md 每轮都被 clip 进 prompt,一个
+  "用户试过的每一种风格"的流水账会把真正重要的决策挤出去。实测连试五种风格
+  → **一行**。
+- 大小写不敏感匹配:agent 自己也维护这个文件,它可能把这行改成自己的措辞;
+  严格匹配的话下次就会多出第二行。
+- **best-effort**:页面此时已经换好了,让一条脚注的失败去报"restyle 失败"
+  是在对用户撒谎。catch 住只记 warn。
+
+验证:`style-note.spec.ts` 5 条(含"连换五次只剩一行"、"agent 记的别的决策
+一条不少且顺序不变"、"reworded 的大小写变体不会造出第二行");
+`scripts/check-style-noted.mjs` 守 wiring(写的是不是 NOTES.md、有没有跑出
+队列、失败会不会拖垮 restyle),**逐一验证过三处还原后会失败**。另外拿真
+HostWorkspace 走了一遍:agent 先记了"- No pricing section yet",再连换
+Neon → Luxury,最终 prompt 里是 `- No pricing section yet` + **一条**
+`- Design system: Luxury`,Neon 不见了。
+
+`pnpm check` **14/14**,后端 **173/173**,双端 tsc 干净,`next build` 绿
+(先 `rm -rf .next`——上一轮那个假信号)。改动是纯加法:已有文件只多了 20 行。
+
+未做:把 planner 的结论也落进去(理由见上),以及"合约"里除风格外的东西
+(受众、语气)——那些 agent 自己在写。
+
+## 忘记密码这件事,以前无解 —— 重置闭环补上了
+
+第四轮两个候选,选了密码重置。**画廊那条没做,理由写在下面。**
+
+`sendPasswordResetEmail` 和 `passwordReset.hbs` 一直都在,`MailService` 里
+连链接格式都写好了(`/reset-password?token=`)—— 但**零调用、零 UI、零路由**。
+也就是说一个忘记密码的用户**完全没有找回途径**,只能去求管理员改库。这不是
+"体验不好",是一条死路。
+
+画廊那条评估后放弃:它已经有 strategy(latest/trending)+ size,而生产上
+**有封面的公开项目只有个位数**。给一面几乎空的墙加搜索和分页是给不存在的
+问题写代码;等项目数真的起来了,那时才知道该按什么搜。
+
+### 单次使用,但没有新表
+
+关键设计:**token 用账户当前的 password hash 参与签名**(HMAC 的 key 是
+`secret:passwordHash`)。重置改掉 hash → key 变了 → **所有旧链接同时失效**。
+单次使用、旧链接全部作废,两件事一起免费拿到,不需要 reset_tokens 表、不需要
+过期清理 job。hash 本身不出服务器,发出去的只是摘要。
+
+- `backend/src/auth/reset-token.ts`(新):`<userId>.<expiresAt>.<HMAC>`,
+  30 分钟有效,`timingSafeEqual` 比对,长度不等直接 false(它会抛)。
+  刻意要求正好三段 —— userId 里如果能塞点号,一个 token 就能被解释成另一个
+  用户的。
+- 不做账号探测:未注册地址 / Google 无密码账号 / 真实账号,**三条路径返回
+  完全相同的一句话**,唯一的区别是有没有真的发信。
+- 复用注册那条路的 `lastEmailSendTime` 做 1 分钟冷却 —— 否则这就是一个
+  不需要登录、能往任意邮箱轰炸的发信接口。
+- **重置会删掉该用户所有 refresh token**:会去重置密码的人,很可能正是因为
+  别人在他账号里。不删的话入侵者还有最多 7 天。
+- 重置成功顺带 `isEmailConfirmed = true` —— 能收到这封信本身就证明了邮箱。
+- SMTP 在所有环境都关着,所以 mail disabled 时**重置链接写进后端日志**
+  (`Logger.warn`),不进 response —— 链接就是全部的秘密。
+
+前端:登录弹窗里加 "Forgot your password?" 内联切换(地址已经在上面那个框里
+了,不值得一个新路由),以及 `/reset-password` 页面 —— 这个路径不是我选的,
+`MailService` 一直指向它,只是页面从来不存在。`useSearchParams` 必须包
+`<Suspense>`,否则整条路由退出静态渲染。
+
+验证:`reset-token.spec.ts` **10 条**(单次使用、所有旧链接一起死、过期、
+换 secret、手工改过期时间、改成别人的 userId、畸形输入不抛异常、无密码账号、
+不泄露 hash);`scripts/check-password-reset.mjs` 守那些**用起来看不出对错**
+的性质(是不是账号探测器、重置有没有终结会话、@Public 有没有掉、两端 URL
+是否一致),**逐一验证过四处还原后会失败**。另外用**真 bcrypt** 走了一遍
+重放:同一个链接在重置后再用,verify = false。
+
+`pnpm check` **16/16**,后端 **196/196**,双端 tsc 干净,`next build` 绿
+(`/reset-password` 出现在路由表里)。
+
+踩到一个真类型错误:`RefreshToken.userId` 声明是 `number`,实际存的是 uuid
+字符串 —— logout 那处同样的 delete 早就挂着 `as any`。跟随现有写法,没有
+顺手改 model:那是一次 migration,不是这个功能的脚注。
+
+已知边界:重置**不撤销当前 access token**(JWT 缓存按 token 字符串索引,
+不按用户),所以入侵者手上那张最多还能活到它自己过期;refresh 已经断了,
+所以最长一小时而不是七天。要彻底断,得给 JwtCacheService 加一个按用户失效
+的接口 —— 独立改动。
+
+## 停用账号、重置密码,现在真的把人踢下线了
+
+第四轮留的边界:重置密码只删 refresh token,**access token 还能活到自己
+过期**。这轮补掉,并且发现同一个洞在 admin 那边更大 ——
+**adminSetUserActive(false) 两样都没删**:已登录的会话照常工作(7-29 那轮
+修的是"每个请求查一次 isActive",但那只挡新请求走 guard 的路径,refresh
+仍然能换新 token)。
+
+### 取舍:加一列,不是加一张黑名单表
+
+lead 给了两个方案。选了**在 jwt_cache 表上加 `user_id` 列**:
+
+- 那张表本来就**每个 token 一行**,加一列是同一次查询、没有第二份状态要维护。
+- 黑名单方案(userId → 失效时间戳)要求**每次请求都多做一次比较**,而且需要
+  token 里带签发时间、还要额外的清理逻辑。撤销从一个 DELETE 变成一个常驻判断。
+- 代价:老的行 `user_id` 是 NULL,撤销匹配不到它们 —— 但这张表是**内存
+  sqlite**,进程重启就空了,所以"老行"只存在于一次部署之内。单测里专门有
+  一条守住 NULL 行不会被误删。
+
+### 一个函数,两条路径
+
+`AuthService.endAllSessions(userId)` 同时干两件事,返回踢掉的数量:
+- 删 refresh token(否则最长 7 天能换出新会话);
+- `jwtCache.removeTokensForUser()` 删活着的 access token(否则最长 30 分钟)。
+
+**两条路径都走它**,而不是各自手写一半 —— 这两件事当初就是这么漂开的。
+admin 那边通过已经 import 的 AuthModule 注入 AuthService(AdminModule 早就
+import 了它,零模块改动),**没有碰 gap-agent 的自锁守卫**,并且只在
+`!isActive` 时踢人:重新启用一个人不该把他踢下线。
+
+第三条路径(用户主动改密码)**不存在**:`grep changePassword` 全仓库零结果,
+没有硬造。
+
+### 顺手修掉那个类型谎言
+
+`RefreshToken.userId` 声明 `number`、实存 uuid 字符串,两处 `as any`。
+**实测过才动的**:起一个内存 sqlite 让 TypeORM synchronize,
+`PRAGMA table_info` 显示这一列**本来就是 varchar** —— 类型是从上面那个
+`@ManyToOne` 关系推出来的,不是从这行声明。所以这是**纯声明修复,不需要
+migration**。改完删掉两处 `as any`(logout 那处保留它自己的语义:只踢当前
+这一个 token,不是所有设备)。
+
+验证:`revoke-user.spec.ts` **4 条**(踢掉一个用户的全部会话、别人不受影响、
+**撤销后重新登录正常**、没有 user_id 的老行不被误删);
+`scripts/check-session-revocation.mjs` 守 wiring,**逐一验证过四处还原后会
+失败**(只踢一半 / admin 不踢 / 签发时不记 userId / 回调写成箭头函数——
+那样 `this.changes` 就不是行数,日志会打印 "Ended undefined sessions")。
+另外走了一遍 guard 的真实谓词(`isTokenStored`,jwt-auth.guard.ts:49):
+撤销后**立刻**为 false,同时另一个用户仍然 true。
+
+`pnpm check` **17/17**,后端 **200/200**(含 gap-agent 的 admin 套件,DI 改动
+没弄坏它),双端 tsc 干净,`next build` 绿。
+
+已知边界:撤销只对**这个进程**有效 —— jwt_cache 是进程内内存 sqlite,多实例
+部署时 A 实例的撤销不影响 B 实例已缓存的判断。目前是单容器,真要水平扩展时
+这张表得换成共享存储(Redis / Postgres),接口不用变。
+
+## 设置页可以改密码了(以前只能改用户名和头像)
+
+第五轮确认过"改密码入口不存在",这轮补上。侦察结果:设置页有头像、用户名、
+邮箱(诚实标着 read-only)、主题 —— **没有密码**。另外查了"UI 在但后端断了"
+的死路:`grep deleteAccount/deleteUser` 只有 E2E 用的 test-cleanup controller,
+**前端没有删账号入口,后端也没有对应 mutation**,不是断头路,是两边都没有,
+按 YAGNI 不造。改邮箱同理 —— 那一行明确写着 read-only,是诚实的,不是坏的。
+
+### 为什么不是"resetPassword 加个 guard"
+
+**已登录不等于有权改密码。** 捡到一台没锁屏的笔记本的人,不能因此把账号
+锁走。所以 `changePassword` 除了 guard 之外**再验一次当前密码**(bcrypt
+compare),这是它和 `resetPassword` 唯一但关键的区别 —— 后者的授权来自邮箱,
+前者的授权必须来自密码本身。userId 取自 token 而不是参数(参数就等于允许
+调用方指名别人的账号)。
+
+### 改完之后本机不掉线
+
+改密码会 `endAllSessions`(复用第五轮那个函数)—— 但接着**给本机重新签一对
+token 返回**,前端 `login()` 收下。理由:改密码是良好卫生习惯,把正在操作的
+那个标签页踢下线是在惩罚它。顺序也重要:**先撤销再签发**,反过来会把刚发的
+token 一起杀掉(check 里专门守了这个顺序)。
+
+### Google 账号不给必然失败的表单
+
+新增 guarded query `hasPassword`。**是 query 不是 User 上的 field** ——
+field resolver 不过 guard(bug-agent 这轮刚证明过这条),而 `User` 从公开
+gallery 可达。UI 在答案回来之前**整行不渲染**(先渲染表单再换掉 = 看起来像
+bug),无密码账号显示 "Google sign-in" 而不是一个只能报错的框。
+
+频率限制:**没加**。需要一个有效会话 + 正确的当前密码,一次 bcrypt compare,
+没有比登录路径更值得猜的东西。
+
+验证:`change-password.spec.ts` **5 条**(错密码被拒**且不保存不撤销**、成功
+后真的 bcrypt 存且旧会话死且本机拿到新 token 且新 token 带 userId 可再撤销、
+新密码太短被拒、无密码账号明确报 Google、hasPassword 两态);
+`scripts/check-change-password.mjs` **逐一验证过四处还原会失败**(不验当前
+密码 / 不撤销 / 掉 guard / 前端不收新 token —— 最后这条最阴险:改密码成功,
+然后用户下一个请求 401,因为自己的 token 刚被自己撤销了)。
+
+`pnpm check` **18/18**,后端 **205/205**,双端 tsc 干净,`next build` 绿。
+
+写测试时 stub 假设错了一次:`createRefreshToken` 用 `randomUUID` 自己生成
+token,不是我 stub 的 save 返回值 —— 断言改成校验它是个真 uuid。
+
+## 真浏览器视觉 QA —— 一晚的新 UI 第一次被真的看过
+
+HANDOFF 里"Visual QA in a real browser"这条老欠账还上了。本地生产构建
+(frontend standalone :3001 + backend :8081 SQLite,**没碰 8080 那个长跑
+进程**)+ puppeteer 走查,桌面 1440 和 compact 430 两个视口各过一遍。
+截图在 `qa/`(已加 .gitignore),脚本 `qa/walk.mjs` / `walk2.mjs` 可重跑。
+
+**puppeteer 没有下载过 Chrome**(`~/.cache/puppeteer` 是空的),用系统
+`/Applications/Google Chrome.app` 的 executablePath 就跑起来了——不需要为
+一张截图下 170MB。
+
+### 修掉的三个真 bug
+
+1. **重置邮件里的链接是 `undefined/reset-password?token=…`**(最严重)。
+   `FRONTEND_URL` **既不在 `.env` 也不在 `.env.example`**,`configService`
+   直接返回 undefined 拼进链接。也就是说未设该变量的部署上,**密码重置和
+   邮箱确认两条链路发出去的链接全是死的**,而唯一的症状是"用户回不来"。
+   加了 `?? 'http://localhost:3000'` 回落 + 写进两个 env 文件。这个只能靠
+   真跑一遍看日志发现,curl 打 mutation 返回的是成功。
+2. **html 项目每次轮询都去启一个 dev server**:`project-context` 的后台
+   `getWebUrl` 对所有项目无差别调用,而 html 项目按设计没有 package.json、
+   永远没有 dev server → 后端 `No project at …` 抛 500,**每轮一次,而 html
+   是产品的默认类型**。加了 `template !== 'html'` 判断。
+3. **登录弹窗切到"忘记密码"后,标题还写着 "Welcome back / Sign in to your
+   account"** —— 描述的是另一个屏幕。标题跟着表单走。
+
+### 记录但没修
+
+- **桌面 18% 聊天栏里,composer 的 textarea 只有 34px 宽(一行一个字)。**
+  实测量过:整行 225px,左侧那组(附件按钮 + 模型选择器)占 147px,发送区
+  28px,textarea 只剩 34。**compact 视口下是好的**,所以只影响窄栏桌面。
+  试过给 wrapper 和 trigger 加 `min-w-0 / shrink / max-w`,**都没生效**
+  (shadcn SelectTrigger 自带 `w-full`,量下来仍是 115px),不想在收尾轮
+  里瞎改 CSS,**已全部还原**。真正的修法可能是模型名截断或把选择器移出这
+  一行。旁证:同一处代码的注释记着 "Have feedback?" 曾造成一模一样的挤压。
+- 聊天记录里 `codefox-questions` 的原始 JSON 以代码块形式露出来了(compact
+  截图 11 可见)——planner 卡片本该把它渲染成卡片。
+- compact 下 Notes 在溢出菜单里(代码和 check 都断言它在),但脚本点两次把
+  菜单关掉了,没截到图;不是产品问题,是我的走查脚本问题。
+
+### 走查结论
+
+| 面 | 结果 |
+|---|---|
+| 登录弹窗 + "Forgot your password?" | 两个视口都在;Google 分隔线在重置态正确隐藏 |
+| /reset-password(有 token / 无 token / 两次密码不一致) | 都对,错误文案深色下可读 |
+| 设置页密码行 + 展开表单 | 两个视口都对,融入现有设计语言 |
+| Notes dialog(空合约) | 桌面正确显示 `# Notes` 起始模板,无报错 |
+| Changes 面板 | 正确显示"还是脚手架";设计 token 已烤进页面 |
+| admin console(总览/搜索/项目表/角色) | 两个视口都渲染真实数据,自我保护禁用态在 |
+
+### 又踩到的坑(都记过,又踩了)
+
+- **`NEXT_PUBLIC_*` 是构建期内联的**:我 `env VAR=... next build` 前缀传了
+  却没进 bundle,browser 一直在打 **8080 那个老后端**,于是满屏
+  "Cannot query field surface/myRoles" ——**看起来像 schema 坏了,其实是
+  前端在跟另一个后端说话**。写成 `.env.local` 才生效(用完已删)。
+- **`next start` 不能服务 standalone 构建**(next.config 里 `output:
+  'standalone'`),会 500 且只在启动日志里警告一句。
+- 一个 `//` 注释写进了 JSX 属性区 → 整个 workbench 白屏 React #423。
+  JSX 里属性之间只能用 `{/* */}`。
+
+## composer 挤压 + question JSON 露出 —— 两个 QA 记录的问题都修了
+
+### composer:34px → 153px(4.5 倍)
+
+上一轮量到的:整行 225px,左侧组(附件 + 模型选择器)占 147px,发送区 28px,
+textarea 只剩 34 —— 一行一个字。上轮我试了 `min-w-0` / `shrink` / `max-w`
+三种改法**全部无效**(shadcn `SelectTrigger` 自带 `w-full`,量下来仍 115px),
+当时全部还原了。
+
+这轮**不再跟 flex-basis 较劲**,照抄同一处注释里记着的历史解法:
+**"Have feedback?" 当年就是被移出输入行才解决的**。模型选择器现在有自己
+一行,在输入框上方、同一张卡片内,带一条细分隔线。
+
+实测(1440 宽 + 真实 18% 聊天栏比例):**textarea 34px → 153px**,左侧组
+147px → 28px(只剩附件按钮)。compact 视口确认没被弄坏(截图 10-workbench-
+compact)。选择器仍然只在 models > 1 时出现,`aria-label` 保留。
+
+### question JSON:root cause 是"只在流式时才清理"
+
+不是历史重放丢了卡片分支 —— **卡片分支一直在**(`chat-list.tsx` 对每条
+assistant 消息都跑 `extractQuestions`,完整 fence 会渲染成卡片,历史里是
+只读的)。真正的问题在另一半:
+
+`stripPartialQuestionFence()` 早就存在,专门处理"fence 还没闭合"的半截
+JSON —— 但它**只在 `isStreaming(index)` 为真时才被调用**。而**会留下未闭合
+fence 的,恰恰是那些死掉/被 Stop 掉的 turn**:流结束了,`isStreaming` 永远
+是 false,于是那条消息**每次刷新都把半截 JSON 当代码块渲染,永远**。
+
+改成两条渲染路径(prose 和 TurnTrail)都无条件调用它。完整 fence 不受影响
+(函数第一行就是 `if (FENCE.test(content)) return content`),所以卡片照常。
+
+### 走查脚本的去留
+
+`qa/walk.mjs` / `walk2.mjs` 两轮里抓到 4 个真 bug(undefined 重置链接、
+html 项目每轮 500、composer 34px、死 turn 露 JSON),**值得长期保留**,
+移进 `scripts/`:
+
+- `scripts/visual-qa.mjs` —— 登录弹窗 / 忘记密码 / reset-password / 设置页
+  密码行,两个视口。`node scripts/visual-qa.mjs [--token <reset-token>]`
+- `scripts/visual-qa-workbench.mjs` —— 工具栏 Notes / Changes 面板 / admin
+  console,两个视口。`node scripts/visual-qa-workbench.mjs --chat <chatId>`
+
+**刻意不进 `pnpm check`**:它们需要一套跑着的栈(backend 8081 + frontend
+生产构建 3001),而 check 脚本的价值恰恰在于不需要。截图仍写到 `qa/`
+(gitignored)。`measure.mjs` / `compact-notes.mjs` 是一次性探针,留在 qa/。
+
+新 check:`scripts/check-composer-room.mjs`,守两件事——选择器不许回到输入
+行、partial fence 的清理不许再被 `isStreaming` 门住。**两处还原都验证过会
+失败**。`pnpm check` **20/20**,后端 **210/210**,双端 tsc 干净,干净重建
+`next build` exit 0。
+
+## Remix:侦察发现 90% 已经存在,只补了署名
+
+第九轮的任务是"公开项目的 remix/fork",侦察结论是**这件事基本已经做完了**,
+所以这轮的产出主要是"没写的代码"。
+
+**后端 `forkProject` 早就在**(`project.service.ts:459`),而且 lead 列的
+每一条要求它都已经满足:guarded mutation ✅、源项目必须 isPublic 否则拒 ✅、
+复制文件而不是共享目录 ✅、新 `uniqueProjectId` ✅、`isPublic = false` 起步 ✅、
+`forkedFromId` 记录来源 ✅、fork 计数用 `increment()` 原子自增 ✅。还额外
+处理了 host/sandbox/html 三种模式的文件复制差异,以及"不能 fork 自己的项目"。
+
+**画廊入口也早就在**(`public-projects.tsx`):每张卡片一个 Fork 按钮,
+匿名点击有引导登录的 toast,自己的项目显示 "Yours" 而不是一个注定失败的按钮。
+
+**git 历史不用管**:`copyProject` 走的是 download 那套 zip/解包机器,本来
+就不带 `.git`(`IGNORED_ENTRIES` 里有),所以"别把源项目的完整 git 历史带
+过去"这条已经天然满足,不需要新代码。
+
+**NOTES.md 带过去**:同理,copy 是整目录复制,NOTES.md 自然跟着走。这也是
+对的——设计决策正是 remix 价值的一部分,而且 deploy 已经单独把 NOTES.md 排
+除在发布之外,所以它不会泄露到 fork 出去的公开页面上。
+
+**配额:没有开新口子,因为根本不存在配额。** grep 过整个 project.service,
+项目创建没有任何数量上限逻辑。fork 和 create 走同一条(不存在的)限制,符合
+"别开新口子"的要求。要加限流是独立需求。
+
+### 真正缺的一块:署名
+
+`forkedFromId` 存的是**源项目的 `uniqueProjectId`** —— 正好就是 `/share/:id`
+吃的那个 key。所以署名是一个纯前端改动:工具栏上一个 "Remixed" 小链接,指向
+源项目的分享页。**不需要新 query、新字段、新 resolver**——`GET_PROJECT` 早就
+把 `forkedFromId` 取回来了。
+
+优雅降级是免费的:源项目被删或转私有时,`/share/:id` 自己会回那个统一的
+"This page is not shared." 404 页,项目页什么都不会报错。
+
+向后兼容:`forkedFromId` 本来就是 `@Field({ nullable: true })`,老客户端不
+选它就完全不受影响,不需要像 adminUsers 那轮一样处理。
+
+### 没做的
+
+- **分享页上的 Remix 按钮**:分享页的 HTML 带
+  `Content-Security-Policy: sandbox allow-scripts allow-forms`,**没有
+  `allow-top-navigation`**——注入一个链接进去,点了什么都不会发生。要让它工作
+  得放宽这个模型写的、跑在自己 origin 上的不可信页面的 CSP,这是个安全取舍,
+  不值得为一个入口做(画廊已经有入口了)。真要做的话正确姿势是把按钮做成
+  share 路由自己渲染的外层 chrome,而不是注进页面里——但那要改
+  `social-card.ts`,bug-agent 这轮正在动那个文件。
+- E2E 节点:fork 路径 E2E **节点 20 已经覆盖**("publish+fork carries files"),
+  而且已经断言"一次 fork 记一次"。没有再加。
+
+验证:`scripts/check-remix-attribution.mjs`(新),守署名链接指向 share id
+而不是行 id(存错就是每个署名都 404)、fork 的四条既有保证不许烂掉、
+`forkedFromId` 保持 nullable。**三处还原都验证过会失败**。
+`pnpm check` **23/23**,后端 **210/210**,双端 tsc 干净,干净重建 exit 0。
+
+## 配额:项目数上限 + 每用户并发 turn 上限
+
+上一轮侦察暴露的缺口:**create 和 fork 都没有任何上限**,而且 turn 队列是
+**按项目**排的 —— 所以一个账号有 N 个项目就能同时开 N 个 agent turn,每个
+都是一次真实的模型会话。注册关着是这两件事至今没出事的唯一原因,而"开放
+注册前"是 HANDOFF 里的老主题。
+
+### 项目数:一个函数,两个调用点
+
+`backend/src/project/quota.ts`(新,54 行):`assertCanCreateProject()`。
+**create 和 fork 调的是同一个函数** —— 写两遍就是 fork 悄悄变成绕过上限的
+官方路径,check 脚本专门守这条。
+
+- 默认 **20**。生产是 127 用户 / 170 项目,20 远高于任何真实用户,又能把
+  一个滥用账号的破坏面兜住。`MAX_PROJECTS_PER_USER` 可覆盖,已写进
+  `.env` 和 `.env.example`(**FRONTEND_URL 那轮的教训**:不写进 env 文件的
+  变量,"未设置"就是默认情况,不是边缘情况)。
+- **坏值 = 默认值,绝不等于"无限制"**:`''` / `'lots'` / `'0'` / `'-5'` 全
+  部回落到 20。单测有一条专门守这个。
+- 计数只数 `isDeleted: false`,所以**删掉一个立刻空出一个位子**,不需要
+  额外的回收逻辑。
+- **存量超限用户**:已有项目一个不动,只挡下一个(单测里有 99 个项目的
+  用例)。生产上没人接近 20,所以这条实际是空操作。
+- **admin 不受限**:运维要给所有人收拾残局,把他自己关在门外是本末倒置。
+- 检查放在 `generateText` 生成标题**之前** —— 已经到上限的用户不该先被
+  扣一次模型调用。
+
+### 并发 turn:复用已有的 map,不建表
+
+`project-queue.ts` 里加了一个 per-user 计数器(默认 3,`MAX_TURNS_PER_USER`
+可覆盖)。**没有新状态表**,和已有的 per-project 队列住在同一个模块、同一
+种进程内 map,同样的多实例上限(要水平扩展两者都得换真锁)。
+
+关键是 `finally`:**槽位无论 turn 怎么结束都要还回来**。漏一个槽比没有限制
+更糟 —— 用户会被锁在自己账号外面直到进程重启,而且没有任何错误解释。单测
+专门测了"turn 抛异常后槽位归还"。
+
+超限回 **429** 而不是 500,消息说明"你已经有 N 个 turn 在跑"。
+
+### 前端
+
+create 和 fork 两条路径的 catch 原本把一切都压成 "Failed to ..."。配额那句
+话本身就带着上限、当前数量和解决办法,压掉它等于把唯一可行动的信息丢了。
+两处都改成透传那句话(跟着现有"已知消息映射成可读文案"的模式走)。
+
+**接近上限时不提示** —— 20 个项目的用户离上限还很远,为一个没人碰得到的
+阈值加一条常驻提示是给不存在的问题写代码。真有人抱怨再加。
+
+验证:`quota.spec.ts` 8 条 + `turn-limit.spec.ts` 4 条 + 新
+`scripts/check-quota-wired.mjs`(守 fork 不许绕过、turn 不许无限、坏 env
+不许关掉上限),**三处还原都验证过会失败**。后端 **222/222**(含 DI 启动,
+注入 AuthService 没弄坏模块图),`pnpm check` **25/25**,双端 tsc 干净,
+干净重建 `next build` exit 0。
+
+### 同轮追加:邮箱大小写让"忘记密码"对部分账号永久失效
+
+bug-agent 发现,在我的 auth 地盘,我修的。**六处邮箱查询里只有
+`requestPasswordReset` 做了 `toLowerCase()`** —— 而它恰恰是那个"无论账号
+存不存在都回同一句话"的端点。于是 `Foo@x.com` 注册的用户点忘记密码:查
+`foo@x.com` → 查不到 → 返回和成功一模一样的话术 → **永远收不到邮件,没有
+任何报错、任何日志**。同一个洞还让 `Foo@` 和 `foo@` 能注册成两个账号。
+
+**root cause 修法是一个函数,不是五处各补一个 `toLowerCase()`**
+(`find-by-email.ts`,39 行)。六处 `findOne({ where: { email } })` 全部
+改成 `findUserByEmail()`。
+
+**两边都 LOWER,而不是只归一化写入** —— 这是存量安全的关键:生产上已经有
+大小写混合的行,只改写入侧会让**那些老账号从此登录不上**(查询用小写,行里
+是大写)。`LOWER(user.email) = :email` 让老行照常可查,新重复也建不出来,
+**不需要 migration**。写入侧也归一化了,但那只影响新行。
+
+`ponytail:` 注释记了天花板:`LOWER()` 用不上索引,127 用户无所谓;真进慢
+查询日志再加个 generated lowercase 列,改这一个函数即可。
+
+验证:`find-by-email.spec.ts` 4 条,**跑真 SQLite**(整个修复就是一句 SQL
+比较,mock 掉 repository 等于什么都没测):写一行 `Foo@Example.com` 的
+"存量行",然后用原样 / 全小写 / 全大写 / 带首尾空格四种问法都能查到;空
+输入不匹配任何行;`DUP@` 能撞上 `dup@`(这就是重复注册被挡住的机制)。
+新 `scripts/check-email-case.mjs` 守"不许有裸 `where: { email }` 回来"、
+"列和输入两边都要 LOWER"、"注册写入要归一化",**三处还原都验证过会失败**
+——其中第一条第一次写漏了 shorthand 形式(`email }`),实测还原时没报错才
+发现,已修正正则。
+
+后端 **226/226**,双端 tsc 干净,`next build` exit 0。
+
+**过程中撞到别人的半成品**:某轮 `project.model.ts:65` 引用了未定义的
+`Byline`,整个后端 tsc 挂掉、所有 jest 套件跑不起来。不是我的文件,按避让
+规矩没动,报给了 lead,几十秒后对方补完就恢复了。教训:多 agent 同仓时,
+"我的测试跑不起来"第一步先看是不是别人正在写。
+
+## 第十一轮:邮箱归一化的三块补完(重复对 / 探测 / 全流程测试)
+
+修复本体在上一节(第十轮追加)。正式派发后补了 lead 额外点名的三件事:
+
+**重复对的行为是确定的。** 生产上可能已经并存 `Foo@x.com` 和 `foo@x.com`,
+两行都能被小写比较命中 —— `getOne()` 此时返回哪一行**取决于查询计划器**,
+也就是"你登进哪个账号"是随机的。加了排序:**精确匹配优先,其次最早创建**。
+不合并、不删除任何账号 —— 那是账号主人的决定,不是一个查询函数的。
+
+**只读探测脚本**:`scripts/probe-duplicate-emails.mjs`。一条 GROUP BY,
+不写任何东西、不加载 Nest。本地库跑过:**零重复对**。
+生产没跑成:Railway 的 `DATABASE_URL` 指向 `postgres.railway.internal`,
+**只在 Railway 网络内解析**,而 `railway run` 是拿着 prod 环境在本地跑,
+所以照样 ENOTFOUND(试过,别再试第二遍)。要在生产上跑得用 Postgres 服务
+的 public proxy URL(`DATABASE_PUBLIC_URL`)或容器内 shell —— 脚本头部记了。
+
+**测试补到 6 条**:原有 4 条之外加了"重复对确定性"(精确匹配两个方向各中
+各的,再用两边都不匹配的大小写连查 5 次确认结果稳定)和"全流程"(混合大小写
+注册 → 原样登录 → 大小写变体登录 → 忘记密码命中,后者正是原 bug 的路径)。
+
+check 也加了两条断言守住排序,**还原后验证过会失败**。
+
+后端 **228/228**,`pnpm check` **26/26**,双端 tsc 干净,`next build` exit 0
+(又踩了一次 `.next` 半损的 `_app.js.nft.json` 假报错,清缓存重建即绿 ——
+**第四次了**,谁再看到直接清缓存,别查代码)。
+
+## 分享页有了外层 chrome —— Remix 入口终于能点了
+
+第九轮我记过:分享页的 Remix 按钮**被 CSP sandbox 正确挡住**,注进去也点不动,
+正解是"让 share 路由渲染外层 chrome 而不是往沙箱页面里注东西"。这轮做了。
+
+### 结构:包起来,不是注进去
+
+- `/share/:id` → **我们自己的页面**:一条细顶栏(项目名 + 作者 byline +
+  Remix 按钮 + Built with CodeFox),下面一个 iframe 撑满剩余高度。
+- iframe 的 src 是 `/share/:id?raw=1` → **原来那个响应,一字未改**。
+- 子页面(`/share/:id/about.html`)**保持裸的** —— 它们是从 frame 内部的
+  链接跳过去的,套 chrome 会叠出第二条顶栏。规则简单:**只有正门有 chrome**。
+
+`share-chrome.ts`(新,~110 行)。**ponytail: 字符串模板,不是模板引擎** ——
+一个页面三个链接,整个文件比配一个渲染器还短。
+
+### 安全边界没退(实测,不是推断)
+
+写了一个真的敌意页面塞进项目里(试 `window.parent.location`、
+`top.location=` 跳转、`document.cookie`),用 puppeteer 打开分享链接:
+
+```
+parent BLOCKED: SecurityError
+topnav BLOCKED: SecurityError
+cookie BLOCKED
+top url unchanged: true
+parent chrome still present: true
+```
+
+iframe 的 `sandbox="allow-scripts allow-forms allow-popups"` —— **刻意没有
+`allow-same-origin`**:它和 `allow-scripts` 并存时,页面能反过来摘掉自己的
+sandbox。也没有 `allow-top-navigation`。两条都写进了 E2E 断言。
+
+外层响应**仍然带 sandbox CSP header** —— 实测过它不阻止我们自己那几个链接
+跳转(浏览器只拦 iframe 内的 top navigation),所以既没退化也没多花代价,
+节点 33 原有的 CSP 断言照常绿。
+
+### og/twitter meta 移到外层(爬虫读的是外层)
+
+`socialTagsFor()` **复用 `withSocialCard`**,喂它一个空 `<head>` 再取回它加
+的东西 —— 不复制那套 twin-spelling 规则、forwarded-host 逻辑,尤其不复制
+bug-agent 刚修的 `$` 注入修复(`String.replace` 把项目名里的 `` $` `` 当替换
+模式)。他那 16 个单测照常全绿,我另有一条断言守住 `$` 仍然逐字存活。
+
+### 验证
+
+`share-chrome.spec.ts` 7 条(sandbox 不含逃逸开关 / byline + Remix / 项目名
+和用户名都转义 / 无作者时不渲染 byline / meta 在外层 / `$` 不被展开);
+节点 33 **扩展**(Remix 存在、iframe 有 sandbox 且不含两个逃逸开关、
+指向 raw、raw 页 200 且**没有** chrome)——原有断言一条没动,全部仍然成立
+(子页面还是裸的、traversal 还是 404、CSP 还在)。
+
+后端 **235/235**,`pnpm check` **26/26**,双端 tsc 干净,`next build` exit 0。
+
+已知边界:Remix 按钮跳到 `/?remix=<id>`(画廊,那里 fork 已经能用、未登录会
+提示登录),**没有在分享页里再做一套 auth 流程** —— 前端拿这个参数自动滚到
+对应卡片是下一步,不做也不坏。
+
+## Remix 落地闭环 —— 三件事里两件已经做完了
+
+第十三轮。侦察先行,结果**三条要求里两条早就在**:
+
+- **fork 计数展示**:画廊卡片一直在显示 `{p.subNumber ? ` · N forks` : ''}`
+  —— 0 不显示的逻辑也已经有了。
+- **防重复点击**:`disabled={forking === p.id}` 一直在。
+
+真正缺的只有 `/?remix=<id>` 的落地处理,以及分享页 chrome 上的计数。
+
+### 落地:复用 handleFork,不是再写一遍
+
+`?remix=<uniqueProjectId>` → 在画廊里按 share id 找到那张卡 → **调用卡片
+按钮用的同一个 `handleFork`**。auth 提示、配额可读错误、in-flight 禁用
+全部跟着来,不用重建。
+
+两个顺序问题是这轮的全部含金量:
+
+1. **先清 URL 再 fork**,否则 fork 途中刷新会再 fork 一次。`claimed` ref
+   守同一个 tick(这个 effect 会因为墙加载完、以及登录后 isAuthorized 翻转
+   而重跑)。
+2. **未登录时不清 URL**。清了的话,"登录后继续 fork"就断了 —— 参数留着,
+   登录使 effect 重跑,remix 意图自己活过这趟往返。
+
+### 实测(真浏览器 + 真后端)
+
+```
+[signed out] url still has param: true      ← 意图活过登录
+[signed out] prompt shown: true
+[signed in]  final url: /chat?id=dc65ad9b…  ← 落进自己的新项目
+[signed in]  param cleared: true            ← 刷新不会再 fork
+[signed in]  fork count 0 -> 1              ← 恰好一次
+```
+
+分享页 chrome:`by qauser · 1 remix`(单数正确,0 时整段不出现)。
+
+**一个诊断值得记**:第一次实测 signed-in 没 fork 成 —— 因为脚本挑的第一个
+公开项目**正是 QA 用户自己的**,而 API 正确拒绝了自己 fork 自己。不是 bug,
+是测试数据挑错了。换成另一个 owner 的项目就对了。另外一个 fork 出来的项目
+`/share/<id>` 回 404 也**是对的**:它 template 是 Next,share 只服务 html。
+
+验证:`share-chrome.spec.ts` 8 条(新增计数的 0/1/多数分支),新
+`scripts/check-remix-landing.mjs`(守清 URL 的顺序、未登录不清、
+in-flight 禁用、0 不显示),**两处还原都验证过会失败**。
+后端 **240/240**,`pnpm check` **27/27**,双端 tsc 干净,lint 干净,
+`next build` exit 0。
+
+## 项目生命周期侦察:五条里三条已存在,补了 duplicate + 可见性
+
+第十四轮先侦察后动手。结果:
+
+| 能力 | 状态 |
+|---|---|
+| 重命名 | **已有** — workbench ⋯ 菜单 + Rename 对话框 |
+| 删除 | **已有** — 确认框写明"项目 / 聊天记录 / 生成的文件都会没,不可撤销" |
+| 可见性 toggle | **已有**(工具栏),但**卡片上看不出来** ← 补了 |
+| 项目列表信息 | 有标题 / 相对时间 / 类型(Page/Next.js);**缺公开状态** ← 补了 |
+| 复制自己的项目 | **完全没有** ← 这轮主要产出 |
+
+### duplicate = forkProject 加一个参数
+
+`forkProject` 早就干完了全部的活:复制文件(host / sandbox / html 三种模式都
+处理了)、新 uniqueProjectId、isPublic=false 起步、绑 chat、走配额。它拒绝
+自己的项目**只因为一条 guard**。所以 duplicate 不是新函数,是
+`forkProject(userId, projectId, mine=true)`。
+
+两条 guard 现在双向:`!mine` 时不能 fork 自己(否则墙上的按钮是个必然失败),
+`mine` 时不能"复制"别人的(否则它成了绕过 fork 规则的后门)。
+
+**自己复制自己不计 fork 数** —— `subNumber` 是 trending 墙的排序依据,计了的话
+"按 Duplicate 十次"就是刷榜。实测确认源项目仍是 `forks=1`。
+
+### 实测(真后端)
+
+```
+fork 自己    → "Cannot fork your own project"   ✅ 仍然拒绝
+duplicate    → "Copy of QA Page"                 ✅
+源 forks     → 1(没被自增)                      ✅
+副本         → public=False,自己的 share id      ✅
+副本文件     → index.html 读得到                  ✅
+```
+
+### 一个测试写不成,改成 check
+
+`duplicate.spec.ts` 写完跑不起来:import `project.service` 会拉进 ESM-only
+依赖,jest require 不了(**和 `instructions.ts` 单独成模块是同一个原因**)。
+没有为了可测性去拆服务 —— 改成 `scripts/check-duplicate-project.mjs` 守同样
+的性质(委派而非复制、两条 guard、自复制不计数、继承配额、guarded 且 userId
+取自 token、UI 防重复点击、错误不被压平)。**三处还原都验证过会失败。**
+
+`pnpm check` **28/28**,双端 tsc 干净,lint 干净,`next build` exit 0。
+后端 240 里 1 红是 **bug-agent 的 `restore.spec.ts`**(它的未跟踪新文件 +
+它在改的 host-workspace),我的 6 个套件 41 条全绿,已报给 lead。
+
+## 新用户空态:从死路变成四个起点
+
+工作台空态原本只有一句 "Nothing yet. Describe a project above to start one."
+—— 对**不知道该写什么 prompt 的人**这是死路,而那正是新注册用户。
+
+- 四个示例 prompt,点一下填进 composer 并滚回顶部(手机上 composer 在屏外,
+  不滚的话点了像没反应)。
+- 一条 "see what others made" 链到画廊 —— 配合 remix 闭环,**fork 一个改比
+  从零 prompt 门槛低得多**。
+
+**示例必须具体**,这是这轮唯一有含金量的约束:"做个网站"会触发 planner 的
+question card —— 那对模糊 brief 是正确行为,但作为**第一印象**是错的,用户
+想看的是产品会建东西。所以每条都点名 kind + 观感 + 一个具体区块:
+"A SaaS landing page, dark, with a pricing section"。四条覆盖 landing /
+personal site / dashboard / email 四种 scenario。
+
+**复用而非新建**:`Workbench` 早就拿着 `promptFormRef`(为了读 prompt),
+只给那个 ref 加了个 `setMessage`,没有把 composer 的 state 抬到父组件。
+
+实测(真浏览器):桌面 1440 与 **390px** 两个宽度,四个示例都在、画廊链接
+都在、点击都真的填进了 composer;390 下整齐折行不溢出。
+
+check 写完**第一版是坏的**:正则要求 20+ 字符才算一条 starter,于是把
+`'A website'` 换进去时**它反而匹配不到、检查通过了** —— 正是它要防的东西。
+改成先切出 `STARTERS` 数组再逐条判词数。**三处还原现在都验证过会失败。**
+
+`pnpm check` **29/29**,双端 tsc 干净,lint 干净,`next build` exit 0。
+
+## 全局 code review(整晚 3405 行改动,52 文件 + ~50 个新文件)
+
+戴 reviewer 帽子过了一遍全量 diff,**包括审自己写的那大半**。
+
+### 修了(都是小的,当场改)
+
+1. **同一个动作两个名字** —— 画廊说 **Fork**,分享页说 **Remix**,而**同一个
+   数字**在两处分别是 "3 forks" 和 "3 remixes"。用户看到的是同一件事。统一
+   成 **Remix**(lead 一直用的词、也是 open-design 的概念):按钮、
+   "remix any of them"、"Sign in to remix"、计数全部对齐,并补上画廊缺的
+   单复数("1 remix" 而不是 "1 remixs")。
+2. **一个 check 守着刚被改名的东西** —— 改完 #1 我自己的
+   `check-remix-landing.mjs` 立刻红了(它断言 `forks` 字样)。这正是 review
+   清单第 3 条要找的那类问题,已更新断言。**check 会红是好事**,它证明那条
+   断言不是摆设。
+3. **注释债(我的)**:`lint-artifact.ts` 头部仍写着 "nothing feeds them back
+   to the agent, so it does not self-correct" —— 第一轮就把这条闭环了,留着
+   会让下一个读者以为还是死路。已改成指向 `lint-note.ts`。
+4. **YAGNI(我的)**:`findUserByEmail(users, email, relations = [])` 的
+   `relations` 参数**六个调用点没有一个用过**。纯投机参数,删掉。
+5. **无用的 `as any`**:`delete({ token: refreshToken } as any)` —— `token`
+   本来就是 string,这个 cast 从来不需要。删掉后 tsc 仍然干净,
+   auth.service 现在 **零 `as any`**。不必要的 cast 会吞掉将来的真类型错误。
+
+### 遗留清单(按严重度,不是我该动的)
+
+**P1 — 会被误提交**
+- 仓库根目录三个未跟踪、未 gitignore 的临时脚本:`r12focus.tmp.mjs` /
+  `r12kb.tmp.mjs` / `r12seed.tmp.mjs`(gap-agent 的 a11y 走查脚本,打 3200
+  端口)。**不在 .gitignore 里,下一次 `git add -A` 会进仓库。** 作者删或
+  加 ignore,我没动别人的文件。
+
+**P2 — 一致性**
+- `subNumber` 这个字段名在 UI 上现在叫 "remix",在数据库/GraphQL 里还叫
+  `subNumber`(既不是 fork 也不是 remix)。改名要动 schema + 前端 + E2E,
+  不值得现在做,但记一笔:**第三个名字**。
+
+**P3 — 已知且有意**
+- `project-queue.ts` 的 per-user turn 计数和 jwt-cache 一样是**进程内**的,
+  多实例部署会各算各的。两处都有 `ponytail:` 注释写明了升级路径。
+- share chrome 的 Remix 按钮跳画廊而不是就地 fork(CSP sandbox 的取舍,
+  已在对应轮次记过)。
+
+### 没发现的(查过,是干净的)
+
+- **未接线的导出**:新增的 7 个模块逐个扫过,**零个**只导出不被调用的符号,
+  且每个都有真实生产消费者(不是只有测试在用)。
+- **错误处理风格**:三个 agent 写的 toast 文案是一致的("Could not X",
+  服务端消息可行动时透传),没有互相打架。
+- **单实现接口 / 工厂 / 冗余配置**:没有。
+
+验证:`pnpm check` **31/31**,后端 **240/240**(bug-agent 的 restore 也回绿
+了),双端 tsc 干净,lint 干净,`next build` exit 0。
+
+## light theme 侦察:是设计过的,只有一处欠债 —— 我自己写的
+
+侦察结论先行:**light 不是"没坏",是真的设计过**。`globals.css` 里
+`:root` 是一整套 paper 变量(`#FAF9F5` 纸、`#B0532F` 为纸面压暗过的
+terracotta、`#6B655C` muted),`.dark` 是另一套,不是反色。
+
+### 实测:五个面,零对比度失败
+
+用 puppeteer 在 light 下跑了落地页 / 工作台 / chat / 设置 / admin,对**每个
+文本节点**算它和自己实际背景的 WCAG 对比度(沿 DOM 往上找第一个非透明背景),
+按字号区分 4.5:1 / 3:1 门槛:
+
+```
+[landing] light=true low-contrast=0
+[workbench] light=true low-contrast=0
+[chat] light=true low-contrast=0
+[settings] light=true low-contrast=0
+[admin] light=true low-contrast=0
+```
+
+这一晚新增的 UI(Notes dialog、密码行、空态起点、Public 徽章、remix 计数)
+全部走 token,**没有一个硬编码 hex**,所以它们在 light 下自动是对的。
+
+### 唯一的债:分享页 chrome(第十二轮我写的)
+
+它由后端渲染,**够不到 globals.css**,所以颜色只能内联 —— 我当时全写死成
+dark。后果:一个用 light 系统的陌生人打开分享链接,看到的是浏览器里一块
+深色板。而分享页恰恰是**唯一给陌生人看的页面**。
+
+改成 `color-scheme: dark light` + 一组 CSS 变量 + 一条
+`@media (prefers-color-scheme: light)`,**dark 仍是默认**(它是被设计的那个),
+light 用的是 app 自己的值(`#faf9f5` / `#b0532f`),不是我现编的反色。
+
+实测两种系统偏好:`dark → rgb(20,17,15)`,`light → rgb(250,249,245)`。
+
+**check 当场抓到一个我漏的**:`iframe { background: #fff }` —— 页面加载前
+那一瞬会在深色页上闪一下白。改成 `var(--page)`。这是 check 写完立刻回报的,
+不是我自己看出来的。
+
+`scripts/check-share-chrome-theme.mjs`:守 light 分支存在、`color-scheme`
+两值、**style 块内零硬编码颜色**、light 值必须还在 globals.css 里(防止
+chrome 抄了个过期值)。**两处还原都验证过会失败。**
+
+`pnpm check` **33/33**,后端 **240/240**,双端 tsc 干净,`next build` exit 0。
+
+**没做的**:hero 画布(`hero-canvas.jpg`)按你说的豁免 —— 它是烤好的艺术
+资产,dark-only 是有意的。存量面没发现问题,所以没有"存量清单"要交。
+
+## 文档对齐:三处改,两处"查完确认不用改"
+
+第十八轮。每条声明都对着代码/配置核实过,不确定的没写。
+
+### 改了
+
+1. **DEPLOY.md 补三个 env**(表格形式,和已有风格一致)。最重要的是
+   **`FRONTEND_URL`** —— 密码重置和邮箱确认的链接**全部**由它拼出来,
+   生产上不设就指向 localhost,**唯一症状是"用户回不来"**(第七轮实测踩过
+   这个,当时链接是 `undefined/reset-password?token=…`)。另外两个是
+   `MAX_PROJECTS_PER_USER` / `MAX_TURNS_PER_USER`。
+2. **README 的模型配置说反了主次**:它让用户设 `OPENROUTER_API_KEY`,而
+   代码是 `env('LLM_API_KEY') ?? env('OPENROUTER_API_KEY')` —— OpenRouter
+   那个是**回落**。`.env.example` 里也一直只有 `LLM_API_KEY`。改成先讲
+   `LLM_API_KEY` + 任意 OpenAI 兼容端点,OpenRouter 作为零配置选项和回落。
+3. **README 新增 Checks 段**:此前**完全没提** `pnpm check` 和后端测试
+   ——33 个 check 已经是 CI 的一步,贡献者却在 README 里找不到。**耗时是实测
+   的**:`pnpm check` **13s**、后端 jest **8s**(不是估的),并写明
+   `visual-qa*.mjs` 故意不在 check 里(它们要一套跑着的栈)。
+
+### 查完确认不用改
+
+- **README quick start 准确**:`pnpm dev` = `dev-init.mjs && turbo dev`,
+  确实会生成两个 `.env`;端口、SQLite 路径、`DATABASE_URL` 切 Postgres 的
+  说法都对;列的两个模型和 `ai.constants.ts` 的默认值逐字一致。
+- **`.env.example` 完整**:35 个条目,fail-fast 那三个(`JWT_SECRET` /
+  `JWT_REFRESH` / `SALT_ROUNDS`,在 `env.validation.ts` 里是非 optional)
+  都在,且校验器**不拒绝未声明的变量**,所以我加的两个 cap 不会挡启动
+  (第十/十三轮已实测启动过)。
+- **`pnpm check` 13s**,远低于"超过 1-2 分钟就写说明"的线,不需要额外文档。
+
+### 记录:`config.schema.json` 是死的
+
+它描述的是 **chat models**(不是 env),而且:仓库里**没有** `config.json`,
+`getConfigPath()` **零调用者**,`config.schema.json` 本身**没有任何代码引用**。
+所以"新 env 要不要补进去"的答案是不要 —— 往一个没人读的 schema 里加东西
+只会让下一个人以为它是活的。**已于 2026-08-14 经用户批准后删除**。
+
+## open-design 系统对照 + 一个真 bug
+
+### 对照表(WebFetch 读的上游 README)
+
+| 上游能力 | codefox 现状 |
+|---|---|
+| 151 套设计系统 | **已有等价物** — 155 套(`design-systems.ts`) |
+| 反 slop lint / self-critique gate | **已有且更进一步** — 我们的 findings 回喂 agent(第一轮),上游只是 gate |
+| DESIGN.md 品牌合约 | **已有等价物** — NOTES.md,且可见可编辑(第二轮) |
+| 导出 HTML / PDF / ZIP | **已有** |
+| 模板/形态 (36 templates) | **部分** — 6 个 scenario(landing/dashboard/deck/email/docs/app) |
+| remix / use-as-template | **已有**(第九、十三轮) |
+| 导出 PPTX / MP4 / 图片 / 音频 | **有意不做** — 每个都是独立管线(HyperFrames、TTS),不是一晚的量级 |
+| Electron 桌面版 | **有意不做** — 产品形态是 web |
+| MCP server / 26 种 agent 集成 | **有意不做** — codefox 自己就是 agent 宿主,不是被集成方 |
+| 277 plugins / 插件市场 | **有意不做** — 需要注册表+分发,是平台级投入 |
+| BYOK + SSRF 防护 | **已有**(`external-url.ts`) |
+
+**结论:值得借鉴的都借完了。** 剩下的要么是平台级投入(插件市场、桌面端、
+MCP),要么是独立管线(PPTX/视频/音频),没有"今晚可完成且高价值"的项目。
+按 lead 的指示转为打磨既有交付。
+
+### 打磨:分享页的 Remix 对大多数项目是死的
+
+挑这个是因为它是**唯一给陌生人看的页面上的主 CTA**,而它有一个我第十三轮
+自己写下的、当时没意识到严重性的缺陷。
+
+链接原本带 `uniqueProjectId`(share id),而落地页要 fork 需要 **row id**,
+所以它得先在画廊墙上按 share id 找到那个项目 —— 而**墙只取 6 个**
+(`fetchPublicProjects size:6`,且要求有封面)。于是:
+
+> **任何不在最新 6 个里的公开项目,它的分享页 Remix 按钮点了什么都不发生。**
+> `if (!match) return;` —— 静默返回,无 toast、无报错、无日志。
+
+修法是把链接直接带 **row id**(chrome 手上本来就有整行),`forkProject` 收的
+就是这个 id,**连查找都不需要了**。删掉了那次墙扫描和那条静默 return。
+
+实测(真后端):故意造一个公开但**不在墙上**的项目(无封面 → 被墙的封面门槛
+过滤掉),对它调落地页现在发的那个 mutation → `Fork of Filler 1` 成功;
+chrome 输出的链接也确认是 row id。
+
+两个守卫在我改完的瞬间**都红了**(check 的 `handleFork(match.id)` 断言、
+chrome 单测的 `remix=abc-123`),这正是它们该做的;更新后新增一条
+`assert.doesNotMatch(/if \(!match\) return;/)` 守住"不许再退回墙扫描",
+**还原验证过会失败**。
+
+后端 **240/240**,`pnpm check` **33/33**,双端 tsc 干净,lint 干净。
+`next build` 当前被 **gap-agent 的 `admin-console.tsx`** 挡住
+(`Failed to collect page data for /admin`)—— 已隔离验证:stash 掉它的改动
+后 exit 0,带着它 exit 1,与我无关,已告知 lead。
+
+## 公开页 SEO:robots / sitemap / meta / canonical
+
+侦察结论:**四样全都没有**。没有 robots.txt、没有 sitemap、app 自己没有任何
+og 卡片,而 title 和 description 是同一句占位符("The best dev project
+generator" 写了两遍)。
+
+### 做了
+
+- `robots.ts` / `sitemap.ts`(Next 原生 route,不引库)。`/` 和 `/share/` 放行;
+  `/chat` `/settings` `/admin` `/auth/` `/reset-password` 全部 disallow ——
+  **一个重置链接出现在搜索结果里就是公开的凭证**。
+- `layout.tsx` 换成真的 title / description / og / twitter,
+  `metadataBase` 让相对的 og:image 变绝对(否则 Next 只会警告并发一个爬虫
+  取不到的相对 url)。
+- 分享页 `<link rel="canonical">` 指向干净 url —— 转发链接会带
+  `?utm_source=…&fbclid=…`,不加的话每个变体都是一个和自己竞争的页面。
+  实测带这两个参数访问,canonical 输出的是干净地址。
+- 工作台卡片时间包了 `<time dateTime>`(相对文案不变,机器能读到真时间戳)。
+
+### 两个只有实测才看得见的坑
+
+1. **`(main)/layout.tsx` 里有第二份 metadata**,是同一对占位符 —— 嵌套的
+   赢,所以我在 root 写的真标题**根本没到过页面**。浏览器取到的 title 仍是
+   `Codefox - The best dev project generator — CodeFox`(还被 template 套了
+   一层)才暴露。删掉嵌套那份。
+2. **sitemap 原本是构建期预渲染的**(`revalidate` 单独用不改变这一点)。
+   而构建发生在**没有后端可达**的地方 —— 我把后端停掉重建,产物里
+   `sitemap.xml` 只有首页一条,**分享页一条都没有**,而且是烤死的。
+   改成 `export const dynamic = 'force-dynamic'`,路由表从 `○` 变 `ƒ`,
+   请求时才查。实测:后端起着 → 2 条(首页 + 真实分享页);后端停着 →
+   构建仍 exit 0、请求仍返回首页那条(catch 兜底)。
+
+**没做**(按 lead 的"别过度"):不做 SSR 改造、不加 JSON-LD 全家桶。og +
+canonical + sitemap 已经覆盖分享和索引这两件真事。
+
+`scripts/check-public-seo.mjs`:守"只有一处 metadata"、私有路由必须在
+disallow 里、canonical 存在、**sitemap 必须是 force-dynamic**、后端挂掉要
+降级。**两处还原验证过会失败。**
+
+后端 **248/248**,我的 15 个 check 全绿,双端 tsc 干净,
+**干净 `.next` 重建 exit 0**(`robots.txt` 静态 `○`、`sitemap.xml` 动态 `ƒ`)。
+
+## 收尾:`pnpm check` 以前会瞒着你
+
+第二十一轮自选。挑的不是新功能 —— 挑的是**那个所有人都在依赖、而今晚一直
+是瞎的门禁**。
+
+`pnpm check` 原本是:
+
+```
+for f in scripts/check-*.mjs; do node "$f" || exit 1; done
+```
+
+**遇到第一个失败就停。** 今晚 `check-admin-guarded.mjs` 一直红着(见下),
+于是排在它后面的 **33 个 check 谁也没跑过** —— 输出里一个 `ok` 都没有,而我
+们整晚都在拿这个命令当"全绿"的证据。
+
+换成 `scripts/run-checks.mjs`:跑完全部,失败的逐条列出(带断言原文,截断到
+一行),末尾一句 `35/36 checks passed`,**退出码不变**(有失败仍然 exit 1,
+CI 行为一致)。
+
+实测:故意再打断一个(把 sitemap 的 `force-dynamic` 删掉)→
+`34/36 checks passed / failing: check-admin-guarded.mjs, check-public-seo.mjs`
+—— **两条都点名了**。老 runner 下第二条根本不会被发现。
+
+### 那条红灯本身是误报
+
+`check-admin-guarded.mjs` 断言的自锁守卫**好好地在** `admin.service.ts:262`,
+只是 prettier 把 `if (!granted && userId === actingUserId && ...)` 折成了四
+行,而 check 的正则写死了单行形式。**守卫在,check 却永远红** —— 这种状态比
+没有 check 更糟:下次真出问题没人会信它。已把定位和修法转给 gap(它的文件,
+我没动)。
+
+### 冻结建议
+
+`ponytail:` 单进程顺序跑,全套 ~13s。要并行再说,现在省的是秒、花的是一个
+调度器。
+
+**改动面建议到此冻结。** 122 个文件、4131 行插入、三个 agent 并发,而今晚
+最后两轮抓到的两个问题(嵌套 metadata 遮住 root、runner 遮住 33 个 check)
+**都是"看起来在工作、实际被遮住"那一类** —— 这类问题的密度随改动面上升,
+再加新东西不如让现有的先被真正看一遍。
+
+最终确认:后端 **253/253**、**35/36 check**(唯一那条是上述误报)、双端 tsc
+干净、**干净 `.next` 重建 exit 0**(`robots.txt` 静态、`sitemap.xml` 动态)。

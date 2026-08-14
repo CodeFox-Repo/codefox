@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/user.model';
+import { RefreshToken } from 'src/auth/refresh-token.model';
 import { JwtCacheService } from './jwt-cache.service';
 
 /**
@@ -13,7 +14,8 @@ import { JwtCacheService } from './jwt-cache.service';
  * together.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
+  // RefreshToken: the service sweeps expired rows on its existing interval.
+  imports: [TypeOrmModule.forFeature([User, RefreshToken])],
   exports: [JwtCacheService, TypeOrmModule],
   providers: [JwtCacheService],
 })

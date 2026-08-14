@@ -39,6 +39,11 @@ type AdminProject {
   projectPath: String!
 }
 
+type AdminProjectPage {
+  items: [AdminProject!]!
+  total: Int!
+}
+
 type AdminRuntime {
   model: String!
   nodeEnv: String!
@@ -59,9 +64,20 @@ type AdminUser {
   username: String!
 }
 
+type AdminUserPage {
+  items: [AdminUser!]!
+  total: Int!
+}
+
 type AvatarUploadResponse {
   avatarUrl: String!
   success: Boolean!
+}
+
+type Byline {
+  avatarUrl: String
+  id: ID!
+  username: String!
 }
 
 type Chat {
@@ -178,8 +194,10 @@ type Mutation {
   adminDeleteProject(projectId: String!): Boolean!
   adminSetProjectPublic(isPublic: Boolean!, projectId: String!): Boolean!
   adminSetUserActive(isActive: Boolean!, userId: String!): Boolean!
+  adminSetUserRole(granted: Boolean!, role: String!, userId: String!): Boolean!
   adminStopPreview(projectPath: String!): Boolean!
   adminSweepOrphans: Int!
+  changePassword(currentPassword: String!, newPassword: String!): RefreshTokenResponse!
   clearChatHistory(chatId: String!): Boolean!
   confirmEmail(token: String!): EmailConfirmationResponse!
   createChat(newChatInput: NewChatInput!): Chat!
@@ -188,12 +206,15 @@ type Mutation {
   deleteProject(projectId: String!): Boolean!
   deployProject(projectId: ID!, provider: String!, token: String!): DeployResult!
   dropLastAssistantReply(chatId: String!): Boolean!
+  duplicateProject(projectId: ID!): Chat!
   forkProject(projectId: ID!): Chat!
   login(input: LoginUserInput!): LoginResponse!
   refreshToken(refreshToken: String!): RefreshTokenResponse!
   regenerateDescription(input: String!): String!
   registerUser(input: RegisterUserInput!): User!
+  requestPasswordReset(email: String!): EmailConfirmationResponse!
   resendConfirmationEmail(input: ResendEmailInput!): EmailConfirmationResponse!
+  resetPassword(newPassword: String!, token: String!): EmailConfirmationResponse!
   restyleProject(projectId: ID!, styleId: String!): RestyleResult!
   saveMessage(input: ChatInputType!): Boolean!
   updateChatModel(chatId: String!, model: String!): Chat
@@ -209,7 +230,6 @@ input NewChatInput {
 }
 
 type Project {
-  chats: [Chat!]!
   createdAt: Date!
   forkedFrom: Project
   forkedFromId: String
@@ -232,14 +252,15 @@ type Project {
   template: String
   uniqueProjectId: String!
   updatedAt: Date!
-  user: User!
+  user: Byline!
   userId: ID!
 }
 
 type Query {
   adminOverview: AdminOverview!
-  adminProjects: [AdminProject!]!
-  adminUsers: [AdminUser!]!
+  adminProjects(limit: Int, offset: Int, search: String): AdminProjectPage!
+  adminRoles: [String!]!
+  adminUsers(limit: Int, offset: Int, search: String): AdminUserPage!
   checkToken(input: CheckTokenInput!): Boolean!
   designSystems: [DesignSystemChoice!]!
   emailVerificationRequired: Boolean!
@@ -251,6 +272,7 @@ type Query {
   getUserChats: [Chat!]
   getUserProjects: [Project!]!
   googleAuthAvailable: Boolean!
+  hasPassword: Boolean!
   logout: Boolean!
   me: User!
   myRoles: [String!]!
@@ -320,7 +342,6 @@ scalar Upload
 
 type User {
   avatarUrl: String
-  chats: [Chat!]!
   createdAt: Date!
   email: String!
   githubInstallationId: String
@@ -329,7 +350,6 @@ type User {
   isDeleted: Boolean!
   isEmailConfirmed: Boolean!
   lastEmailSendTime: Date!
-  projects: [Project!]!
   subscribedProjects: [Project!] @deprecated(reason: "Use projects with forkedFromId instead")
   updatedAt: Date!
   username: String!

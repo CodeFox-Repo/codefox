@@ -24,6 +24,14 @@ Already set:
 | `SANDBOX_PROVIDER` | `host` | See "Before opening sign-up" |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | |
 
+Also worth setting:
+
+| Variable | Default if unset | Why |
+| --- | --- | --- |
+| `FRONTEND_URL` | `http://localhost:3000` | **Every password-reset and email-confirmation link is built from this.** Unset on a real deploy, the link points at localhost — a dead link whose only symptom is a user who cannot get back in. |
+| `MAX_PROJECTS_PER_USER` | `20` | Per-account project cap; create and fork share it. |
+| `MAX_TURNS_PER_USER` | `3` | Concurrent agent turns per account. The per-project queue does not bound this on its own. |
+
 **SET THIS — the agent will not run without it:**
 
 ```

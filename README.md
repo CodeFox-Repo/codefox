@@ -44,8 +44,11 @@ Data lands in a SQLite file at `.codefox/data/codefox.db`. To use PostgreSQL
 instead, set `DATABASE_URL` to a `postgresql://` URL in `backend/.env`; any
 other value (or none) keeps SQLite.
 
-To use chat, put an [OpenRouter key](https://openrouter.ai/keys) in
-`backend/.env` as `OPENROUTER_API_KEY`. Configured models:
+To use chat, put a key in `backend/.env` as `LLM_API_KEY` — any
+OpenAI-compatible endpoint works, set `LLM_BASE_URL` to point at it.
+An [OpenRouter key](https://openrouter.ai/keys) with the default base url is
+the zero-config option, and `OPENROUTER_API_KEY` is still read as a fallback.
+Configured models (override with `LLM_MODELS`):
 
 - **Claude Sonnet 4.5** (default) — `anthropic/claude-sonnet-4.5`
 - **GPT-4o-mini** — `openai/gpt-4o-mini`
@@ -56,6 +59,21 @@ To use chat, put an [OpenRouter key](https://openrouter.ai/keys) in
 pnpm dev:tmux      # same stack in a tmuxinator session (needs tmux + tmuxinator)
 pnpm demo:record   # re-record the landing-page demo against the running app
 ```
+
+### Checks
+
+```bash
+pnpm check                     # ~13s — guards against regressions, also a CI step
+pnpm --filter codefox-backend test   # ~8s — backend unit tests
+```
+
+`scripts/check-*.mjs` are dependency-free assertions about real source text,
+each written so that reverting the fix it guards makes it fail. They exist
+because most of what they cover is a branch that only runs when something is
+already broken, which an ordinary test run never reaches.
+
+`scripts/visual-qa*.mjs` drive a real browser and are deliberately **not** in
+`pnpm check` — they need a running stack. See the header of each for usage.
 
 Start services individually with `pnpm dev` inside `backend/` or `frontend/`.
 
