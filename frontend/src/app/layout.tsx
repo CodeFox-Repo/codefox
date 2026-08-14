@@ -1,5 +1,6 @@
 // frontend/src/app/layout.tsx
 import type { Metadata, Viewport } from 'next';
+import { siteUrl } from '@/lib/site';
 import { Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { BaseProviders } from '@/providers/BaseProvider';
@@ -15,9 +16,37 @@ const jetbrains = JetBrains_Mono({
   variable: '--font-jetbrains',
 });
 
+const DESCRIPTION =
+  'Describe a page and CodeFox builds it — real files, a live preview, and a ' +
+  'link you can send. Landing pages, dashboards, decks and docs, from one prompt.';
+
 export const metadata: Metadata = {
-  title: 'Codefox - The best dev project generator',
-  description: 'The best dev project generator',
+  // metadataBase makes the relative og:image below absolute, which crawlers
+  // require; without it Next warns and emits a relative url nobody can fetch.
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default: 'CodeFox — describe a page, get a real one',
+    // Every other route is signed-in, so this only shows if one adds a title.
+    template: '%s — CodeFox',
+  },
+  description: DESCRIPTION,
+  applicationName: 'CodeFox',
+  // The landing page IS the gallery, so one canonical covers both.
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    siteName: 'CodeFox',
+    title: 'CodeFox — describe a page, get a real one',
+    description: DESCRIPTION,
+    url: '/',
+    images: ['/icon.png'],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'CodeFox — describe a page, get a real one',
+    description: DESCRIPTION,
+    images: ['/icon.png'],
+  },
 };
 
 export const viewport: Viewport = {

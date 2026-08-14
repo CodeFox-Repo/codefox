@@ -1,10 +1,9 @@
-import type { Metadata, Viewport } from 'next';
+import type { Viewport } from 'next';
 import NavLayout from '@/components/root/nav-layout';
 
-export const metadata: Metadata = {
-  title: 'Codefox - The best dev project generator',
-  description: 'The best dev project generator',
-};
+// No metadata here: the root layout owns title, description and the og /
+// twitter card. This duplicated the placeholder pair and, being nested, won
+// — so the real ones never reached the page.
 
 export const viewport: Viewport = {
   width: 'device-width',
