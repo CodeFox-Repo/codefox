@@ -100,5 +100,12 @@ export function withSocialCard(
   add('twitter:image', image);
 
   if (tags.length === 0) return html;
-  return html.replace(head[0], `${head[0]}\n${tags.join('\n')}`);
+  // A replacer FUNCTION, not a replacement string: `String.replace` reads
+  // `$&`, "$`", `$'` and `$1` in a replacement string as substitution
+  // patterns, and the project name — which the user types — is interpolated
+  // into it. A project named "Cool $`" spliced everything before <head> raw
+  // and unescaped into the middle of `content="…"`, escapeAttribute having
+  // already run on the name rather than on the page. A function argument is
+  // taken literally, so there is nothing left to interpret.
+  return html.replace(head[0], () => `${head[0]}\n${tags.join('\n')}`);
 }

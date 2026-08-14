@@ -21,7 +21,6 @@ import { ProjectGuard } from '../common/guards/project.guard';
 import { JWTAuth } from 'src/common/decorators/jwt-auth.decorator';
 import { GetUserIdFromToken } from '../common/decorators/get-auth-token.decorator';
 import { Chat } from 'src/chat/chat.model';
-import { User } from 'src/user/user.model';
 import { validateAndBufferFile } from 'src/common/security/file_check';
 import {
   DesignSystemChoice,
@@ -30,6 +29,7 @@ import {
 } from './design-systems';
 import { ScenarioChoice, scenarioChoices } from './scenarios';
 import { DeployResult } from './deploy';
+import { Byline } from './byline.model';
 
 @Resolver(() => Project)
 export class ProjectsResolver {
@@ -69,17 +69,39 @@ export class ProjectsResolver {
     return this.projectService.deleteProject(projectId);
   }
 
-  @ResolveField('user', () => User)
-  async getUser(@Parent() project: Project): Promise<User> {
-    const { user } = await this.projectService.getProjectById(project.id);
-    return user;
+  /**
+   * Who published a project — the byline on a gallery card, and nothing more.
+   *
+   * Reachable anonymously: `fetchPublicProjects` is @Public and this is a
+   * field on what it returns. Field resolvers run with no guard at all
+   * (APP_GUARD does not reach them without `fieldResolverEnhancers`, which is
+   * unset), so everything the return TYPE advertises is public by
+   * construction — see Byline for why narrowing this projection was not on
+   * its own enough.
+   */
+  @ResolveField('user', () => Byline)
+  async getUser(@Parent() project: Project): Promise<Byline> {
+    // `fetchPublicProjects` already loads `user` (relations: ['user']), so the
+    // byline is on the parent. Refetching per card cost two more queries each
+    // — one of them joining `chat`, pulling every conversation of every
+    // project on the wall to read three columns. Six cards were 14 queries.
+    //
+    // Falls back to a load for any caller that arrives without the relation;
+    // the projection is unchanged either way, which is what keeps this a
+    // byline and not a User.
+    const user =
+      project.user ?? (await this.projectService.getProjectById(project.id)).user;
+    return {
+      id: user.id,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+    };
   }
 
-  @ResolveField('chats', () => [Chat])
-  async getChats(@Parent() project: Project): Promise<Chat[]> {
-    const { chats } = await this.projectService.getProjectById(project.id);
-    return (await chats)?.filter((chat) => !chat.isDeleted) || [];
-  }
+  // No `chats` field resolver: `Project.chats` is no longer in the schema. It
+  // was the conversation that built the project, hanging off the @Public
+  // gallery query with no guard — see the comment on Project.chats. Nothing
+  // ever selected it; guarded `getChatDetails` is how a client reads a chat.
 
   @UseGuards(ProjectGuard)
   @Mutation(() => Project)
@@ -118,6 +140,17 @@ export class ProjectsResolver {
       projectId,
       isPublic,
     );
+  }
+
+  /** Copy your own project, to try a big change without risking the original. */
+  @Mutation(() => Chat)
+  @JWTAuth()
+  async duplicateProject(
+    @GetUserIdFromToken() userId: string,
+    @Args('projectId', { type: () => ID }) projectId: string,
+  ): Promise<Chat> {
+    this.logger.log(`User ${userId} duplicating project ${projectId}`);
+    return this.projectService.duplicateProject(userId, projectId);
   }
 
   @Mutation(() => Chat)

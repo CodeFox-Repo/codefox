@@ -17,9 +17,21 @@ export const PREVIEW_COOKIE = 'codefox_preview';
  *
  * Deliberately the specific routes rather than all of `/api`: a generated app
  * has its own API routes, and those are the preview's to serve.
+ *
+ * CASE-INSENSITIVE, and it has to be. Express 4 routes case-insensitively by
+ * default, so `/API/chat` and `/GraphQL` reach Nest's handlers — but a
+ * case-sensitive pattern here does not recognise them as ours, so the proxy
+ * claimed them first and forwarded the request verbatim, `Authorization`
+ * header and body included, into the project's dev server. That server runs
+ * model-written code with this process's privileges, so a generated app with
+ * a catch-all route was handed the visitor's bearer token.
+ *
+ * Every mounted controller prefix belongs in this list. `auth` and `api/test`
+ * were missing outright, which is the same bug without needing the casing
+ * trick.
  */
 const OURS =
-  /^\/(graphql|health|download|share|api\/(chat|project|file|media|preview|screenshot|pdf))(\/|\?|$)/;
+  /^\/(graphql|health|download|share|auth|api\/(chat|project|file|media|preview|screenshot|pdf|test))(\/|\?|$)/i;
 
 const logger = new Logger('PreviewProxy');
 

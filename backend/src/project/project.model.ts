@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { User } from 'src/user/user.model';
 import { Chat } from 'src/chat/chat.model';
+import { Byline } from './byline.model';
 
 @Entity()
 @ObjectType()
@@ -42,15 +43,37 @@ export class Project extends SystemBaseModel {
   @Column({ name: 'user_id' })
   userId: string;
 
+  /**
+   * The byline on a gallery card. Typed as `Byline`, not `User`.
+   *
+   * This field hangs off the @Public `fetchPublicProjects`, and nothing
+   * guards a field resolver (APP_GUARD does not reach them without
+   * `fieldResolverEnhancers`, which is unset) — so every field the returned
+   * TYPE advertises is anonymously readable, whatever the resolver hands
+   * back. Typed as `User` it published each publisher's email as a scrapable
+   * list, plus isEmailConfirmed, lastEmailSendTime and githubInstallationId.
+   * Narrowing the resolver alone did not fix that: the schema still offered
+   * the fields, so `user { email }` still resolved off the entity.
+   *
+   * A type with only the three things a card renders has nothing left to
+   * leak. `me` (guarded) is how anyone reads their own account.
+   */
   @ManyToOne(() => User, (user) => user.projects, {
     onDelete: 'CASCADE',
     nullable: false,
   })
   @JoinColumn({ name: 'user_id' })
-  @Field(() => User)
+  @Field(() => Byline)
   user: User;
 
-  @Field(() => [Chat])
+  // Deliberately NOT a @Field, like User.chats and User.roles: `Project` is
+  // what the @Public `fetchPublicProjects` returns, and field resolvers run
+  // with no guard (APP_GUARD does not reach them without
+  // `fieldResolverEnhancers`, which is unset). As a field, a project's whole
+  // build conversation — every message, and via Chat.user its owner's account
+  // — was readable by anyone with the gallery's project ids. Nothing selected
+  // it; guarded `getChatDetails` / `getChatHistory` are how a client reads a
+  // chat.
   @OneToMany(() => Chat, (chat) => chat.project, {
     cascade: true, // Automatically save related chats
     lazy: true, // Load chats only when accessed

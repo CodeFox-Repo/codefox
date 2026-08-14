@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -29,6 +29,22 @@ export class WorkspaceService {
   ) {}
 
   async for(projectPath: string): Promise<ProjectWorkspace> {
+    // A project directory is one path segment, always. Checked here rather
+    // than at each of the ~20 callers, because this is the chokepoint they
+    // all route through and a caller that forgets fails open.
+    //
+    // HostWorkspace derives `root` as join(projectsDir, projectPath) and then
+    // validates every file path *relative to that root* — so a projectPath
+    // containing `..` moves the anchor and every later check passes against
+    // the escaped directory. `assertProjectAccess` does not cover this: it
+    // authorises `projectPath.split('/')[0]`, so "<your-own-project>/../.."
+    // passes ownership on its first segment and traverses on the rest.
+    // preview.controller.ts had this guard inline; screenshot.controller.ts
+    // did not, and reached `file://<anywhere>/index.html` through it.
+    if (!projectPath || /[/\\]|^\.+$/.test(projectPath)) {
+      throw new BadRequestException('Invalid project path');
+    }
+
     // html projects are a handful of static files; they live on the host in
     // every mode — there is nothing in them that needs a microVM to serve.
     if (sandboxMode() === 'host' || (await this.isHtml(projectPath))) {

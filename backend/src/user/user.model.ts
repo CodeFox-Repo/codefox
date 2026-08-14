@@ -48,7 +48,14 @@ export class User extends SystemBaseModel {
   @UniversalCreateDateColumn()
   lastEmailSendTime: Date;
 
-  @Field(() => [Chat])
+  // Deliberately NOT @Field, for the same reason `roles` is not: nothing
+  // above a field resolver is guarded (APP_GUARD does not reach them without
+  // `fieldResolverEnhancers`, which is unset), and `Project.user` is reachable
+  // from the @Public fetchPublicProjects. As a field this let an anonymous
+  // caller walk fetchPublicProjects → user → chats → messages and read the
+  // full conversation of every private project belonging to anyone who has
+  // ever published one. `getUserChats` is the guarded way to ask this, and it
+  // only ever answers about the bearer.
   @OneToMany(() => Chat, (chat) => chat.user, {
     cascade: true,
     lazy: true,
@@ -56,7 +63,10 @@ export class User extends SystemBaseModel {
   })
   chats: Chat[];
 
-  @Field(() => [Project])
+  // Same traversal, same reason: this enumerated every project of every
+  // publisher, private ones included, with projectPath — the directory name
+  // the authenticated file routes key on. `getUserProjects` is the guarded
+  // way to ask, and it answers only about the bearer.
   @OneToMany(() => Project, (project) => project.user, {
     cascade: true,
     lazy: true,
