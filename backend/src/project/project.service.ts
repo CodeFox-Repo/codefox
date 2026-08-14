@@ -16,6 +16,9 @@ import {
 import { generateText } from 'ai';
 import { copyProject, scaffoldHtmlProject, scaffoldProject } from './scaffold';
 import { staleMediaPath } from './media-file';
+import { assertCanCreateProject } from './quota';
+import { AuthService } from '../auth/auth.service';
+import { noteStyle } from './style-note';
 import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
@@ -36,7 +39,7 @@ import { PreviewService } from './preview.service';
 import { WorkspaceService } from './workspace.service';
 import { DESIGN_SYSTEMS, designSystem, swapTokens } from './design-systems';
 import { scenario } from './scenarios';
-import { queueForProject } from './project-queue';
+import { queueForProject, queueForUser } from './project-queue';
 import { collectFiles, deployToVercel } from './deploy';
 import {
   SANDBOX_ROOT,
@@ -59,6 +62,7 @@ export class ProjectService {
     private userService: UserService,
     private previews: PreviewService,
     private workspaces: WorkspaceService,
+    private authService: AuthService,
   ) {}
 
   async getProjectsByUser(userId: string): Promise<Project[]> {
@@ -137,6 +141,21 @@ export class ProjectService {
     userId: string,
   ): Promise<Chat> {
     try {
+      // Before the name generation below, which costs a model call: a user at
+      // their limit should not be billed for a title they cannot use.
+      //
+      // Behind the per-user queue, and it has to stay there: the count this
+      // makes is about a row that `createProjectInBackground` saves later,
+      // and the gap between them spans a model call. Two requests inside that
+      // window both counted 19 of 20 and both created — N concurrent
+      // requests put a user N-1 over the cap. `reserveProject` below saves
+      // the row inside the same queued turn, so the second caller counts
+      // after the first has landed.
+      const project = await queueForUser(userId, async () => {
+        await this.assertUnderQuota(userId);
+        return this.reserveProject(input, userId);
+      });
+
       // handle project name generation if needed (this is the only sync operation we need)
       let projectName = input.projectName;
       if (!projectName || projectName === '') {
@@ -168,8 +187,10 @@ export class ProjectService {
         model: input.model,
       });
 
-      // Perform the rest of project creation asynchronously
-      this.createProjectInBackground(input, projectName, userId, defaultChat);
+      // The row already exists (reserved above, under the quota queue); this
+      // names it and materialises its working directory.
+      project.projectName = projectName;
+      this.createProjectInBackground(input, project, defaultChat);
 
       // Return chat immediately so user can start interacting
       return defaultChat;
@@ -182,35 +203,46 @@ export class ProjectService {
     }
   }
 
-  // Background task for project creation: persist the row, then materialise a
-  // working directory from the starter template. The agent edits that
-  // directory; the frontend's file APIs read it.
+  /**
+   * Claim the user's quota slot by saving the row, before anything slow.
+   *
+   * Split out of the background task so the count that authorises it and the
+   * row that consumes it happen in the same queued turn — see the comment at
+   * the call site. Named unnamed: the title comes from a model call that
+   * must not hold the queue.
+   */
+  private reserveProject(
+    input: CreateProjectInput,
+    userId: string,
+  ): Promise<Project> {
+    const project = new Project();
+    project.projectName = '';
+    project.projectPath = '';
+    project.userId = userId;
+    project.isPublic = input.public || false;
+    project.uniqueProjectId = uuidv4();
+    // The user picks what they are making; the scenario decides the
+    // workspace kind. `template` is still what the other 16 call sites
+    // branch on, so it stays the stored answer.
+    // `template` still wins when a client sends only that.
+    project.template = input.scenario
+      ? scenario(input.scenario).template
+      : input.template === 'next'
+        ? 'next'
+        : 'html';
+    return this.projectsRepository.save(project);
+  }
+
+  // Background task for project creation: name the reserved row, then
+  // materialise a working directory from the starter template. The agent
+  // edits that directory; the frontend's file APIs read it.
   private async createProjectInBackground(
     input: CreateProjectInput,
-    projectName: string,
-    userId: string,
+    savedProject: Project,
     chat: Chat,
   ): Promise<void> {
     try {
-      // Create project entity and set properties
-      const project = new Project();
-      project.projectName = projectName;
-      project.projectPath = '';
-      project.userId = userId;
-      project.isPublic = input.public || false;
-      project.uniqueProjectId = uuidv4();
-      // The user picks what they are making; the scenario decides the
-      // workspace kind. `template` is still what the other 16 call sites
-      // branch on, so it stays the stored answer.
-      // `template` still wins when a client sends only that.
-      project.template = input.scenario
-        ? scenario(input.scenario).template
-        : input.template === 'next'
-          ? 'next'
-          : 'html';
-
-      // Save project — the generated id names the project directory.
-      const savedProject = await this.projectsRepository.save(project);
+      await this.projectsRepository.save(savedProject);
       this.logger.debug(`Project created: ${savedProject.id}`);
 
       try {
@@ -231,12 +263,35 @@ export class ProjectService {
         }
         await this.projectsRepository.save(savedProject);
       } catch (error) {
-        // A failed scaffold leaves projectPath empty; the chat still works,
-        // the agent just has no files. Loud, but not fatal to the request.
+        // A failed scaffold used to fall through to the bind below, on the
+        // reasoning that "the chat still works, the agent just has no files".
+        // It does not: an empty projectPath is indistinguishable from "this
+        // chat has no project", so ChatController routes the turn to
+        // pipePlainCompletion — a bare completion with no tools and no
+        // working directory. The user gets a confident "I've built your
+        // landing page…" written by a model that touched nothing, next to an
+        // empty file tree, and the only trace is this log line. Retrying
+        // never recovers, because projectPath stays empty for the life of
+        // the project.
+        //
+        // So the project does not get bound. The chat is left projectless,
+        // which is a state the product already handles honestly — the page
+        // says the project could not be opened rather than pretending a
+        // build happened.
         this.logger.error(
           `Failed to scaffold project ${savedProject.id}: ${error.message}`,
           error.stack,
         );
+        savedProject.isDeleted = true;
+        savedProject.isActive = false;
+        await this.projectsRepository
+          .save(savedProject)
+          .catch((saveError) =>
+            this.logger.error(
+              `Could not retire the unscaffolded project ${savedProject.id}: ${saveError}`,
+            ),
+          );
+        return;
       }
 
       // Bind chat to project
@@ -320,7 +375,20 @@ export class ProjectService {
         .execute();
 
       return true;
-    } catch {
+    } catch (error) {
+      // The original is the only thing that says WHICH of the four steps
+      // failed, and this was the one delete path that dropped it — an
+      // operator got "Error deleting the project" and nothing else.
+      //
+      // ponytail: still not a transaction. The order is the mitigation: the
+      // DB mark goes first, so a crash later leaves a project that reads as
+      // deleted with files still on disk — reclaimable by the admin console's
+      // orphan sweep. The reverse order would delete the files under a
+      // project the user still sees, which nothing can undo.
+      this.logger.error(
+        `Failed to delete project ${projectId}: ${error?.message ?? error}`,
+        error?.stack,
+      );
       throw new InternalServerErrorException('Error deleting the project.');
     }
   }
@@ -455,7 +523,23 @@ export class ProjectService {
     }
   }
 
-  async forkProject(userId: string, projectId: string): Promise<Chat> {
+  /**
+   * Your own project, copied. Same machinery as a fork — it already copies
+   * files, mints a new share id and starts private — minus the "not yours"
+   * rule, which is the only thing that ever stopped you.
+   *
+   * ponytail: a flag on forkProject, not a second copy of it. The two differ
+   * by one guard and one label.
+   */
+  async duplicateProject(userId: string, projectId: string): Promise<Chat> {
+    return this.forkProject(userId, projectId, true);
+  }
+
+  async forkProject(
+    userId: string,
+    projectId: string,
+    mine = false,
+  ): Promise<Chat> {
     try {
       this.logger.debug(`User ${userId} forking project ${projectId}`);
 
@@ -469,29 +553,44 @@ export class ProjectService {
         );
       }
 
-      // Prevent users from forking their own projects
-      if (sourceProject.userId === userId) {
+      // Forking someone else's is the public action; copying your own is
+      // `duplicateProject`, which sets `mine`. Without the distinction the
+      // fork button on the wall would offer a no-op on your own card.
+      if (!mine && sourceProject.userId === userId) {
         throw new ForbiddenException('Cannot fork your own project');
       }
+      // A copy of your own project is not a fork of it: counting it would
+      // inflate the number the trending wall ranks by.
+      if (mine && sourceProject.userId !== userId) {
+        throw new ForbiddenException('That project is not yours');
+      }
+
+      // The same cap create uses. Without it, fork is the way around it.
+      //
+      // Check and row save together under the per-user queue: apart, two
+      // concurrent forks both counted the same number and both created. The
+      // `createChat` between them is one round trip — narrower than create's
+      // model call, but a window is a window, and clicking Fork twice is
+      // easier than racing a create.
+      const savedProject = await queueForUser(userId, async () => {
+        await this.assertUnderQuota(userId);
+
+        const newProject = new Project();
+        newProject.projectName = `${mine ? 'Copy' : 'Fork'} of ${sourceProject.projectName}`;
+        newProject.projectPath = ''; // set below, once the id exists
+        newProject.userId = userId;
+        newProject.isPublic = false; // Default to private
+        newProject.uniqueProjectId = uuidv4(); // Generate new unique ID
+        newProject.forkedFromId = sourceProject.uniqueProjectId; // Reference the original
+        newProject.photoUrl = sourceProject.photoUrl; // Copy screenshot if available
+        newProject.template = sourceProject.template; // A fork is the same kind
+        return this.projectsRepository.save(newProject);
+      });
 
       // Create default chat for the new project
       const defaultChat = await this.chatService.createChat(userId, {
-        title: `Fork of ${sourceProject.projectName}`,
+        title: `${mine ? 'Copy' : 'Fork'} of ${sourceProject.projectName}`,
       });
-
-      // Create a new project entity
-      const newProject = new Project();
-      newProject.projectName = `Fork of ${sourceProject.projectName}`;
-      newProject.projectPath = ''; // set below, once the id exists
-      newProject.userId = userId;
-      newProject.isPublic = false; // Default to private
-      newProject.uniqueProjectId = uuidv4(); // Generate new unique ID
-      newProject.forkedFromId = sourceProject.uniqueProjectId; // Reference the original
-      newProject.photoUrl = sourceProject.photoUrl; // Copy screenshot if available
-      newProject.template = sourceProject.template; // A fork is the same kind
-
-      // Save the new project
-      const savedProject = await this.projectsRepository.save(newProject);
 
       // Give the fork its own copy of the files. Sharing the source path let
       // one owner's edits land in the other's project.
@@ -529,11 +628,13 @@ export class ProjectService {
       // and each wrote value+1, so four simultaneous forks counted as one.
       // The gallery's trending strategy ranks by this field, so an
       // undercounted project is one the wall never surfaces.
-      await this.projectsRepository.increment(
-        { id: sourceProject.id },
-        'subNumber',
-        1,
-      );
+      if (!mine) {
+        await this.projectsRepository.increment(
+          { id: sourceProject.id },
+          'subNumber',
+          1,
+        );
+      }
 
       // Bind chat to the new project
       await this.bindProjectAndChat(savedProject, defaultChat);
@@ -605,6 +706,25 @@ export class ProjectService {
       // restyle became unrevertable.
       await workspace.snapshot(`Before restyle to ${system.name}`);
       await workspace.writeFile('index.html', restyled);
+
+      // Record it where every turn reads. A restyle is the one design
+      // decision that never runs an agent turn, so without this the next turn
+      // still believed the old look and built against it. Inside the same
+      // queued block as the page write: the two are one decision, and a turn
+      // must not land between them.
+      //
+      // Best-effort — the restyle itself already succeeded, and failing the
+      // whole mutation over its footnote would report "could not restyle" for
+      // a page that is already restyled.
+      try {
+        const notes = await workspace.readFile('NOTES.md');
+        await workspace.writeFile('NOTES.md', noteStyle(notes, system.name));
+      } catch (error) {
+        this.logger.warn(
+          `[${project.projectPath}] restyled but could not note it: ${error}`,
+        );
+      }
+
       return { ok: true, message: `Restyled to ${system.name}.` };
     });
   }
@@ -682,6 +802,12 @@ export class ProjectService {
    * @param userId The user ID to verify
    * @throws ForbiddenException if user is not the owner
    */
+  /** Roles ride along so an operator is not capped out of their own box. */
+  private async assertUnderQuota(userId: string): Promise<void> {
+    const { roles } = await this.authService.getUserRoles(userId);
+    await assertCanCreateProject(this.projectsRepository, userId, roles);
+  }
+
   private checkProjectOwnership(project: Project, userId: string): void {
     if (project.userId !== userId) {
       throw new ForbiddenException(

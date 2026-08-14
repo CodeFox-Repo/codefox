@@ -1,8 +1,8 @@
 'use client';
 
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GitFork, ImageOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -78,7 +78,7 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
     if (!isAuthorized) {
       // On the landing page this button is already at '/' — navigating there
       // was a silent no-op. Say what signing in unlocks instead.
-      toast.info('Sign in to fork a project into your workspace.');
+      toast.info('Sign in to remix a project into your workspace.');
       return;
     }
     setForking(id);
@@ -87,14 +87,46 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
     if (chatId) router.push(`/chat?id=${chatId}`);
   };
 
+  // The share page's Remix button lands here as `?remix=<uniqueProjectId>`.
+  // It runs the same handleFork the cards use — auth prompt, quota message
+  // and double-click guard all come along rather than being rebuilt.
+  //
+  // The param is dropped BEFORE forking, so a refresh mid-fork cannot start a
+  // second one; `claimed` covers the same tick, since this effect reruns when
+  // the wall loads and when signing in flips isAuthorized.
+  const remixParam = useSearchParams().get('remix');
+  const claimed = useRef<string | null>(null);
+  useEffect(() => {
+    if (!remixParam || claimed.current === remixParam) return;
+    // `remixParam` is the project's row id — what forkProject takes — so it
+    // does NOT need to be on the wall. Matching against the wall is what
+    // limited remixing to the newest six public projects; anything older
+    // resolved to nothing and the click did nothing at all.
+    const match = projects.find((p) => p.id === remixParam);
+    const name = match?.projectName ?? 'this project';
+    // Signed out: keep the param so signing in re-runs this effect and the
+    // remix survives the round trip. Clearing it here is how the intent gets
+    // lost between "sign in" and being signed in.
+    if (!isAuthorized) {
+      toast.info(`Sign in to remix ${name}.`);
+      return;
+    }
+    claimed.current = remixParam;
+    router.replace('/', { scroll: false });
+    toast.info(`Remixing ${name}…`);
+    void handleFork(remixParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remixParam, projects, isAuthorized]);
+
   return (
-    <section className="mt-14 pb-4">
+    // The id is the empty state's "see what others made" target.
+    <section id="built-with-codefox" className="mt-14 pb-4">
       <div className="mb-5 flex items-baseline justify-between border-t-[3px] border-border pt-6">
         <h2 className="font-mono text-sm tracking-[0.12em] text-primary">
           BUILT WITH CODEFOX
         </h2>
         <span className="font-mono text-xs text-muted-foreground">
-          fork any of them
+          remix any of them
         </span>
       </div>
 
@@ -169,7 +201,9 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
                   </p>
                   <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                     {p.user?.username ?? 'anonymous'}
-                    {p.subNumber ? ` · ${p.subNumber} forks` : ''}
+                    {p.subNumber
+                      ? ` · ${p.subNumber} remix${p.subNumber === 1 ? '' : 'es'}`
+                      : ''}
                   </p>
                 </div>
 
@@ -191,7 +225,7 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
                     ) : (
                       <GitFork className="h-3.5 w-3.5" />
                     )}
-                    Fork
+                    Remix
                   </button>
                 )}
               </div>

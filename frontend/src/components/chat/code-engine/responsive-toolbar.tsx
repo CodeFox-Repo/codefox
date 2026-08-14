@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Terminal,
   Loader,
+  NotebookPen,
 } from 'lucide-react';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { logger } from '@/app/log/logger';
@@ -39,6 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { DeployDialog } from './deploy-dialog';
 import { KeyDialog } from './key-dialog';
+import { NotesDialog } from './notes-dialog';
 import { Select, SelectContent, SelectTrigger } from '@/components/ui/select';
 import {
   DESIGN_SYSTEMS,
@@ -121,10 +123,13 @@ const ResponsiveToolbar = ({
   // A page prints to a PDF; a Next app would print whatever its dev server is
   // serving, which is not a deliverable anyone asked for.
   const isPage = projectData?.getProject?.template === 'html';
+  const forkedFromId: string | undefined =
+    projectData?.getProject?.forkedFromId ?? undefined;
   const projectPath: string | undefined = projectData?.getProject?.projectPath;
   const [printing, setPrinting] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   // Restyling swaps the page's token block server-side. The preview polls the
   // file every few seconds, so it picks the new look up on its own — nothing
@@ -263,6 +268,24 @@ const ResponsiveToolbar = ({
           <Eye className="w-3 h-3 mr-1" />
           Preview
         </Button>
+        {/* Where this project came from. `forkedFromId` IS the source's
+            uniqueProjectId — the same key /share/:id takes — so the link
+            needs no extra query. It degrades on its own: if the source was
+            deleted or made private, /share answers its "not shared" page
+            rather than erroring here. Hidden below 550px, where the tab
+            buttons already collapse. */}
+        {forkedFromId && !compactIcons && (
+          <a
+            href={`/share/${forkedFromId}`}
+            target="_blank"
+            rel="noreferrer"
+            title="Open the project this was remixed from"
+            className="flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <GitFork className="h-3 w-3" />
+            Remixed
+          </a>
+        )}
         {visibleTabs >= 2 && (
           <Button
             variant={activeTab === 'code' ? 'default' : 'outline'}
@@ -390,6 +413,15 @@ const ResponsiveToolbar = ({
                   <DropdownMenuItem onClick={() => setKeyOpen(true)}>
                     <KeyRound className="w-3 h-3 mr-2" />
                     API key
+                  </DropdownMenuItem>
+                  {/* Not page-only, same as the key: both project kinds keep
+                      notes. A phone must reach this too. */}
+                  <DropdownMenuItem
+                    disabled={!projectPath}
+                    onClick={() => setNotesOpen(true)}
+                  >
+                    <NotebookPen className="w-3 h-3 mr-2" />
+                    Notes
                   </DropdownMenuItem>
                   {isPage && (
                     <DropdownMenuItem
@@ -553,6 +585,20 @@ const ResponsiveToolbar = ({
                 <KeyRound className="w-3 h-3 mr-1" />
                 Key
               </Button>
+              {/* Not page-only either: the agent keeps NOTES.md for both kinds
+                  and reads it back on every turn. It was a real file governing
+                  every build that nothing in the UI ever mentioned. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-sm"
+                disabled={!projectPath}
+                onClick={() => setNotesOpen(true)}
+                title="What this project has decided — the agent reads it every turn"
+              >
+                <NotebookPen className="w-3 h-3 mr-1" />
+                Notes
+              </Button>
               {isPage && (
                 <Button
                   variant="outline"
@@ -597,6 +643,11 @@ const ResponsiveToolbar = ({
         onOpenChange={setDeployOpen}
       />
       <KeyDialog open={keyOpen} onOpenChange={setKeyOpen} />
+      <NotesDialog
+        projectPath={projectPath}
+        open={notesOpen}
+        onOpenChange={setNotesOpen}
+      />
     </div>
   );
 };

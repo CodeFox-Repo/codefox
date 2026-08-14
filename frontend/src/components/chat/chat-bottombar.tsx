@@ -275,6 +275,34 @@ export default function ChatBottombar({
           )}
         </AnimatePresence>
 
+        {/* Its own row, under the input — not beside it. A ~180px picker in
+            an 18% chat rail left the textarea ~34px, i.e. one character per
+            line. Same squeeze "Have feedback?" caused, same fix: take it out
+            of the input row rather than fight flex-basis. */}
+        {onModelChange && (models?.length ?? 0) > 1 && (
+          <div className="flex items-center border-b border-border/60 px-2 pt-1">
+            <Select
+              value={selectedModel}
+              onValueChange={onModelChange}
+              disabled={isStreaming}
+            >
+              <SelectTrigger
+                aria-label="Model"
+                className="h-6 w-auto gap-1 border-none bg-transparent px-1 font-mono text-[11px] text-muted-foreground shadow-none hover:text-foreground focus:ring-0"
+              >
+                <SelectValue placeholder="model" />
+              </SelectTrigger>
+              <SelectContent>
+                {models!.map((m) => (
+                  <SelectItem key={m} value={m} className="font-mono text-xs">
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <form
           ref={formRef}
           onSubmit={submitWithAttachments}
@@ -310,29 +338,6 @@ export default function ChatBottombar({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-
-            {/* Mid-chat model switch; the choice persists on the chat. */}
-            {onModelChange && (models?.length ?? 0) > 1 && (
-              <Select
-                value={selectedModel}
-                onValueChange={onModelChange}
-                disabled={isStreaming}
-              >
-                <SelectTrigger
-                  aria-label="Model"
-                  className="ml-1 h-7 max-w-[180px] border-none bg-transparent px-2 font-mono text-[11px] text-muted-foreground shadow-none hover:text-foreground focus:ring-0"
-                >
-                  <SelectValue placeholder="model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {models!.map((m) => (
-                    <SelectItem key={m} value={m} className="font-mono text-xs">
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
 
           {/* Text input */}

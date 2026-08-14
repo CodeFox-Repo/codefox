@@ -52,18 +52,48 @@ async function bootstrap() {
   );
 
   console.log('process.env.PORT:', process.env.PORT);
-  const server = await app.listen(process.env.PORT ?? 8080);
+  // The old `await server.close()` after `app.close()` was a no-op: Nest's
+  // close already shuts the http server down, and `http.Server.close()`
+  // returns the server rather than a promise.
+  await app.listen(process.env.PORT ?? 8080);
   logger.log(`Application is running on port ${process.env.PORT ?? 8080}`);
 
   // Handle shutdown signals
+  //
+  // Bounded, because `app.close()` waits for every in-flight request to end
+  // and an agent turn holds its ndjson response open for 9-10 minutes. The
+  // platform's grace period is far shorter, so an unbounded close does not
+  // buy a clean exit — it just guarantees the SIGKILL lands mid-write, at a
+  // moment we did not choose. Exiting on our own terms is strictly better.
+  //
+  // ponytail: a timeout, not connection draining. `forceCloseConnections` on
+  // NestFactory.create would sever live turns immediately, which is worse for
+  // the common case (a deploy while someone is mid-build); this gives them a
+  // window and then goes. The client already survives a dropped connection —
+  // the backend rescue-saves the partial reply — so the deadline costs the
+  // turn, not the answer.
+  const SHUTDOWN_MS = 15_000;
+  let closing = false;
   const signals = ['SIGTERM', 'SIGINT'];
   for (const signal of signals) {
     process.on(signal, async () => {
+      // A second signal during a slow close used to start a second teardown
+      // over the top of the first.
+      if (closing) return;
+      closing = true;
       logger.log(`Received ${signal} signal. Starting graceful shutdown...`);
+
+      const deadline = setTimeout(() => {
+        logger.warn(
+          `Shutdown still going after ${SHUTDOWN_MS}ms — exiting anyway.`,
+        );
+        process.exit(0);
+      }, SHUTDOWN_MS);
+      // Nothing to wait for if the close finishes first.
+      deadline.unref?.();
 
       try {
         await app.close();
-        await server.close();
         logger.log('Server closed successfully');
         process.exit(0);
       } catch (error) {

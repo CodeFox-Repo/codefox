@@ -84,7 +84,16 @@ export const GET_USER_CHATS = gql`
       project {
         id
         template
+        isPublic
       }
+    }
+  }
+`;
+
+export const DUPLICATE_PROJECT = gql`
+  mutation DuplicateProject($projectId: ID!) {
+    duplicateProject(projectId: $projectId) {
+      id
     }
   }
 `;

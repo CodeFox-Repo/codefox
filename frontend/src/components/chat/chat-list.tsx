@@ -166,11 +166,9 @@ export default function ChatList({
                   step.kind === 'text'
                     ? {
                         ...step,
-                        text: isStreaming(index)
-                          ? stripPartialQuestionFence(
-                              extractQuestions(step.text).rest
-                            )
-                          : extractQuestions(step.text).rest,
+                        text: stripPartialQuestionFence(
+                          extractQuestions(step.text).rest
+                        ),
                       }
                     : step
                 )
@@ -223,9 +221,7 @@ export default function ChatList({
                           {renderMessageContent(
                             isUser
                               ? message.content
-                              : isStreaming(index)
-                                ? stripPartialQuestionFence(proseContent)
-                                : proseContent,
+                              : stripPartialQuestionFence(proseContent),
                             !isUser && isStreaming(index)
                           )}
                         </div>

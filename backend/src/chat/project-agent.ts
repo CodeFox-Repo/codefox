@@ -7,6 +7,8 @@ import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
 import { instructionsFor, notesNote } from './instructions';
+import { lintNote } from './lint-note';
+import type { LintFinding } from './lint-artifact';
 import { sniff } from '../common/security/file_check';
 import {
   AVAILABLE_MODELS,
@@ -232,6 +234,8 @@ export interface ProjectAgentOptions {
   scenarioId?: string | null;
   /** The project's NOTES.md, so decisions outlive the replay window. */
   notes?: string | null;
+  /** What the design linter says about the page as it stands right now. */
+  lint?: LintFinding[] | null;
   /** The user's own endpoint for this turn. Never logged, never stored. */
   credential?: UserCredential;
 }
@@ -358,6 +362,7 @@ export const runProjectAgent = async ({
   scenarioId,
   credential,
   notes,
+  lint,
 }: ProjectAgentOptions) => {
   const workingDirectory = path.join(getProjectsDir(), projectPath);
 
@@ -374,7 +379,10 @@ export const runProjectAgent = async ({
   const asked = staged.length
     ? `${message}\n\nThe user attached ${staged.length === 1 ? 'this image' : 'these images'} — read ${staged.length === 1 ? 'it' : 'them'} before answering:\n${staged.map((f) => `- ${f}`).join('\n')}`
     : message;
-  const prompt = `${notesNote(notes)}${retell(history ?? [])}${handEditNote(handEdits ?? [])}${asked}`;
+  // Lint findings sit last of the context blocks, immediately before the ask:
+  // they are about the page as it is right now, and the request is what has
+  // to stay loudest.
+  const prompt = `${notesNote(notes)}${retell(history ?? [])}${handEditNote(handEdits ?? [])}${lintNote(lint)}${asked}`;
 
   const agent = new HarnessAgent({
     harness: harnessFor(model, credential),

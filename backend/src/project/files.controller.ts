@@ -22,6 +22,7 @@ import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
 import { getMediaDir } from '../common/utils/common-path';
 import { Project } from './project.model';
 import { assertProjectAccess } from './project-access';
+import { queueForProject } from './project-queue';
 import { WorkspaceService } from './workspace.service';
 
 /**
@@ -144,9 +145,14 @@ export class FilesController {
       write: true,
     });
 
-    const workspace = await this.workspaces.for(projectId);
-    await workspace.restore(versionId);
-    return { changes: await workspace.changedFiles() };
+    // Queued: this replaces the whole working tree, so running it alongside
+    // an agent turn means the turn's writes land into a tree being rewritten
+    // underneath them — a worse version of the single-file race below.
+    return queueForProject(projectId, async () => {
+      const workspace = await this.workspaces.for(projectId);
+      await workspace.restore(versionId);
+      return { changes: await workspace.changedFiles() };
+    });
   }
 
   @Get('project')
@@ -296,8 +302,18 @@ export class FilesController {
 
     const [projectPath, ...rest] = filePath.split('/');
     try {
-      const workspace = await this.workspaces.for(projectPath);
-      await workspace.writeFile(rest.join('/'), newContent);
+      // Behind the project's write queue, like the agent turn and the
+      // restyle. This was the one writer that skipped it: the editor's Save
+      // could land between a turn reading a file and writing it back, so the
+      // user's edit vanished into the agent's commit with no error anywhere
+      // — the exact race the queue was built to stop, and the queue's own
+      // docstring already claimed everything writing project files joins it.
+      //
+      // Restore is queued for the same reason, one route up.
+      await queueForProject(projectPath, async () => {
+        const workspace = await this.workspaces.for(projectPath);
+        await workspace.writeFile(rest.join('/'), newContent);
+      });
     } catch (error) {
       this.logger.error(`Failed to write ${filePath}: ${error}`);
       throw new InternalServerErrorException('Failed to update file');

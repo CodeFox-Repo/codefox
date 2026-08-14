@@ -137,21 +137,34 @@ export default function Chat() {
   // streamed yet, which is safe to retry. ~1 minute covers a slow microVM.
   const MAX_FIRST_TURN_ATTEMPTS = 10;
   const [firstTurnAttempt, setFirstTurnAttempt] = useState(0);
+  // A first turn that ENDED without saving a reply. `needsFirstTurn` is
+  // recomputed from the message list, so it goes true again the moment the
+  // turn finishes empty — and the retry effect below cannot re-run (its ref
+  // is latched), so nothing was ever coming. Without this the page span
+  // forever: bouncing dots, "thinking…", and a Stop button that does nothing
+  // because the hook's own loadingSubmit is already false. The turn that
+  // guarantees it is the backend's `t:'error'` frame for a project whose
+  // workspace could not be created — it reports the failure and saves no
+  // message, which is correct.
+  const [firstTurnEnded, setFirstTurnEnded] = useState(false);
+  useEffect(() => setFirstTurnEnded(false), [chatId]);
   useEffect(() => {
     if (!chatId || !isReady || !needsFirstTurn) return;
     if (firstTurnStartedFor.current === chatId) return;
     firstTurnStartedFor.current = chatId;
-    startTurn(chatId, messages[0].content, chatModel).catch(() => {
-      if (firstTurnAttempt + 1 >= MAX_FIRST_TURN_ATTEMPTS) {
-        setFirstTurnAttempt(MAX_FIRST_TURN_ATTEMPTS);
-        toast.error('Failed to get chat response');
-        return;
-      }
-      setTimeout(() => {
-        firstTurnStartedFor.current = null;
-        setFirstTurnAttempt((n) => n + 1);
-      }, 6000);
-    });
+    startTurn(chatId, messages[0].content, chatModel)
+      .then(() => setFirstTurnEnded(true))
+      .catch(() => {
+        if (firstTurnAttempt + 1 >= MAX_FIRST_TURN_ATTEMPTS) {
+          setFirstTurnAttempt(MAX_FIRST_TURN_ATTEMPTS);
+          toast.error('Failed to get chat response');
+          return;
+        }
+        setTimeout(() => {
+          firstTurnStartedFor.current = null;
+          setFirstTurnAttempt((n) => n + 1);
+        }, 6000);
+      });
   }, [
     chatId,
     isReady,
@@ -166,7 +179,10 @@ export default function Chat() {
   // deserves a thinking indicator instead of a silent page. `error` is the
   // monitor giving up — stop promising work that is not coming.
   const waitingForFirstTurn =
-    needsFirstTurn && !error && firstTurnAttempt < MAX_FIRST_TURN_ATTEMPTS;
+    needsFirstTurn &&
+    !error &&
+    !firstTurnEnded &&
+    firstTurnAttempt < MAX_FIRST_TURN_ATTEMPTS;
 
   // Re-run the last question: drop the stored trailing reply first so history
   // does not keep both answers, then run the turn again like the first one.
@@ -312,6 +328,8 @@ export default function Chat() {
             isProjectReady={isReady}
             projectId={projectId}
             lint={lint}
+            onFixLint={sendMessage}
+            turnRunning={loadingSubmit}
           />
         </div>
       </div>
@@ -371,6 +389,8 @@ export default function Chat() {
             isProjectReady={isReady}
             projectId={projectId}
             lint={lint}
+            onFixLint={sendMessage}
+            turnRunning={loadingSubmit}
           />
         </div>
       </ResizablePanel>

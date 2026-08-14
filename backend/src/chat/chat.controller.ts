@@ -14,7 +14,13 @@ import { WorkspaceService } from '../project/workspace.service';
 import type { ChangedFile } from '../project/workspace';
 import { lintArtifact, type LintFinding } from './lint-artifact';
 import { validateExternalApiBaseUrl } from './external-url';
-import { busy, queueForProject } from '../project/project-queue';
+import {
+  atTurnLimit,
+  busy,
+  queueForProject,
+  turnLimit,
+  withUserTurn,
+} from '../project/project-queue';
 import { scenarioOfPage } from '../project/scenarios';
 import { clipNotes } from './instructions';
 
@@ -84,6 +90,14 @@ export class ChatController {
    * "before that turn" threw away work the user did themselves, and the
    * history credited it to the agent. A no-op when the tree is already clean,
    * which is the common case.
+   *
+   * `pendingEdits()`, NOT `changedFiles()`: the latter diffs against the ROOT
+   * commit, so after any turn it lists everything the agent has ever written
+   * while the tree is clean vs HEAD. Every turn from the second one on was
+   * therefore told "the user edited these files themselves" about the agent's
+   * own previous output — and instructed to "keep what they did unless this
+   * message asks you to undo it", which is exactly how a follow-up like
+   * "make the hero smaller" gets refused as if it contradicted the user.
    */
   private async snapshotPendingEdits(
     projectPath: string,
@@ -92,7 +106,7 @@ export class ChatController {
       const workspace = await this.workspaces.for(projectPath);
       // Read the list before committing it — afterwards the tree is clean and
       // there is nothing left to tell the agent about.
-      const edited = (await workspace.changedFiles()) ?? [];
+      const edited = await workspace.pendingEdits();
       if (edited.length) await workspace.snapshot('Your edits');
       return edited;
     } catch (error) {
@@ -174,12 +188,43 @@ export class ChatController {
       const project = await this.chatService.getProjectByChatId(chatDto.chatId);
       const projectPath = project?.projectPath;
 
+      // A project that exists but has no directory is a failed scaffold, not
+      // a chat without a project — and the two are not interchangeable. Both
+      // used to land here and get a bare completion: a model with no tools
+      // answering "I've built your landing page…" about files it never
+      // touched. Say what happened instead of pretending a build ran.
+      //
+      // As a stream error rather than a throw: the client parses this
+      // endpoint as newline-delimited JSON and shows `t: 'error'` to the
+      // user, where a 500 surfaces only as a generic "network response was
+      // not ok".
+      if (project && !projectPath) {
+        res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+        res.write(
+          `${JSON.stringify({
+            t: 'error',
+            v: 'This project has no files — its workspace could not be created. Start a new project.',
+          })}\n`,
+        );
+        res.end();
+        return;
+      }
+
       if (!projectPath) {
         await this.pipePlainCompletion(chatDto, res);
         return;
       }
 
-      await this.pipeAgent(chatDto, res);
+      // One account, a handful of turns. The project queue below serialises
+      // per PROJECT, so a user with ten projects could otherwise run ten
+      // model sessions at once against the shared credit.
+      if (atTurnLimit(userId)) {
+        res.status(429).json({
+          error: `You already have ${turnLimit()} turns running. Wait for one to finish.`,
+        });
+        return;
+      }
+      await withUserTurn(userId, () => this.pipeAgent(chatDto, res));
     } catch (error) {
       this.logger.error(`Chat error: ${error.message}`, error.stack);
       if (!res.headersSent) {
@@ -271,6 +316,16 @@ export class ChatController {
       template: project.template,
       scenarioId: await this.scenarioOf(project),
       notes: await this.notesOf(project.projectPath),
+      // The same lint that runs at the end of a turn, run again at the start
+      // so the agent actually sees it. Recomputed rather than remembered: a
+      // restyle, a restore or a hand edit between turns all change what is
+      // true of the page, and the findings must describe the file the agent
+      // is about to open. Pages only — a Next app has no single artifact to
+      // judge, which is the same reason the end-of-turn lint skips it.
+      lint:
+        project.template === 'html'
+          ? await this.lintPage(project.projectPath)
+          : [],
       // Both or neither: a key with no endpoint would silently fall back to
       // ours and bill us for a turn the user meant to pay for themselves.
       credential:

@@ -2,13 +2,21 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation } from '@apollo/client';
-import { ArrowUpRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Copy,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useChatList } from '@/hooks/useChatList';
 import {
   DELETE_CHAT,
   DELETE_PROJECT,
+  DUPLICATE_PROJECT,
   UPDATE_CHAT_TITLE,
 } from '@/graphql/request';
 import { Button } from '@/components/ui/button';
@@ -50,6 +58,18 @@ const relativeTime = (value: string | number | Date) => {
  * The signed-in home. Deliberately not the landing page: someone with an
  * account does not need the pitch, they need the composer and their work.
  */
+/**
+ * Concrete enough that the agent builds instead of asking. Each one exercises
+ * a different scenario the product already supports.
+ */
+const STARTERS = [
+  'A SaaS landing page, dark, with a pricing section',
+  'A personal homepage with an about section and links',
+  'An analytics dashboard with KPI cards and a line chart',
+  'A launch announcement email with one call to action',
+  'A pricing comparison of three plans, with a recommendation',
+];
+
 export function Workbench({
   promptFormRef,
   onSubmit,
@@ -86,6 +106,9 @@ export function Workbench({
   // the workspace, so it is the whole delete. deleteChat is the fallback for a
   // chat whose project never got scaffolded — there is nothing else to reclaim.
   const [deleteProject] = useMutation(DELETE_PROJECT, deleted);
+  const [duplicate] = useMutation(DUPLICATE_PROJECT, deleted);
+  const [duplicating, setDuplicating] = useState(false);
+  const router = useRouter();
   const [deleteChat] = useMutation(DELETE_CHAT, deleted);
 
   const commitRename = () => {
@@ -151,9 +174,45 @@ export function Workbench({
             ))}
           </ul>
         ) : recent.length === 0 ? (
-          <p className="font-mono text-sm text-muted-foreground">
-            Nothing yet. Describe a project above to start one.
-          </p>
+          <div className="space-y-4">
+            <p className="font-mono text-sm text-muted-foreground">
+              Nothing yet. Describe a project above — or start from one of
+              these.
+            </p>
+            {/* Specific enough to build from directly: "a website" gets you a
+                question card, which is the right answer to a vague brief and
+                the wrong first experience. Each names a kind, a look and one
+                concrete section, so the agent has everything it needs. */}
+            <ul className="flex flex-wrap gap-2">
+              {STARTERS.map((starter) => (
+                <li key={starter}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      promptFormRef.current?.setMessage(starter);
+                      // The composer is above the fold on desktop and off it
+                      // on a phone; without this the click looks like nothing
+                      // happened.
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-left font-mono text-xs text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
+                  >
+                    {starter}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="font-mono text-xs text-muted-foreground">
+              Or{' '}
+              <a
+                href="#built-with-codefox"
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                see what others made
+              </a>{' '}
+              — remixing one is a shorter road than a blank box.
+            </p>
+          </div>
         ) : (
           // auto-fit, not a fixed three columns: a fixed grid left a third of
           // the row empty with two chats, and auto-fill was worse still — it
@@ -190,6 +249,27 @@ export function Workbench({
                         Rename
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={!chat.project?.id || duplicating}
+                        onSelect={() => {
+                          const projectId = chat.project?.id;
+                          if (!projectId) return;
+                          setDuplicating(true);
+                          duplicate({ variables: { projectId } })
+                            .then(({ data }) => {
+                              const id = data?.duplicateProject?.id;
+                              toast.success('Copied — opening it now');
+                              if (id) router.push(`/chat?id=${id}`);
+                            })
+                            // The server's words: the quota refusal names the
+                            // limit and the way out.
+                            .catch((e) => toast.error(e.message))
+                            .finally(() => setDuplicating(false));
+                        }}
+                      >
+                        <Copy className="mr-2 h-4 w-4 shrink-0" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         onSelect={() =>
                           setTimeout(
                             () =>
@@ -219,10 +299,21 @@ export function Workbench({
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-muted-foreground">
-                      {relativeTime(chat.createdAt)}
+                      {/* <time> so "2h ago" carries the real timestamp for a
+                          crawler and a screen reader; the text stays relative
+                          because that is what a person wants to read. */}
+                      <time dateTime={new Date(chat.createdAt).toISOString()}>
+                        {relativeTime(chat.createdAt)}
+                      </time>
                       <span className="mx-1.5 opacity-40">·</span>
                       {/* Projects from before the template column are Next apps. */}
                       {chat.project?.template === 'html' ? 'Page' : 'Next.js'}
+                      {chat.project?.isPublic && (
+                        <>
+                          <span className="mx-1.5 opacity-40">·</span>
+                          <span className="text-primary">Public</span>
+                        </>
+                      )}
                     </span>
                     <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/card:opacity-100" />
                   </div>

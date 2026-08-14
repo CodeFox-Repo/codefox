@@ -9,8 +9,9 @@
  * structured findings. P0 findings indicate the artifact is regressing
  * to AI-slop tropes (purple gradients, emoji feature icons, sans-serif
  * display, invented metrics, lorem-style filler); P1/P2 are advisories.
- * They are shown to the USER in the Changes panel — nothing feeds them
- * back to the agent, so it does not self-correct on the next turn.
+ * They are shown to the USER in the Changes panel AND read back to the
+ * agent at the start of the next turn (see lint-note.ts), which is what
+ * lets a page get fixed rather than re-flagged forever.
  *
  * The linter is deliberately greppy: cheap, deterministic, and trivial
  * to extend. It does NOT parse HTML — false positives are tolerable
@@ -18,7 +19,8 @@
  *
  * In codefox it runs at the end of each turn on an html project's
  * index.html; findings go down the turn's event stream as `{t:'lint'}`
- * so the Changes panel can show them.
+ * for the Changes panel, and are recomputed at the start of the next turn
+ * for the prompt.
  */
 
 type LintSeverity = 'P0' | 'P1' | 'P2';

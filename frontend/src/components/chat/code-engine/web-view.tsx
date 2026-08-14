@@ -15,6 +15,7 @@ import { URL_PROTOCOL_PREFIX } from '@/utils/const';
 import { logger } from '@/app/log/logger';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { capturePageConsole } from '@/lib/page-console';
+import { useVisibleInterval } from '@/hooks/useVisibleInterval';
 
 /**
  * An html project previews by rendering its file — no dev server, no
@@ -50,29 +51,42 @@ function HtmlPreview({ project }: { project: any }) {
     return () => clearTimeout(timer);
   }, [html, project?.id, project?.projectPath, takeProjectScreenshot]);
 
+  // What the frame is currently showing, so an in-flight read can tell it has
+  // been superseded. A ref rather than an effect flag because `load` is also
+  // the Refresh button and the 5s poll — clicking a link to about.html while
+  // a poll for index.html was in flight rendered index.html under an
+  // "ABOUT.HTML" header, and fired a cover screenshot of the wrong page.
+  const showing = useRef(`${project.projectPath}/${page}`);
+  useEffect(() => {
+    showing.current = `${project.projectPath}/${page}`;
+  }, [project.projectPath, page]);
+
   const load = async () => {
+    const wanted = `${project.projectPath}/${page}`;
     try {
       const res = await authenticatedFetch(
-        `/api/file?path=${encodeURIComponent(`${project.projectPath}/${page}`)}`
+        `/api/file?path=${encodeURIComponent(wanted)}`
       );
       if (!res.ok) return;
       const data = await res.json();
+      if (wanted !== showing.current) return;
       if (typeof data.content === 'string') setHtml(data.content);
     } catch (error) {
       logger.warn('html preview load failed:', error);
     } finally {
-      setLoaded(true);
+      if (wanted === showing.current) setLoaded(true);
     }
   };
 
   useEffect(() => {
     load();
-    // Light poll so the page follows the agent's edits without a manual
-    // refresh; a file read every few seconds costs nothing.
-    const timer = setInterval(load, 5000);
-    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.projectPath, page]);
+
+  // Light poll so the page follows the agent's edits without a manual refresh
+  // — but only while the tab is actually being looked at. A backgrounded
+  // project used to keep reading the file every 5s forever.
+  useVisibleInterval(load, 5000);
 
   // A sub-page is the agent's work too, but only the home page is what the
   // project looks like — a cover shot of "About" would be wrong.
@@ -227,7 +241,17 @@ function PreviewContent({
   const MAX_ATTEMPTS = 12;
 
   useEffect(() => {
+    // This effect's closure is pinned to one project, and its awaits are long
+    // — the backend's waitForPort runs up to 90s before it throws. Switching
+    // project in that window left the old call alive: on success it pointed
+    // the iframe at the PREVIOUS project's dev server, and its catch nulled
+    // `lastProjectPathRef` (the current project's own guard), spent the shared
+    // attempt budget, and rescheduled itself. Neither self-heals — the effect
+    // only re-runs when the path or the retry token changes, and neither will.
+    let superseded = false;
+
     const initWebUrl = async () => {
+      if (superseded) return;
       if (!curProject) return;
       const projectPath = curProject.projectPath;
 
@@ -253,6 +277,7 @@ function PreviewContent({
 
       try {
         const { domain } = await getWebUrl(projectPath);
+        if (superseded) return;
         containerRef.current = {
           projectPath,
           domain,
@@ -265,6 +290,9 @@ function PreviewContent({
         setFailure('');
         attemptsRef.current = 0;
       } catch (error) {
+        // Before any shared ref is touched: a dead epoch must not clear the
+        // live project's guard, spend its attempts, or reschedule itself.
+        if (superseded) return;
         // A fresh project fails here while it scaffolds and its dev server
         // boots — that is "not yet", not "failed". Retrying forever is what
         // hid a dev server that was never going to come up, so give up after
@@ -285,6 +313,7 @@ function PreviewContent({
     initWebUrl();
 
     return () => {
+      superseded = true;
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
