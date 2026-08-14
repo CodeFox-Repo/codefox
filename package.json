@@ -16,7 +16,7 @@
     "dev:backend": "turbo dev:backend",
     "demo:record": "node scripts/record-demo.mjs",
     "test": "turbo test",
-    "check": "for f in scripts/check-*.mjs; do node \"$f\" || exit 1; done",
+    "check": "node scripts/run-checks.mjs",
     "fix": "eslint . --ext .js,.ts,.tsx --fix",
     "start": "turbo start",
     "start:frontend": "turbo start:frontend",

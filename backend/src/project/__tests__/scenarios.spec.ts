@@ -75,4 +75,34 @@ describe('scenarios', () => {
       expect(s.guidance).not.toMatch(/\bscrollIntoView\s*\(/);
     }
   });
+
+  it('gives every page scenario enough guidance to build from', () => {
+    // The bar is not "has a string" — a one-line scenario produces the
+    // centered hero this table exists to prevent. Each real one names its
+    // regions, so it runs to several sentences.
+    for (const s of SCENARIOS.filter((x) => x.template === 'html')) {
+      expect(s.guidance.length).toBeGreaterThan(600);
+      // Names the parts it is made of — regions, columns, or (for the deck)
+      // slides. That is what turns a scenario into a layout rather than a
+      // mood; the wording differs because the shapes genuinely differ.
+      expect(s.guidance).toMatch(/Regions|regions|columns|slide|entries|rows/);
+    }
+  });
+
+  it('has unique ids and names', () => {
+    // The id lands in a meta tag and the name in a picker; a duplicate makes
+    // one of them unreachable.
+    const ids = SCENARIOS.map((s) => s.id);
+    const names = SCENARIOS.map((s) => s.name);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('round-trips every id through the meta tag', () => {
+    // scaffold writes it, every turn reads it back. An id the regex cannot
+    // match silently degrades that project to the default scenario forever.
+    for (const s of SCENARIOS) {
+      expect(scenarioOfPage(scenarioMeta(s.id))).toBe(s.id);
+    }
+  });
 });
