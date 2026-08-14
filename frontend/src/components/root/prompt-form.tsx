@@ -222,7 +222,10 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               and `min-w-0` only lets the ROW shrink — the triggers inside it
               are whitespace-nowrap, so they spilled past the card and the
               kind and style pickers ended up off-screen, unreachable. The
-              outer row already wraps; this one has to as well. */}
+              outer row already wraps; this one has to as well.
+              Each trigger also carries w-auto: the base SelectTrigger is
+              w-full, and under flex-wrap that is a 100% flex basis — one
+              picker per row, stacked, at every viewport width. */}
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {/* visibility */}
             <Select
@@ -236,7 +239,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
             >
               <SelectTrigger
                 className={cn(
-                  'h-9 px-3 text-sm font-medium border border-border',
+                  'h-9 w-auto px-3 text-sm font-medium border border-border',
                   'bg-secondary text-foreground',
                   'rounded-lg focus:outline-none hover:bg-accent',
                   'transition-all duration-200 active:scale-[0.98]',
@@ -299,7 +302,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               >
                 <SelectTrigger
                   className={cn(
-                    'h-9 px-3 text-sm font-medium border border-border',
+                    'h-9 w-auto px-3 text-sm font-medium border border-border',
                     'bg-secondary text-foreground',
                     'rounded-lg focus:outline-none hover:bg-accent',
                     'transition-all duration-200 active:scale-[0.98]',
@@ -338,7 +341,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
             >
               <SelectTrigger
                 className={cn(
-                  'h-9 px-3 text-sm font-medium border border-border',
+                  'h-9 w-auto px-3 text-sm font-medium border border-border',
                   'bg-secondary text-foreground',
                   'rounded-lg focus:outline-none hover:bg-accent',
                   'transition-all duration-200 active:scale-[0.98]',
@@ -380,7 +383,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               >
                 <SelectTrigger
                   className={cn(
-                    'h-9 px-3 text-sm font-medium border border-border',
+                    'h-9 w-auto px-3 text-sm font-medium border border-border',
                     'bg-secondary text-foreground',
                     'rounded-lg focus:outline-none hover:bg-accent',
                     'transition-all duration-200 active:scale-[0.98]',
