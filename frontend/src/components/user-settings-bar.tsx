@@ -68,7 +68,7 @@ export const UserSettingsBar = ({ isSimple }: UserSettingsProps) => {
         size="setting"
         variant="ghost"
         className={`flex justify-start ${
-          isSimple ? 'w-10 h-12 p-auto' : 'gap-2 w-full h-12 p-1'
+          isSimple ? 'h-9 w-9 justify-center p-0' : 'gap-2 w-full h-12 p-1'
         }`}
       >
         <SmallAvatar className="flex items-center justify-center">

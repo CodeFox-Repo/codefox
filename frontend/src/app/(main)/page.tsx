@@ -282,8 +282,13 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid gap-10 lg:grid-cols-2">
-            <div>
+          {/* `grid-cols-[minmax(0,1fr)]` rather than the implicit `1fr`: an
+              auto track's floor is min-content, so this column sized itself to
+              the longest file path in the table below and overflowed a phone.
+              A min-w-0 on the child cannot fix it — the track is what refuses
+              to shrink. */}
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-2">
+            <div className="min-w-0">
               <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] opacity-50">
                 What the agent did
               </p>
@@ -296,7 +301,10 @@ export default function HomePage() {
                     }`}
                   >
                     <span className="text-primary">{c.tool}</span>
-                    <span className="truncate">{c.target}</span>
+                    {/* min-w-0: a grid track's default min-width is min-content,
+                        so `truncate` never got to truncate — the cell grew to
+                        fit the longest path and pushed the row off a phone. */}
+                    <span className="min-w-0 truncate">{c.target}</span>
                     <span className="opacity-55">{c.result}</span>
                   </div>
                 ))}

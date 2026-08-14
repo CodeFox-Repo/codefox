@@ -88,7 +88,12 @@ const FloatingNavbar = ({
               href="https://github.com/Sma1lboy/codefox"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center rounded-full px-2.5 py-1.5 font-mono text-sm text-muted-foreground transition-colors duration-200 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              // Hidden under 400px: the capsule cannot fit the star count and
+              // both auth buttons, and it is the star count that is decoration
+              // — Sign Up was being pushed off the right edge of a 390px phone,
+              // unreachable, which is the one control the landing page exists
+              // to offer.
+              className="hidden items-center rounded-full px-2.5 py-1.5 font-mono text-sm text-muted-foreground transition-colors duration-200 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[400px]:flex"
             >
               <Github size={18} className="mr-1.5" />
               <Star
@@ -138,8 +143,11 @@ const FloatingNavbar = ({
               </div>
             )}
 
-            {/* With the sidebar gone, the account menu lives here. */}
-            {isAuthorized && <UserSettingsBar isSimple={false} />}
+            {/* With the sidebar gone, the account menu lives here — the
+                compact avatar: w-full (the sidebar footer's shape) would
+                stretch across the capsule and leave the avatar stranded in
+                the middle of it. */}
+            {isAuthorized && <UserSettingsBar isSimple={true} />}
           </div>
         </div>
       </div>

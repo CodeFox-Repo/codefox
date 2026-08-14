@@ -41,6 +41,8 @@ export interface PromptFormRef {
     style: string;
   };
   clearMessage: () => void;
+  /** Fill the box from outside — the empty state's example prompts. */
+  setMessage: (text: string) => void;
 }
 
 interface PromptFormProps {
@@ -166,6 +168,10 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         setMessage('');
         setIsEnhanced(false);
       },
+      setMessage: (text: string) => {
+        setMessage(text);
+        setIsEnhanced(false);
+      },
     }));
 
     const handleTypewriterInit = (typewriter: any) => {
@@ -212,7 +218,12 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         <div className="border-t border-border" />
 
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
+          {/* flex-wrap: three pickers side by side do not fit a 390px phone,
+              and `min-w-0` only lets the ROW shrink — the triggers inside it
+              are whitespace-nowrap, so they spilled past the card and the
+              kind and style pickers ended up off-screen, unreachable. The
+              outer row already wraps; this one has to as well. */}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             {/* visibility */}
             <Select
               value={visibility}
