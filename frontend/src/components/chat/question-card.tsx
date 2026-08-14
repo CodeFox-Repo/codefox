@@ -35,6 +35,11 @@ const PARTIAL_FENCE = /```codefox-questions[\s\S]*$/;
  * While the block is still streaming in, the half-arrived JSON would render
  * as a raw code block for a few seconds. Hide the tail until it closes; the
  * caret already says more is coming.
+ *
+ * Applied to stored history too, not just live turns: a turn that died or was
+ * stopped mid-block leaves the fence open forever, and gating this on
+ * "streaming" meant that message rendered its raw JSON on every reload. A
+ * closed fence is untouched here — extractQuestions turns that into a card.
  */
 export function stripPartialQuestionFence(content: string): string {
   if (FENCE.test(content)) return content;
@@ -107,6 +112,7 @@ function StyleCard({
   return (
     <button
       type="button"
+      aria-pressed={selected}
       disabled={!interactive}
       onClick={onPick}
       className={cn(
@@ -283,6 +289,11 @@ export function QuestionCard({
                     <button
                       key={option}
                       type="button"
+                      // These are toggles, not plain buttons: without this a
+                      // screen reader reads the label and never says whether
+                      // it is picked — the selected state is a border colour
+                      // and a check icon, both invisible to it.
+                      aria-pressed={selected}
                       disabled={!interactive}
                       onClick={() => toggle(q, option)}
                       className={cn(

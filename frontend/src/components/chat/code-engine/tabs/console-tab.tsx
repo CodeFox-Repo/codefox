@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { clearPageConsole, onPageLog, pageConsole } from '@/lib/page-console';
+import { useVisibleInterval } from '@/hooks/useVisibleInterval';
 
 interface LogLine {
   at: number;
@@ -39,33 +40,28 @@ const ConsoleTab = ({
     return onPageLog(sync);
   }, [isPage, projectPath]);
 
-  useEffect(() => {
+  const poll = useCallback(async () => {
     if (!projectPath || isPage) return;
-    let cancelled = false;
-
-    const poll = async () => {
-      try {
-        const res = await authenticatedFetch(
-          `/api/preview/logs?projectPath=${encodeURIComponent(projectPath)}`
-        );
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = await res.json();
-        if (!cancelled) {
-          setLines(data.lines ?? []);
-          setError(null);
-        }
-      } catch {
-        if (!cancelled) setError('Could not reach the dev server.');
-      }
-    };
-
-    poll();
-    const id = setInterval(poll, 2000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
+    try {
+      const res = await authenticatedFetch(
+        `/api/preview/logs?projectPath=${encodeURIComponent(projectPath)}`
+      );
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+      setLines(data.lines ?? []);
+      setError(null);
+    } catch {
+      setError('Could not reach the dev server.');
+    }
   }, [projectPath, isPage]);
+
+  useEffect(() => {
+    void poll();
+  }, [poll]);
+
+  // Only while the tab is visible: a backgrounded console kept asking the dev
+  // server for its log every 2s with nothing on screen to show it.
+  useVisibleInterval(poll, 2000);
 
   const shown = isPage ? pageLines : lines;
 

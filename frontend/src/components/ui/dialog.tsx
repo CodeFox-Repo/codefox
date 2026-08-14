@@ -32,11 +32,38 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onCloseAutoFocus, ...props }, ref) => {
+  // The control this dialog was opened from, so Escape can put focus back on
+  // it. Recorded on open rather than on mount: Radix renders this component
+  // before the dialog is ever shown, when the active element is still <body>.
+  const openerRef = React.useRef<HTMLElement | null>(null);
+
+  return (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      // `onOpenAutoFocus` fires before focus moves into the dialog, so this
+      // is the last moment the opener is still the active element.
+      onOpenAutoFocus={(event) => {
+        openerRef.current = document.activeElement as HTMLElement | null;
+        props.onOpenAutoFocus?.(event);
+      }}
+      // Put focus back where it came from. Radix aims to do this, but the
+      // element it restores to has been blurred by the time it tries, so
+      // focus landed on <body> — a keyboard user pressed Escape and lost
+      // their place on the page entirely, with the next Tab starting over
+      // from the top. Measured on both auth modals; every dialog in the app
+      // renders through this one component.
+      onCloseAutoFocus={(event) => {
+        onCloseAutoFocus?.(event);
+        if (event.defaultPrevented) return;
+        const opener = openerRef.current;
+        if (opener?.isConnected) {
+          event.preventDefault();
+          opener.focus();
+        }
+      }}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
         className
@@ -50,7 +77,8 @@ const DialogContent = React.forwardRef<
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
-));
+  );
+});
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({
