@@ -14,7 +14,7 @@ import { siteUrl } from '@/lib/site';
 export const dynamic = 'force-dynamic';
 
 /**
- * The landing page, plus every shared page in the gallery.
+ * The landing page and the explore wall, plus every shared page in the gallery.
  *
  * The share links come from `fetchPublicProjects`, which is already public
  * and already the gallery's own query — no new endpoint, no enumeration of
@@ -29,6 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   const home: MetadataRoute.Sitemap = [
     { url: base, changeFrequency: 'daily', priority: 1 },
+    { url: `${base}/explore`, changeFrequency: 'daily', priority: 0.8 },
   ];
 
   const api = process.env.NEXT_PUBLIC_GRAPHQL_URL;

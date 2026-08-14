@@ -2,6 +2,7 @@
 
 import { useContext, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GitFork, ImageOff, Loader2 } from 'lucide-react';
@@ -61,14 +62,25 @@ function ShareLink({
  * branch below is a fallback for a photoUrl that 404s rather than the normal
  * case — a wall of "no preview yet" tiles showcases nothing.
  */
-export function PublicProjects({ limit = 6 }: { limit?: number }) {
+export function PublicProjects({
+  limit = 6,
+  strategy = 'latest',
+  showHeader = true,
+}: {
+  limit?: number;
+  /** latest = newest first; trending = most remixed first. */
+  strategy?: 'latest' | 'trending';
+  /** The landing page wants the BUILT WITH CODEFOX header; /explore brings
+   *  its own. */
+  showHeader?: boolean;
+}) {
   const router = useRouter();
   const { isAuthorized, user } = useAuthContext();
   const { forkProject } = useContext(ProjectContext);
   const [forking, setForking] = useState<string | null>(null);
 
   const { data, loading } = useQuery(FETCH_PUBLIC_PROJECTS, {
-    variables: { input: { size: limit, strategy: 'latest' } },
+    variables: { input: { size: limit, strategy } },
   });
 
   const projects: PublicProject[] = data?.fetchPublicProjects ?? [];
@@ -120,15 +132,20 @@ export function PublicProjects({ limit = 6 }: { limit?: number }) {
 
   return (
     // The id is the empty state's "see what others made" target.
-    <section id="built-with-codefox" className="mt-14 pb-4">
-      <div className="mb-5 flex items-baseline justify-between border-t-[3px] border-border pt-6">
-        <h2 className="font-mono text-sm tracking-[0.12em] text-primary">
-          BUILT WITH CODEFOX
-        </h2>
-        <span className="font-mono text-xs text-muted-foreground">
-          remix any of them
-        </span>
-      </div>
+    <section id="built-with-codefox" className={showHeader ? 'mt-14 pb-4' : 'pb-4'}>
+      {showHeader && (
+        <div className="mb-5 flex items-baseline justify-between border-t-[3px] border-border pt-6">
+          <h2 className="font-mono text-sm tracking-[0.12em] text-primary">
+            BUILT WITH CODEFOX
+          </h2>
+          <span className="font-mono text-xs text-muted-foreground">
+            remix any of them ·{' '}
+            <Link href="/explore" className="underline underline-offset-2 hover:text-foreground">
+              see all
+            </Link>
+          </span>
+        </div>
+      )}
 
       {loading ? (
         <ul
