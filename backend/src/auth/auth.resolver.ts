@@ -7,8 +7,11 @@ import {
   Field,
   ObjectType,
 } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CheckTokenInput } from './dto/check-token.input';
+import { JWTAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { GetUserIdFromToken } from 'src/common/decorators/get-auth-token.decorator';
 
 @ObjectType()
 export class RefreshTokenResponse {
@@ -81,5 +84,60 @@ export class AuthResolver {
     @Args('token') token: string,
   ): Promise<EmailConfirmationResponse> {
     return this.authService.confirmEmail(token);
+  }
+
+  /**
+   * Whether this account has a password at all.
+   *
+   * A Google sign-in has none, so the settings form would be a box whose only
+   * possible outcome is an error. Same shape as `googleAuthAvailable` and
+   * `registrationOpen`: the UI asks before it offers.
+   *
+   * A query rather than a field on `User`: field resolvers run unguarded, and
+   * `User` is reachable from the public gallery.
+   */
+  @Query(() => Boolean)
+  @UseGuards(JWTAuthGuard)
+  async hasPassword(@GetUserIdFromToken() userId: string): Promise<boolean> {
+    return this.authService.hasPassword(userId);
+  }
+
+  /**
+   * Change your own password. Guarded AND re-checks the current password:
+   * holding a session is not authorisation to take the account over.
+   *
+   * Returns a fresh token pair — the change ends every session including this
+   * one, and the device doing it should not be signed out for its trouble.
+   */
+  @Mutation(() => RefreshTokenResponse)
+  @UseGuards(JWTAuthGuard)
+  async changePassword(
+    @GetUserIdFromToken() userId: string,
+    @Args('currentPassword') currentPassword: string,
+    @Args('newPassword') newPassword: string,
+  ): Promise<RefreshTokenResponse> {
+    return this.authService.changePassword(userId, currentPassword, newPassword);
+  }
+
+  /**
+   * Public by necessity — someone who has forgotten their password cannot be
+   * holding a token. The service answers identically whether or not the
+   * address is registered, so this is not an account oracle.
+   */
+  @Mutation(() => EmailConfirmationResponse)
+  @Public()
+  async requestPasswordReset(
+    @Args('email') email: string,
+  ): Promise<EmailConfirmationResponse> {
+    return this.authService.requestPasswordReset(email);
+  }
+
+  @Mutation(() => EmailConfirmationResponse)
+  @Public()
+  async resetPassword(
+    @Args('token') token: string,
+    @Args('newPassword') newPassword: string,
+  ): Promise<EmailConfirmationResponse> {
+    return this.authService.resetPassword(token, newPassword);
   }
 }

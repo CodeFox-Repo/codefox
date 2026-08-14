@@ -119,7 +119,13 @@ export class AppConfigService {
    * Get frontend URL for email links
    */
   get frontendUrl(): string {
-    return this.configService.get('FRONTEND_URL');
+    // Falls back rather than returning undefined: this value is pasted
+    // straight into email links, so an unset variable shipped users a
+    // literal "undefined/reset-password?token=..." — a dead link, and the
+    // only symptom is a user who cannot get back in. FRONTEND_URL is in
+    // neither .env nor .env.example, so unset is the DEFAULT case, not an
+    // edge one.
+    return this.configService.get('FRONTEND_URL') ?? 'http://localhost:3000';
   }
 
   /**

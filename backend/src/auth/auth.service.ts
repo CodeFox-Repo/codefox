@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -25,6 +26,12 @@ import {
   RefreshTokenResponse,
 } from './auth.resolver';
 import { MailService } from 'src/mail/mail.service';
+import { findUserByEmail } from './find-by-email';
+import {
+  parseResetToken,
+  signResetToken,
+  verifyResetToken,
+} from './reset-token';
 
 @Injectable()
 export class AuthService {
@@ -60,9 +67,7 @@ export class AuthService {
       }
 
       // Find user and update
-      const user = await this.userRepository.findOne({
-        where: { email: payload.email },
-      });
+      const user = await findUserByEmail(this.userRepository, payload.email);
 
       if (user && !user.isEmailConfirmed) {
         user.isEmailConfirmed = true;
@@ -86,6 +91,187 @@ export class AuthService {
     }
   }
 
+  /**
+   * Sign an account out everywhere, right now. Returns how many access
+   * tokens were killed.
+   *
+   * Both halves matter and neither is enough alone: the refresh tokens are
+   * what would mint a fresh session for up to 7 days, and the cached access
+   * tokens are what still work for up to 30 minutes. Anything that decides an
+   * account's sessions must end calls this rather than one of the two —
+   * password reset used to drop refresh tokens only, and admin deactivation
+   * dropped neither.
+   */
+  async endAllSessions(userId: string): Promise<number> {
+    await this.refreshTokenRepository.delete({ userId });
+    return this.jwtCacheService.removeTokensForUser(userId);
+  }
+
+  /** Whether this account signs in with a password (Google accounts do not). */
+  async hasPassword(userId: string): Promise<boolean> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    return Boolean(user?.password);
+  }
+
+  /**
+   * Change your own password, while signed in.
+   *
+   * The current password is required even though the caller already holds a
+   * valid token: a stolen session must not become a stolen account. That is
+   * the whole reason this is not just `resetPassword` with a guard.
+   *
+   * Every other session dies (endAllSessions), and this device gets a fresh
+   * pair back — signing the user out of the tab they are standing in, to
+   * punish them for good security hygiene, is not a thing worth building.
+   *
+   * ponytail: no rate limit. It costs one bcrypt compare and needs a valid
+   * session plus the current password, so there is nothing here to guess at
+   * that the login path does not already gate.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<RefreshTokenResponse> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('No such user');
+    // Google accounts have no password to verify against, so there is no
+    // honest way to authorise the change. The UI hides the form for these.
+    if (!user.password) {
+      throw new BadRequestException(
+        'This account signs in with Google and has no password to change.',
+      );
+    }
+    if (!(await compare(currentPassword ?? '', user.password))) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters.');
+    }
+
+    user.password = await hash(newPassword, 10);
+    await this.userRepository.save(user);
+
+    // Same reason as a reset: the point of changing a password is usually
+    // that someone else might have the old one.
+    await this.endAllSessions(userId);
+
+    // Then re-admit this device only.
+    const accessToken = this.jwtService.sign(
+      { userId: user.id, email: user.email },
+      { expiresIn: '30m' },
+    );
+    const refreshTokenEntity = await this.createRefreshToken(user);
+    this.jwtCacheService.storeAccessToken(accessToken, user.id);
+
+    return { accessToken, refreshToken: refreshTokenEntity.token };
+  }
+
+  /**
+   * Start a password reset. Always answers the same thing.
+   *
+   * The response cannot depend on whether the address has an account, or on
+   * how long the work took — either one turns this into an oracle for
+   * "is X registered here". So an unknown address, a Google-only account and
+   * a real account all get the identical message, and the only thing that
+   * varies is whether an email actually goes out.
+   */
+  async requestPasswordReset(
+    email: string,
+  ): Promise<EmailConfirmationResponse> {
+    const same = {
+      message:
+        'If that address has an account, a reset link is on its way. Check your inbox.',
+      success: true,
+    };
+
+    const user = await findUserByEmail(this.userRepository, email);
+    // No account, or a Google sign-in with no password to reset.
+    if (!user || !user.password) return same;
+
+    // Same cooldown the resend path uses, and the same column. Without it
+    // this endpoint is an unauthenticated way to send mail to any address.
+    const cooldown = 60 * 1000;
+    if (
+      user.lastEmailSendTime &&
+      Date.now() - user.lastEmailSendTime.getTime() < cooldown
+    ) {
+      return same;
+    }
+
+    const token = signResetToken(
+      this.configService.jwtSecret,
+      user.id,
+      user.password,
+    );
+
+    user.lastEmailSendTime = new Date();
+    await this.userRepository.save(user);
+
+    if (this.isMailEnabled) {
+      await this.mailService.sendPasswordResetEmail(user, token);
+    } else {
+      // SMTP is off in every environment today, so without this the feature
+      // could not be exercised at all. The link is the whole secret, so it
+      // goes to the server log and nowhere near the response.
+      Logger.warn(
+        `[auth] mail disabled — reset link for ${user.email}: ` +
+          `${this.configService.frontendUrl}/reset-password?token=${token}`,
+      );
+    }
+
+    return same;
+  }
+
+  /**
+   * Finish a reset.
+   *
+   * Single use falls out of how the token is signed: the key includes the
+   * current password hash, so the moment this saves a new one every link
+   * issued against the old password stops verifying. Nothing to store, and
+   * nothing to clean up.
+   */
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<EmailConfirmationResponse> {
+    const bad = {
+      message: 'This reset link is invalid or has expired. Request a new one.',
+      success: false,
+    };
+
+    const parsed = parseResetToken(token);
+    if (!parsed) return bad;
+
+    const user = await this.userRepository.findOne({
+      where: { id: parsed.userId },
+    });
+    if (!user || !user.password) return bad;
+    if (!verifyResetToken(this.configService.jwtSecret, token, user.password)) {
+      return bad;
+    }
+
+    // Validated here rather than in the DTO: the same rule has to hold for a
+    // reset as for a registration, and the DTO for this mutation is two
+    // strings.
+    if (!newPassword || newPassword.length < 8) {
+      return {
+        message: 'Password must be at least 8 characters.',
+        success: false,
+      };
+    }
+
+    user.password = await hash(newPassword, 10);
+    // Whoever is resetting may be locked out precisely because someone else
+    // is in the account. Existing sessions must not survive it.
+    await this.endAllSessions(user.id);
+    // A reset proves control of the inbox, which is what confirmation asks.
+    user.isEmailConfirmed = true;
+    await this.userRepository.save(user);
+
+    return { message: 'Password updated. You can sign in now.', success: true };
+  }
+
   async sendVerificationEmail(user: User): Promise<EmailConfirmationResponse> {
     // Generate confirmation token
     const verifyToken = this.jwtService.sign(
@@ -107,9 +293,7 @@ export class AuthService {
   }
 
   async resendVerificationEmail(email: string) {
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+    const user = await findUserByEmail(this.userRepository, email);
 
     if (!user) {
       throw new Error('User not found');
@@ -160,12 +344,14 @@ export class AuthService {
       );
     }
 
-    const { username, email, password, confirmPassword } = registerUserInput;
+    const { username, password, confirmPassword } = registerUserInput;
+    // Stored normalised so new rows are consistent. Lookups compare with
+    // LOWER on both sides anyway, so the mixed-case rows already in the
+    // database keep working — this only stops new ones appearing.
+    const email = registerUserInput.email?.trim().toLowerCase();
 
     // Check for existing email
-    const existingUser = await this.userRepository.findOne({
-      where: { email },
-    });
+    const existingUser = await findUserByEmail(this.userRepository, email);
 
     if (password !== confirmPassword) {
       throw new ConflictException('Passwords do not match');
@@ -202,7 +388,19 @@ export class AuthService {
       });
     }
 
-    await this.userRepository.save(newUser);
+    try {
+      await this.userRepository.save(newUser);
+    } catch (error) {
+      // The existence check above and this insert are separated by a bcrypt
+      // hash, so two signups for one address can both pass the check. The
+      // unique index is what actually stops the second — both now normalise
+      // to the same lowercase string, so it fires — but a raw constraint
+      // error surfaces as a 500. Say the same thing the check would have.
+      if (/unique|constraint/i.test(String((error as Error)?.message))) {
+        throw new ConflictException('Email already exists');
+      }
+      throw error;
+    }
 
     if (this.isMailEnabled) {
       await this.sendVerificationEmail(newUser);
@@ -214,9 +412,7 @@ export class AuthService {
   async login(loginUserInput: LoginUserInput): Promise<RefreshTokenResponse> {
     const { email, password } = loginUserInput;
 
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+    const user = await findUserByEmail(this.userRepository, email);
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -246,7 +442,7 @@ export class AuthService {
     );
 
     const refreshTokenEntity = await this.createRefreshToken(user);
-    this.jwtCacheService.storeAccessToken(accessToken);
+    this.jwtCacheService.storeAccessToken(accessToken, user.id);
 
     return {
       accessToken,
@@ -293,7 +489,7 @@ export class AuthService {
       // every logout, indefinitely.
       await this.refreshTokenRepository.delete({
         userId: payload.userId,
-      } as any);
+      });
 
       return true;
     } catch (error) {
@@ -558,7 +754,7 @@ export class AuthService {
     // could keep minting access tokens for the refresh token's seven days.
     if (!existingToken.user?.isActive || existingToken.user.isDeleted) {
       // The refresh token is the thing that would keep working, so it goes.
-      await this.refreshTokenRepository.delete({ token: refreshToken } as any);
+      await this.refreshTokenRepository.delete({ token: refreshToken });
       throw new UnauthorizedException('This account is no longer active');
     }
 
@@ -570,7 +766,7 @@ export class AuthService {
       { expiresIn: '30m' },
     );
 
-    this.jwtCacheService.storeAccessToken(accessToken);
+    this.jwtCacheService.storeAccessToken(accessToken, existingToken.user.id);
 
     return {
       accessToken,
@@ -598,9 +794,7 @@ export class AuthService {
 
     if (!user) {
       // If not found by googleId, try to find by email
-      user = await this.userRepository.findOne({
-        where: { email: googleProfile.email },
-      });
+      user = await findUserByEmail(this.userRepository, googleProfile.email);
 
       if (user) {
         // If found by email but not googleId, update the user with googleId
@@ -649,7 +843,7 @@ export class AuthService {
     );
 
     const refreshTokenEntity = await this.createRefreshToken(user);
-    this.jwtCacheService.storeAccessToken(accessToken);
+    this.jwtCacheService.storeAccessToken(accessToken, user.id);
 
     const refreshToken = refreshTokenEntity.token;
 

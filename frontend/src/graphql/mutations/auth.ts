@@ -65,3 +65,39 @@ export const GOOGLE_AUTH_AVAILABLE = gql`
     googleAuthAvailable
   }
 `;
+
+export const REQUEST_PASSWORD_RESET = gql`
+  mutation RequestPasswordReset($email: String!) {
+    requestPasswordReset(email: $email) {
+      message
+      success
+    }
+  }
+`;
+
+export const RESET_PASSWORD = gql`
+  mutation ResetPassword($token: String!, $newPassword: String!) {
+    resetPassword(token: $token, newPassword: $newPassword) {
+      message
+      success
+    }
+  }
+`;
+
+export const HAS_PASSWORD = gql`
+  query HasPassword {
+    hasPassword
+  }
+`;
+
+export const CHANGE_PASSWORD = gql`
+  mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
+    changePassword(
+      currentPassword: $currentPassword
+      newPassword: $newPassword
+    ) {
+      accessToken
+      refreshToken
+    }
+  }
+`;

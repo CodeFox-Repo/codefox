@@ -4,8 +4,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ModeToggle } from '../mode-toggle';
 import { AvatarUploader } from '../avatar-uploader';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { gql, useMutation } from '@apollo/client';
+import { gql, useMutation, useQuery } from '@apollo/client';
 import { toast } from 'sonner';
+import { CHANGE_PASSWORD, HAS_PASSWORD } from '@/graphql/mutations/auth';
 
 /**
  * Section shell shared by every block on this page, matching the rule-and-label
@@ -120,6 +121,133 @@ function UsernameField({ current }: { current?: string | null }) {
 }
 
 /**
+ * Change your own password.
+ *
+ * Collapsed to a button until asked for: this is the rare action on a page of
+ * settings, and three password boxes sitting open is what a security page
+ * looks like, not an account page.
+ */
+function PasswordField() {
+  const { login } = useAuthContext();
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const close = () => {
+    setOpen(false);
+    setCurrent('');
+    setNext('');
+    setConfirm('');
+    setError(null);
+  };
+
+  const [changePassword, { loading }] = useMutation(CHANGE_PASSWORD, {
+    onCompleted: (data) => {
+      // The change ended every session including this one; these are the
+      // replacements, so the tab the user is standing in stays signed in.
+      login(data.changePassword.accessToken, data.changePassword.refreshToken);
+      toast.success('Password changed — other devices were signed out');
+      close();
+    },
+    // The server's own words ("Current password is incorrect"), not a guess.
+    onError: (err) => setError(err.message),
+  });
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-border bg-background px-3 py-1.5 font-mono text-sm text-foreground transition-colors hover:border-primary/60"
+      >
+        Change password
+      </button>
+    );
+  }
+
+  const field =
+    'w-full rounded-md border border-border bg-background px-3 py-1.5 font-mono text-sm text-foreground focus:border-primary focus:outline-none';
+
+  return (
+    <form
+      className="w-full max-w-xs space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        // The server never sees the confirm box, so it cannot catch this typo.
+        if (next !== confirm) {
+          setError('The two new passwords do not match.');
+          return;
+        }
+        setError(null);
+        changePassword({
+          variables: { currentPassword: current, newPassword: next },
+        });
+      }}
+    >
+      <input
+        type="password"
+        value={current}
+        onChange={(e) => {
+          setCurrent(e.target.value);
+          setError(null);
+        }}
+        placeholder="Current password"
+        aria-label="Current password"
+        autoComplete="current-password"
+        required
+        className={field}
+      />
+      <input
+        type="password"
+        value={next}
+        onChange={(e) => {
+          setNext(e.target.value);
+          setError(null);
+        }}
+        placeholder="New password"
+        aria-label="New password"
+        autoComplete="new-password"
+        minLength={8}
+        required
+        className={field}
+      />
+      <input
+        type="password"
+        value={confirm}
+        onChange={(e) => {
+          setConfirm(e.target.value);
+          setError(null);
+        }}
+        placeholder="Confirm new password"
+        aria-label="Confirm new password"
+        autoComplete="new-password"
+        required
+        className={field}
+      />
+      {error && <p className="font-mono text-xs text-destructive">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={loading || !current || !next || !confirm}
+          className="rounded-md border border-primary bg-primary px-3 py-1.5 font-mono text-sm text-primary-foreground transition-opacity disabled:opacity-50"
+        >
+          {loading ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          type="button"
+          onClick={close}
+          className="rounded-md border border-border px-3 py-1.5 font-mono text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
  * Read-only field value: a chip on the page background (against the section's
  * card) with a mono tag so it reads as locked, not as a broken input.
  */
@@ -140,6 +268,9 @@ function ReadOnlyValue({ value }: { value?: string | null }) {
 export default function UserSetting() {
   const { user } = useAuthContext();
   const [avatarUrl, setAvatarUrl] = useState('');
+  // undefined until answered — see the Password row.
+  const { data: passwordData } = useQuery(HAS_PASSWORD);
+  const hasPassword: boolean | undefined = passwordData?.hasPassword;
 
   useEffect(() => {
     if (user) setAvatarUrl(user.avatarUrl || '');
@@ -179,6 +310,27 @@ export default function UserSetting() {
           <Row title="Email" hint="The address you signed in with.">
             <ReadOnlyValue value={user?.email} />
           </Row>
+
+          {/* Hidden entirely until the answer is known: rendering the form and
+              then swapping it for "no password" reads as a bug. A Google
+              account gets the explanation instead of a form that can only
+              fail. */}
+          {hasPassword !== undefined && (
+            <Row
+              title="Password"
+              hint={
+                hasPassword
+                  ? 'Changing it signs out your other devices.'
+                  : 'You sign in with Google, so there is no password to change.'
+              }
+            >
+              {hasPassword ? (
+                <PasswordField />
+              ) : (
+                <ReadOnlyValue value="Google sign-in" />
+              )}
+            </Row>
+          )}
         </Section>
 
         <Section label="APPEARANCE">

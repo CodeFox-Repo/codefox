@@ -19,7 +19,11 @@ import {
 } from '@/components/ui/texture-card';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client';
-import { GOOGLE_AUTH_AVAILABLE, LOGIN_USER } from '@/graphql/mutations/auth';
+import {
+  GOOGLE_AUTH_AVAILABLE,
+  LOGIN_USER,
+  REQUEST_PASSWORD_RESET,
+} from '@/graphql/mutations/auth';
 import { toast } from 'sonner';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -35,8 +39,25 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Forgetting a password had no path at all: the backend could send the mail
+  // and the template existed, but nothing ever called it and there was no
+  // link to start from. Inline rather than its own route — the address is
+  // already typed in the box above.
+  const [forgot, setForgot] = useState(false);
+  const [sent, setSent] = useState<string | null>(null);
   // Destructure login from our AuthContext
   const { login } = useAuthContext();
+
+  const [requestReset, { loading: sending }] = useMutation(
+    REQUEST_PASSWORD_RESET,
+    {
+      // The server answers the same way whether or not the address is
+      // registered, so there is no failure branch to show — echoing its
+      // message is the whole result.
+      onCompleted: (data) => setSent(data.requestPasswordReset.message),
+      onError: () => setErrorMessage('Could not reach the server. Try again.'),
+    }
+  );
 
   // Destructure `loading` so we can disable the button while logging in
   // Hidden entirely when the backend has no Google credentials — a button
@@ -92,57 +113,146 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
         <BackgroundGradient className="rounded-[22px] p-4 bg-background">
           <div className="w-full">
             <TextureCardHeader className="flex flex-col gap-1 items-center justify-center p-4">
-              <TextureCardTitle>Welcome back</TextureCardTitle>
+              {/* The header follows the form. "Welcome back / Sign in to your
+                  account" over a reset form describes the wrong screen. */}
+              <TextureCardTitle>
+                {forgot ? 'Reset your password' : 'Welcome back'}
+              </TextureCardTitle>
               <p className="text-center text-muted-foreground">
-                Sign in to your account
+                {forgot ? 'We’ll email you a link' : 'Sign in to your account'}
               </p>
             </TextureCardHeader>
             <TextureSeparator />
             <TextureCardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setErrorMessage(null); // Clear error when user types
-                    }}
-                    required
-                    className="w-full"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setErrorMessage(null); // Clear error when user types
-                    }}
-                    required
-                    className="w-full"
-                  />
-                </div>
+              {forgot ? (
+                <div className="space-y-4">
+                  {sent ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">{sent}</p>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setForgot(false);
+                          setSent(null);
+                        }}
+                      >
+                        Back to sign in
+                      </Button>
+                    </>
+                  ) : (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setErrorMessage(null);
+                        requestReset({ variables: { email } });
+                      }}
+                      className="space-y-4"
+                    >
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-email">Email</Label>
+                        <Input
+                          id="reset-email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            setErrorMessage(null);
+                          }}
+                          required
+                          className="w-full"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          We&apos;ll send a link to choose a new password.
+                        </p>
+                      </div>
 
-                {/* Show error message if login fails */}
-                {errorMessage && (
-                  <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400 text-sm p-2 rounded-md bg-primary-50 dark:bg-secondary border border-primary-200 dark:border-primary-800">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{errorMessage}</span>
+                      {errorMessage && (
+                        <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400 text-sm p-2 rounded-md bg-primary-50 dark:bg-secondary border border-primary-200 dark:border-primary-800">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>{errorMessage}</span>
+                        </div>
+                      )}
+
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={sending || !email}
+                      >
+                        {sending ? 'Sending…' : 'Send reset link'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full"
+                        onClick={() => {
+                          setForgot(false);
+                          setErrorMessage(null);
+                        }}
+                      >
+                        Back to sign in
+                      </Button>
+                    </form>
+                  )}
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setErrorMessage(null); // Clear error when user types
+                      }}
+                      required
+                      className="w-full"
+                    />
                   </div>
-                )}
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setErrorMessage(null); // Clear error when user types
+                      }}
+                      required
+                      className="w-full"
+                    />
+                  </div>
 
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Signing in...' : 'Sign in'}
-                </Button>
-              </form>
+                  {/* Show error message if login fails */}
+                  {errorMessage && (
+                    <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400 text-sm p-2 rounded-md bg-primary-50 dark:bg-secondary border border-primary-200 dark:border-primary-800">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{errorMessage}</span>
+                    </div>
+                  )}
 
-              <div className="mt-6">
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? 'Signing in...' : 'Sign in'}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgot(true);
+                      setErrorMessage(null);
+                    }}
+                    className="w-full text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Forgot your password?
+                  </button>
+                </form>
+              )}
+
+              {/* "Or continue with" belongs to signing in; under a reset
+                  form it offers an alternative to a thing you are not doing. */}
+              <div className={forgot ? 'hidden' : 'mt-6'}>
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t" />

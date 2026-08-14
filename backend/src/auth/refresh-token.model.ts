@@ -15,6 +15,11 @@ export class RefreshToken {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   user: User;
 
+  // uuid, like User.id. The column TypeORM actually creates is varchar —
+  // it takes the type from the relation above, not from this declaration —
+  // so this was typed `number` while holding a uuid, and every delete by
+  // userId needed an `as any` to compile. Declaration-only fix: no migration,
+  // the column was already varchar.
   @Column()
-  userId: number;
+  userId: string;
 }
