@@ -270,7 +270,22 @@ do not.`,
     name: 'Web app',
     blurb: 'Next.js starter with a dev server',
     template: 'next',
-    guidance: '',
+    guidance: `You are building a full-stack web app on the Next.js starter —
+App Router, Server Components by default, interactivity in client components.
+
+The app has a real database: \`import { getDb } from '@/lib/db'\` gives a
+better-sqlite3 handle on a file inside the project (data/app.db, WAL on). It
+needs no setup — call it and query. There are no migrations: create tables
+with CREATE TABLE IF NOT EXISTS from a small ensureSchema() you call at the
+top of the handlers that need them.
+
+Reads and writes that change state belong in Route Handlers
+(app/api/<thing>/route.ts); pages read through the same helper directly when
+the data is read-only. Seed a few believable rows on first use — an app that
+opens empty reads as broken, not as new.
+
+This database is for building and testing the app: it persists across dev
+server restarts, and it is not a production store. Keep the schema simple.`,
   },
 ];
 

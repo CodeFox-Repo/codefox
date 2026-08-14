@@ -20,12 +20,14 @@ describe('scenarios', () => {
     }
   });
 
-  it('gives every page scenario shape guidance, and the app none', () => {
-    // The Next starter has its own conventions; the html kinds are the ones
-    // that would otherwise all come out as a centered hero.
+  it('gives every scenario guidance to build from', () => {
+    // The html kinds need shape guidance — otherwise they all come out as a
+    // centered hero. The app kind needs to know what the starter ships: it
+    // grew a database helper, and a model that does not know it is there
+    // reinvents state badly.
     for (const s of SCENARIOS) {
       if (s.template === 'html') expect(s.guidance.length).toBeGreaterThan(200);
-      else expect(s.guidance).toBe('');
+      else expect(s.guidance).toContain('@/lib/db');
     }
   });
 

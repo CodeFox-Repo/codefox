@@ -55,8 +55,73 @@ export async function ensureTemplate(): Promise<string> {
     logger.log('Template dependencies installed');
   }
 
+  // better-sqlite3 is not in the upstream template repo — it is ours, added
+  // here so every generated app has a real database. Every project symlinks
+  // THIS node_modules, so one install covers them all. Installing into the
+  // template also writes it into the template's package.json and lockfile,
+  // which is what every project then copies.
+  if (!existsSync(path.join(modules, 'better-sqlite3', 'package.json'))) {
+    logger.log('Adding better-sqlite3 to the shared template install…');
+    await exec(
+      'npm',
+      [
+        'install',
+        'better-sqlite3',
+        '--save',
+        '--no-audit',
+        '--no-fund',
+      ],
+      { cwd: template, maxBuffer: 32 * 1024 * 1024 }
+    );
+    await exec(
+      'npm',
+      ['install', '@types/better-sqlite3', '--save-dev', '--no-audit', '--no-fund'],
+      { cwd: template, maxBuffer: 32 * 1024 * 1024 }
+    );
+    logger.log('better-sqlite3 available to all projects');
+  }
+
   return template;
 }
+
+/**
+ * The database helper every app project is born with.
+ *
+ * One SQLite file inside the project, via better-sqlite3 — no server, no
+ * setup, no env var. It is there so an app built in one prompt can hold
+ * state while it is being built and tested; it is a development store, not a
+ * production one. Kept deliberately small: the agent is expected to write
+ * its own schema and queries, this file only owns the connection.
+ */
+const DB_HELPER = `import Database from 'better-sqlite3';
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+
+/**
+ * The app's own database: a single SQLite file at data/app.db.
+ *
+ * The dev server reloads modules on every edit, so the connection lives on
+ * globalThis — without that, each hot reload opens a new handle on the same
+ * file until SQLite refuses them all.
+ */
+const globalForDb = globalThis as unknown as {
+  __appDb?: Database.Database;
+};
+
+export function getDb(): Database.Database {
+  if (!globalForDb.__appDb) {
+    const dir = path.join(process.cwd(), 'data');
+    mkdirSync(dir, { recursive: true });
+    const db = new Database(path.join(dir, 'app.db'));
+    // WAL + a busy timeout: the dev server and any background work can then
+    // read while another request writes, instead of failing with BUSY.
+    db.pragma('journal_mode = WAL');
+    db.pragma('busy_timeout = 5000');
+    globalForDb.__appDb = db;
+  }
+  return globalForDb.__appDb;
+}
+`;
 
 /**
  * Materialise a new project directory from the template.
@@ -71,6 +136,17 @@ export async function scaffoldProject(projectId: string): Promise<string> {
   await copy(template, target, {
     filter: (src) => !SKIP.has(path.basename(src)),
   });
+
+  // The app starter ships with a database: one helper, one file, zero setup.
+  // Injected here rather than upstream so a plain template update can never
+  // drop it. The database file itself is data, not source — kept out of git
+  // so "what changed" stays about the code.
+  await fsExtra.ensureDir(path.join(target, 'src/lib'));
+  await fsExtra.writeFile(path.join(target, 'src/lib/db.ts'), DB_HELPER);
+  await fsExtra.appendFile(
+    path.join(target, '.gitignore'),
+    '\n# the app database is data, not source\ndata/\n'
+  );
 
   // ponytail: shared node_modules, one install for every project. Fine while
   // every project comes from the same template — give a project its own
