@@ -37,3 +37,13 @@ dist/
 
 # QA screenshots dropped at the repo root during agent sessions
 /*.png
+
+# Visual QA screenshots and walk scripts (not committed).
+qa/
+
+# Ad-hoc probe scripts written during debugging sessions
+*.tmp.mjs
+
+# Agent runtime state (nested worktrees) and local UI screenshots
+.kobe/
+/frontend/*.png
