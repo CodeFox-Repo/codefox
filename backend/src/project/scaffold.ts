@@ -141,6 +141,17 @@ export interface StarterExtra {
   append?: boolean;
 }
 
+/**
+ * The database driver, as dependency declarations. Host projects get these
+ * from the template's own package.json (ensureTemplate installs into it);
+ * sandbox projects clone the *upstream* template, which never heard of
+ * them — so the sandbox branch merges these into the clone's package.json.
+ */
+export const STARTER_DB_DEPS = {
+  dependencies: { 'better-sqlite3': '^13.0.3' },
+  devDependencies: { '@types/better-sqlite3': '^9.6.0' },
+};
+
 export async function appStarterExtras(): Promise<StarterExtra[]> {
   const template = await ensureTemplate();
 

@@ -211,9 +211,17 @@ export class VercelWorkspace implements ProjectWorkspace {
    * tree comes back with it on the next resume.
    */
   private async ensureDependencies(): Promise<void> {
+    // "node_modules exists" is not "dependencies are satisfied": a project
+    // created before a starter dependency was added has a tree without it,
+    // and the dev server then dies on the missing module. If package.json
+    // declares better-sqlite3 it must resolve; otherwise we install.
     const present = await this.sandbox.runCommand({
       cmd: 'sh',
-      args: ['-lc', 'test -d node_modules && echo yes'],
+      args: [
+        '-lc',
+        'test -d node_modules && { ! grep -q better-sqlite3 package.json || ' +
+          `node -e "require.resolve('better-sqlite3')" 2>/dev/null; } && echo yes`,
+      ],
       cwd: ROOT,
     });
     if ((await present.stdout()).includes('yes')) return;

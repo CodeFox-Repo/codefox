@@ -19,6 +19,7 @@ import {
   copyProject,
   scaffoldHtmlProject,
   scaffoldProject,
+  STARTER_DB_DEPS,
 } from './scaffold';
 import { staleMediaPath } from './media-file';
 import { assertCanCreateProject } from './quota';
@@ -267,7 +268,10 @@ export class ProjectService {
               : savedProject.id;
           // Sandbox mode clones the bare upstream template into the microVM —
           // the starter extras (db helper, shadcn at the canonical path, dev
-          // badge off) exist only if written through the workspace.
+          // badge off) exist only if written through the workspace. Same for
+          // the database driver: it is in the template's own package.json
+          // locally, but the clone's, so merge the declarations in and let
+          // the first preview's install fetch it.
           if (sandboxMode() !== 'host') {
             const workspace = await this.workspaces.for(
               savedProject.projectPath
@@ -282,6 +286,22 @@ export class ProjectService {
               } else {
                 await workspace.writeFile(extra.path, extra.content);
               }
+            }
+            const pkgRaw = await workspace.readFile('package.json');
+            if (pkgRaw) {
+              const pkg = JSON.parse(pkgRaw);
+              pkg.dependencies = {
+                ...pkg.dependencies,
+                ...STARTER_DB_DEPS.dependencies,
+              };
+              pkg.devDependencies = {
+                ...pkg.devDependencies,
+                ...STARTER_DB_DEPS.devDependencies,
+              };
+              await workspace.writeFile(
+                'package.json',
+                JSON.stringify(pkg, null, 2)
+              );
             }
           }
         }
