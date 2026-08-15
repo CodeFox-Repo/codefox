@@ -160,6 +160,21 @@ export async function scaffoldProject(projectId: string): Promise<string> {
     path.join(target, 'src/components/ui')
   );
 
+  // The floating Next dev badge is noise on a generated app's preview.
+  // Patched here too (not only in the template) because the template may be
+  // a fresh clone — this is the one place every project passes through.
+  const configPath = path.join(target, 'next.config.ts');
+  const config = await fsExtra.readFile(configPath, 'utf8');
+  if (!config.includes('devIndicators')) {
+    await fsExtra.writeFile(
+      configPath,
+      config.replace(
+        /const nextConfig: NextConfig = \{/,
+        `$&\n    // the floating dev badge is noise on a generated app's preview\n    devIndicators: false,`
+      )
+    );
+  }
+
   // ponytail: shared node_modules, one install for every project. Fine while
   // every project comes from the same template — give a project its own
   // install once the agent is allowed to add dependencies.
