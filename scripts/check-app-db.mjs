@@ -29,8 +29,13 @@ assert.match(
 // ── The helper lands in every scaffolded app ───────────────────────
 assert.match(
   scaffold,
-  /src\/lib\/db\.ts/,
-  'scaffoldProject no longer writes src/lib/db.ts'
+  /path: 'src\/lib\/db\.ts'/,
+  'appStarterExtras no longer includes src/lib/db.ts'
+);
+assert.match(
+  scaffold,
+  /export async function appStarterExtras/,
+  'appStarterExtras is gone — sandbox mode gets its extras from it'
 );
 assert.match(
   scaffold,
@@ -41,8 +46,14 @@ assert.match(
 // any write would bake a binary database into the project's history.
 assert.match(
   scaffold,
-  /appendFile[\s\S]{0,200}data\//,
+  /append: true/,
   'the project .gitignore no longer excludes the database file'
+);
+const service = read('backend/src/project/project.service.ts');
+assert.match(
+  service,
+  /appStarterExtras\(\)[\s\S]{0,400}workspace\.writeFile|workspace\.writeFile[\s\S]{0,400}appStarterExtras|for \(const extra of await appStarterExtras/,
+  'sandbox-mode creation never writes the extras into the microVM'
 );
 
 // ── The agent is told it exists ────────────────────────────────────

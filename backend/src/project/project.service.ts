@@ -14,7 +14,12 @@ import {
   FetchPublicProjectsInputs,
 } from './dto/project.input';
 import { generateText } from 'ai';
-import { copyProject, scaffoldHtmlProject, scaffoldProject } from './scaffold';
+import {
+  appStarterExtras,
+  copyProject,
+  scaffoldHtmlProject,
+  scaffoldProject,
+} from './scaffold';
 import { staleMediaPath } from './media-file';
 import { assertCanCreateProject } from './quota';
 import { AuthService } from '../auth/auth.service';
@@ -260,6 +265,25 @@ export class ProjectService {
             sandboxMode() === 'host'
               ? await scaffoldProject(savedProject.id)
               : savedProject.id;
+          // Sandbox mode clones the bare upstream template into the microVM —
+          // the starter extras (db helper, shadcn at the canonical path, dev
+          // badge off) exist only if written through the workspace.
+          if (sandboxMode() !== 'host') {
+            const workspace = await this.workspaces.for(
+              savedProject.projectPath
+            );
+            for (const extra of await appStarterExtras()) {
+              if (extra.append) {
+                const existing = await workspace.readFile(extra.path);
+                await workspace.writeFile(
+                  extra.path,
+                  (existing ?? '') + extra.content
+                );
+              } else {
+                await workspace.writeFile(extra.path, extra.content);
+              }
+            }
+          }
         }
         await this.projectsRepository.save(savedProject);
       } catch (error) {

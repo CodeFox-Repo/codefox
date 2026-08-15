@@ -124,6 +124,73 @@ export function getDb(): Database.Database {
 `;
 
 /**
+ * What makes a bare template clone a CodeFox app starter: the database
+ * helper, the shadcn set at the canonical path, the dev badge off, and the
+ * database file kept out of git.
+ *
+ * One list for both runtimes. Host mode writes these to the project
+ * directory; sandbox mode writes them into the microVM through the
+ * workspace — the sandbox clones the *upstream* template from git, so
+ * without this its projects have none of it (this was the MONO Store
+ * `Can't resolve '@/components/ui/button'` on the public wall).
+ */
+export interface StarterExtra {
+  path: string;
+  content: string;
+  /** Append to whatever the template ships rather than replacing it. */
+  append?: boolean;
+}
+
+export async function appStarterExtras(): Promise<StarterExtra[]> {
+  const template = await ensureTemplate();
+
+  const extras: StarterExtra[] = [
+    { path: 'src/lib/db.ts', content: DB_HELPER },
+    {
+      path: '.gitignore',
+      content: '\n# the app database is data, not source\ndata/\n',
+      append: true,
+    },
+  ];
+
+  // The template carries the full shadcn set under the registry path it was
+  // generated with, which no model reaches for on its own. Give it the
+  // canonical import path instead.
+  const uiDir = path.join(template, 'src/registry/new-york-v4/ui');
+  const walk = (dir: string, prefix: string): string[] =>
+    fsExtra
+      .readdirSync(dir, { withFileTypes: true })
+      .flatMap((e) =>
+        e.isDirectory()
+          ? walk(path.join(dir, e.name), `${prefix}${e.name}/`)
+          : [`${prefix}${e.name}`]
+      );
+  for (const rel of walk(uiDir, '')) {
+    extras.push({
+      path: `src/components/ui/${rel}`,
+      content: await fsExtra.readFile(path.join(uiDir, rel), 'utf8'),
+    });
+  }
+
+  // The floating Next dev badge is noise on a generated app's preview.
+  const config = await fsExtra.readFile(
+    path.join(template, 'next.config.ts'),
+    'utf8'
+  );
+  extras.push({
+    path: 'next.config.ts',
+    content: config.includes('devIndicators')
+      ? config
+      : config.replace(
+          /const nextConfig: NextConfig = \{/,
+          `$&\n    // the floating dev badge is noise on a generated app's preview\n    devIndicators: false,`
+        ),
+  });
+
+  return extras;
+}
+
+/**
  * Materialise a new project directory from the template.
  *
  * Returns the directory name, which is what `Project.projectPath` stores and
@@ -137,42 +204,13 @@ export async function scaffoldProject(projectId: string): Promise<string> {
     filter: (src) => !SKIP.has(path.basename(src)),
   });
 
-  // The app starter ships with a database: one helper, one file, zero setup.
   // Injected here rather than upstream so a plain template update can never
-  // drop it. The database file itself is data, not source — kept out of git
-  // so "what changed" stays about the code.
-  await fsExtra.ensureDir(path.join(target, 'src/lib'));
-  await fsExtra.writeFile(path.join(target, 'src/lib/db.ts'), DB_HELPER);
-  await fsExtra.appendFile(
-    path.join(target, '.gitignore'),
-    '\n# the app database is data, not source\ndata/\n'
-  );
-
-  // The template carries the full shadcn set under the registry path it was
-  // generated with (src/registry/new-york-v4/ui), which no model reaches for
-  // on its own — left like that, the agent hand-rolls every primitive in raw
-  // Tailwind and every app comes out looking default. Give it the canonical
-  // import path instead. A copy, not a symlink: the sandbox upload does not
-  // preserve links, and the registry originals stay for the demos that
-  // reference them.
-  await copy(
-    path.join(target, 'src/registry/new-york-v4/ui'),
-    path.join(target, 'src/components/ui')
-  );
-
-  // The floating Next dev badge is noise on a generated app's preview.
-  // Patched here too (not only in the template) because the template may be
-  // a fresh clone — this is the one place every project passes through.
-  const configPath = path.join(target, 'next.config.ts');
-  const config = await fsExtra.readFile(configPath, 'utf8');
-  if (!config.includes('devIndicators')) {
-    await fsExtra.writeFile(
-      configPath,
-      config.replace(
-        /const nextConfig: NextConfig = \{/,
-        `$&\n    // the floating dev badge is noise on a generated app's preview\n    devIndicators: false,`
-      )
-    );
+  // drop them. Same list sandbox mode writes into the microVM.
+  for (const extra of await appStarterExtras()) {
+    const file = path.join(target, extra.path);
+    await fsExtra.ensureDir(path.dirname(file));
+    if (extra.append) await fsExtra.appendFile(file, extra.content);
+    else await fsExtra.writeFile(file, extra.content);
   }
 
   // ponytail: shared node_modules, one install for every project. Fine while

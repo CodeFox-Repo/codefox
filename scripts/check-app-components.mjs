@@ -19,14 +19,13 @@ const scenarios = read('backend/src/project/scenarios.ts');
 // ── Scaffold puts the set at the canonical path ────────────────────
 assert.match(
   scaffold,
-  /registry\/new-york-v4\/ui'?\)[\s\S]{0,120}src\/components\/ui|src\/registry\/new-york-v4\/ui[\s\S]{0,200}src\/components\/ui/,
-  'scaffoldProject no longer copies the shadcn set to src/components/ui'
+  /registry\/new-york-v4\/ui/,
+  'appStarterExtras no longer sources the shadcn set from the registry path'
 );
-// A copy, not a symlink — the sandbox upload does not preserve links.
-assert.doesNotMatch(
+assert.match(
   scaffold,
-  /symlink[\s\S]{0,80}components\/ui/,
-  'src/components/ui must be a copy, not a symlink'
+  /src\/components\/ui\/\$\{rel\}/,
+  'appStarterExtras no longer maps the set to src/components/ui'
 );
 
 // ── The agent is told to use it ────────────────────────────────────
