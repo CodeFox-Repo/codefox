@@ -260,15 +260,19 @@ export class VercelWorkspace implements ProjectWorkspace {
    * reporting that the preview had not started. A 500 from the user's app is
    * something they should see in the preview, not something to hide behind a
    * timeout.
+   *
+   * The check is for Next, not for any listener: a fresh sandbox answers
+   * every port with a placeholder "hello world" stub until the real server
+   * binds, and any-200-called-ready handed visitors that stub. A Next page
+   * always references /_next/ assets; the stub never does.
    */
   private async isPreviewRunning(): Promise<boolean> {
     const check = await this.sandbox.runCommand('sh', [
       '-lc',
-      `curl -s -o /dev/null -w '%{http_code}' --max-time 5 ` +
-        `http://127.0.0.1:${this.previewPort} || echo 000`,
+      `curl -s --max-time 5 http://127.0.0.1:${this.previewPort} ` +
+        `| grep -q '/_next/' && echo up || echo down`,
     ]);
-    const code = (await check.stdout()).trim().slice(-3);
-    return /^[1-5]\d\d$/.test(code);
+    return (await check.stdout()).trim().endsWith('up');
   }
 
   private async waitForPreview(): Promise<void> {
