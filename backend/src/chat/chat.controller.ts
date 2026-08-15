@@ -1,4 +1,7 @@
 import { Controller, Post, Body, Res, UseGuards, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Response } from 'express';
 import { ChatService } from './chat.service';
 import { ChatRestDto } from './dto/chat-rest.dto';
@@ -7,7 +10,8 @@ import { ChatGuard } from '../common/guards/chat.guard';
 import { GetAuthToken } from '../common/decorators/get-auth-token.decorator';
 import { streamText } from 'ai';
 import { openrouter, DEFAULT_MODEL } from '../common/constants/ai.constants';
-import { runProjectAgent } from './project-agent';
+import { harnessId, runProjectAgent } from './project-agent';
+import { AgentTurn, hash12 } from './agent-turn.model';
 import { explain } from './explain-error';
 import { MessageRole, TurnStep } from './message.model';
 import { WorkspaceService } from '../project/workspace.service';
@@ -22,7 +26,7 @@ import {
   withUserTurn,
 } from '../project/project-queue';
 import { scenarioOfPage } from '../project/scenarios';
-import { clipNotes } from './instructions';
+import { clipNotes, HISTORY_TURNS } from './instructions';
 
 /**
  * Best-effort label for what a tool call is acting on. Tool arguments arrive as
@@ -61,6 +65,8 @@ export class ChatController {
   constructor(
     private readonly chatService: ChatService,
     private readonly workspaces: WorkspaceService,
+    @InjectRepository(AgentTurn)
+    private readonly turns: Repository<AgentTurn>,
   ) {}
 
   /**
@@ -70,14 +76,33 @@ export class ChatController {
    * turn since piles into a single uncommitted diff, so there is nothing to
    * go back to when the agent takes a wrong turn. Best effort by design:
    * bookkeeping must never be what fails a turn the user's files already own.
+   *
+   * Returns the sha, which the code here used to discard outright. It is the
+   * only durable id a turn has, and without it the turn record cannot be
+   * joined to the commit a later restore rejects. `null` means the turn
+   * changed no files — `snapshot()` checks `git status --porcelain` first, so
+   * that is a real answer and not a swallowed failure.
+   *
+   * `turnId` rides along as a commit trailer so the sha↔turn edge survives the
+   * database. Safe because the Changes panel prints `%s` — the subject only
+   * (VERSION_LOG_FORMAT in workspace.ts) — and both workspaces use that one
+   * format, so nothing user-visible reads the body.
    */
-  private async snapshotTurn(projectPath: string, prompt: string) {
+  private async snapshotTurn(
+    projectPath: string,
+    prompt: string,
+    turnId?: string,
+  ): Promise<string | null> {
     try {
       const workspace = await this.workspaces.for(projectPath);
       const label = prompt.trim().replace(/\s+/g, ' ').slice(0, 72);
-      await workspace.snapshot(label || 'Agent turn');
+      const subject = label || 'Agent turn';
+      return await workspace.snapshot(
+        turnId ? `${subject}\n\nCodefox-Turn: ${turnId}` : subject,
+      );
     } catch (error) {
       this.logger.warn(`[${projectPath}] snapshot failed: ${error}`);
+      return null;
     }
   }
 
@@ -101,18 +126,88 @@ export class ChatController {
    */
   private async snapshotPendingEdits(
     projectPath: string,
-  ): Promise<ChangedFile[]> {
+  ): Promise<{ edited: ChangedFile[]; sha: string | null }> {
     try {
       const workspace = await this.workspaces.for(projectPath);
       // Read the list before committing it — afterwards the tree is clean and
       // there is nothing left to tell the agent about.
       const edited = await workspace.pendingEdits();
-      if (edited.length) await workspace.snapshot('Your edits');
-      return edited;
+      // The sha comes back for the same reason snapshotTurn's does: a `Your
+      // edits` commit is the record that the PREVIOUS turn's output was not
+      // good enough to leave alone, and it needs to be pointable-at.
+      const sha = edited.length ? await workspace.snapshot('Your edits') : null;
+      return { edited, sha };
     } catch (error) {
       this.logger.warn(`[${projectPath}] pre-turn snapshot failed: ${error}`);
-      return [];
+      return { edited: [], sha: null };
     }
+  }
+
+  /**
+   * The version the turn starts from, so the range it produced is bounded at
+   * both ends. Best effort like every other piece of bookkeeping here — a
+   * project with no git, or a sandbox that will not answer, records null.
+   */
+  private async headSha(projectPath: string): Promise<string | null> {
+    try {
+      const workspace = await this.workspaces.for(projectPath);
+      const versions = await workspace.versions();
+      return versions?.find((v) => v.current)?.id ?? versions?.[0]?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * One row per turn — the join key nothing else has.
+   *
+   * A version sha carries no chat, no user, no model and no prompt, so a
+   * restore (a human verdict, not self-reported) points at a commit that
+   * joins to nothing. This is the edge. Everything else about turn quality is
+   * unanswerable without it.
+   *
+   * Never awaited by the caller, never allowed to throw: like the snapshot and
+   * the lint above, this is bookkeeping around work the user's files already
+   * own, and it must not be what fails or delays a turn.
+   *
+   * NOTE ON SECRETS: `chatDto.apiKey` and `chatDto.baseUrl` are never written
+   * here, in any column, ever. The DTO says why — storing them would make us a
+   * key custodian. Only the boolean that a BYOK endpoint was used.
+   */
+  private record(turn: Partial<AgentTurn> & { id: string }) {
+    void this.turns
+      .save(this.turns.create(turn))
+      .catch((error) =>
+        this.logger.warn(`[${turn.chatId}] turn record failed: ${error}`),
+      );
+  }
+
+  /**
+   * Keep the instructions text once per distinct string, not once per turn.
+   *
+   * template × scenario is a few dozen strings in total, so the turn row holds
+   * a hash and the text lives in a row keyed by it. Upserted on first sight
+   * and ignored afterwards — the hash IS the primary key, so a re-insert of
+   * the same instructions is a no-op rather than a duplicate.
+   */
+  private rememberInstructions(hash: string, instructions: string) {
+    void this.turns
+      .upsert(
+        this.turns.create({
+          id: hash,
+          kind: 'template',
+          instructionsHash: hash,
+          // The instructions ARE the payload for this row; `userMessage` is
+          // the table's one long-text column and reusing it beats a column
+          // that only one row kind would ever fill.
+          userMessage: instructions,
+          promptChars: instructions.length,
+        }),
+        { conflictPaths: ['id'], skipUpdateIfNoValuesChanged: true },
+      )
+      .catch((error) =>
+        this.logger.warn(`instructions ${hash} not recorded: ${error}`),
+      );
   }
 
   /**
@@ -226,7 +321,10 @@ export class ChatController {
         });
         return;
       }
-      await withUserTurn(userId, () => this.pipeAgent(chatDto, res));
+      // `userId` from the request, not `project.userId`: on a shared or forked
+      // project the owner is not the person typing, and a turn attributed to
+      // the owner is attributed to someone who was not there.
+      await withUserTurn(userId, () => this.pipeAgent(chatDto, res, userId));
     } catch (error) {
       this.logger.error(`Chat error: ${error.message}`, error.stack);
       if (!res.headersSent) {
@@ -246,7 +344,7 @@ export class ChatController {
    * things a plain text stream drops — which tool is running and which files
    * changed — so the UI can show progress instead of a blank wait.
    */
-  private async pipeAgent(chatDto: ChatRestDto, res: Response) {
+  private async pipeAgent(chatDto: ChatRestDto, res: Response, userId: string) {
     const project = await this.chatService.getProjectByChatId(chatDto.chatId);
 
     // One turn at a time per project. Two turns used to run against the same
@@ -263,7 +361,7 @@ export class ChatController {
     const mine = queueForProject(path, () => {
       // A client that hung up while waiting should not start an agent.
       if (res.writableEnded || res.destroyed) return Promise.resolve();
-      return this.runTurn(chatDto, res, project);
+      return this.runTurn(chatDto, res, project, userId);
     });
 
     // Say so rather than leave the user watching a silent stream: a queued
@@ -283,8 +381,15 @@ export class ChatController {
   private async runTurn(
     chatDto: ChatRestDto,
     res: Response,
-    project: { projectPath: string; template?: string | null },
+    project: { id?: string; projectPath: string; template?: string | null },
+    userId: string,
   ) {
+    // Minted here, at the top, rather than in the `finally` that records the
+    // turn: the `res.on('close')` rescue-save handler below runs while the
+    // turn is still going, and it needs the same id.
+    const turnId = randomUUID();
+    const startedAt = Date.now();
+
     // The client saves the user's message before it calls this, so the stored
     // history already ends with the very message being asked now. Replaying it
     // would show the agent the question twice.
@@ -306,9 +411,21 @@ export class ChatController {
     // version rather than being folded into the agent's commit. The list also
     // becomes context: an agent that does not know the user just rewrote a
     // file will happily rewrite it back.
-    const handEdits = await this.snapshotPendingEdits(project.projectPath);
+    const { edited: handEdits, sha: handEditSha } =
+      await this.snapshotPendingEdits(project.projectPath);
 
-    const { result, session } = await runProjectAgent({
+    // Read before the agent runs, so the turn record can point at what the
+    // tree looked like going in — the other end of the rolled-back range.
+    const parentSha = await this.headSha(project.projectPath);
+
+    const scenarioId = await this.scenarioOf(project);
+    const notes = await this.notesOf(project.projectPath);
+    const lint =
+      project.template === 'html'
+        ? await this.lintPage(project.projectPath)
+        : [];
+
+    const { result, session, prompt, instructions } = await runProjectAgent({
       projectPath: project.projectPath,
       message: chatDto.message,
       images: chatDto.images,
@@ -316,18 +433,15 @@ export class ChatController {
       handEdits,
       model: chatDto.model,
       template: project.template,
-      scenarioId: await this.scenarioOf(project),
-      notes: await this.notesOf(project.projectPath),
+      scenarioId,
+      notes,
       // The same lint that runs at the end of a turn, run again at the start
       // so the agent actually sees it. Recomputed rather than remembered: a
       // restyle, a restore or a hand edit between turns all change what is
       // true of the page, and the findings must describe the file the agent
       // is about to open. Pages only — a Next app has no single artifact to
       // judge, which is the same reason the end-of-turn lint skips it.
-      lint:
-        project.template === 'html'
-          ? await this.lintPage(project.projectPath)
-          : [],
+      lint,
       // Both or neither: a key with no endpoint would silently fall back to
       // ours and bill us for a turn the user meant to pay for themselves.
       credential:
@@ -368,6 +482,14 @@ export class ChatController {
     // left the chat showing a question with no answer, next to files the agent
     // had already changed. Whatever the client never received, this saves.
     let reply = '';
+
+    // Set only by the rescue save below — see the comment there.
+    let messageId: string | undefined;
+
+    // The first thing that actually went wrong, for the turn record. First and
+    // not last: the later ones are usually consequences of it, and a
+    // transient reconnect frame is not one at all (it is filtered below).
+    let errorText: string | undefined;
 
     // The same shape the client saves, so a turn the user walked away from
     // reloads with its working notes intact rather than as one flat blob.
@@ -416,6 +538,14 @@ export class ChatController {
       if (!finished && reply.trim()) {
         void this.chatService
           .saveMessage(chatDto.chatId, reply, MessageRole.Assistant, steps)
+          // The one path where the backend learns the message id at all — a
+          // reply the client received is saved by the browser, which never
+          // tells us what id it got. So `messageId` is populated on abandoned
+          // turns and null on the rest; a digest joining on it must expect
+          // that rather than read null as "no message".
+          .then((message) => {
+            if (message?.id) messageId = message.id;
+          })
           .catch((error) =>
             this.logger.warn(
               `[${chatDto.chatId}] could not save the abandoned reply: ${error}`,
@@ -536,6 +666,7 @@ export class ChatController {
               break;
             }
             this.logger.error(`[${chatDto.chatId}] ${JSON.stringify(part)}`);
+            errorText ??= detail || JSON.stringify(part);
             send({ t: 'error', v: explain((part as any).error ?? part) });
             break;
           }
@@ -543,6 +674,7 @@ export class ChatController {
       }
     } catch (error) {
       this.logger.error(`[${chatDto.chatId}] ${error.message}`, error.stack);
+      errorText ??= String(error?.message ?? error);
       if (!res.writableEnded) send({ t: 'error', v: explain(error) });
     } finally {
       disarm();
@@ -554,7 +686,66 @@ export class ChatController {
       // closes — which is exactly when the UI refreshes — must not see the
       // turn missing from it. A turn that failed part-way still snapshots:
       // those edits are real, and are the ones someone wants to undo.
-      await this.snapshotTurn(project.projectPath, chatDto.message);
+      const sha = await this.snapshotTurn(
+        project.projectPath,
+        chatDto.message,
+        turnId,
+      );
+
+      // Here, in the `finally`, so a turn that errored or that the user walked
+      // away from is recorded too — those are the highest-value negative
+      // samples and the ones a `try`-side insert would miss. After the
+      // snapshot, so `sha` exists; before `finished`, so the row lands whether
+      // or not the client is still listening. Never awaited: see `record`.
+      const instructionsHash = hash12(instructions);
+      this.rememberInstructions(instructionsHash, instructions);
+      this.record({
+        id: turnId,
+        kind: 'turn',
+        chatId: chatDto.chatId,
+        userId,
+        projectPath: project.projectPath,
+        projectId: project.id ?? null,
+        template: project.template ?? null,
+        scenarioId,
+        // The DTO's model, not Chat.model: that one is mutable and this
+        // request may have overridden it.
+        model: chatDto.model ?? null,
+        harness: harnessId(),
+        // The boolean and nothing else. The key and the endpoint are not
+        // written anywhere, by anything.
+        byok: Boolean(chatDto.apiKey && chatDto.baseUrl),
+        sha,
+        parentSha,
+        handEditSha,
+        turnIndex: stored.length,
+        messageId: messageId ?? null,
+        historyTurns: Math.min(history.length, HISTORY_TURNS),
+        instructionsHash,
+        promptHash: hash12(prompt),
+        promptChars: prompt.length,
+        userMessage: chatDto.message,
+        // Only what cannot be rebuilt from data we already hold. The retold
+        // history is deliberately absent — it is a pure function of
+        // Chat.messages, and copying it per turn grows quadratically with the
+        // conversation. Images are counted, never stored: a screenshot is the
+        // likeliest place here for personal data nobody can redact.
+        contextJson: {
+          notes,
+          handEdits,
+          lint,
+          images: chatDto.images?.length ?? 0,
+        },
+        reply,
+        steps,
+        stepCount: steps.length,
+        toolCalls: steps.filter((step) => step.kind === 'tool').length,
+        errored: Boolean(errorText),
+        errorText: errorText ?? null,
+        abandoned: clientGone,
+        durationMs: Date.now() - startedAt,
+      });
+
       // After the session, for the same reason the snapshot is: the agent's
       // last writes have to have landed or the lint reads the previous page.
       if (project.template === 'html' && !clientGone && !res.writableEnded) {
