@@ -281,6 +281,11 @@ installed. Style with Tailwind and the tokens in globals.css. A page of raw
 <div>s with utility classes is the failure mode — composed, quiet,
 consistent components are the goal.
 
+Never run npm ci or npm install: node_modules is shared with every other
+project, and either command can wipe or poison it for all of them.
+Everything you need is already there — if you think you need a package,
+build without it.
+
 The app has a real database: \`import { getDb } from '@/lib/db'\` gives a
 better-sqlite3 handle on a file inside the project (data/app.db, WAL on). It
 needs no setup — call it and query. There are no migrations: create tables
