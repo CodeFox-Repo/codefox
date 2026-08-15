@@ -9,8 +9,8 @@ export function shareUrl(project: {
   uniqueProjectId?: string | null;
   template?: string | null;
 }): string | null {
-  // Pages only. A Next app has no single file to serve, so a share link for
-  // one could only ever 404; rows predating the column are Next apps.
-  if (project.template !== 'html' || !project.uniqueProjectId) return null;
+  if (!project.uniqueProjectId) return null;
+  // Pages are served as files; apps boot their sandbox on demand and the
+  // visitor is redirected once it answers — both behind the same route.
   return `/share/${project.uniqueProjectId}`;
 }

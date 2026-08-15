@@ -66,11 +66,17 @@ export class ShareController {
       relations: ['user'],
     });
 
-    // One message for "no such project", "not public" and "not a page": a
-    // shared link that distinguishes them is a way to learn which private
-    // projects exist.
-    if (!project?.isPublic || project.template !== 'html') {
+    // One message for "no such project" and "not public": a shared link that
+    // distinguishes them is a way to learn which private projects exist.
+    if (!project?.isPublic) {
       return this.notFound(res, 'This page is not shared.');
+    }
+
+    // A Next app has no file to serve — it has a dev server. Boot its
+    // sandbox via /api/live and send the visitor there; the page below is
+    // the wait, since a cold microVM can take a minute.
+    if (project.template !== 'html') {
+      return res.send(this.bootingPage(project.projectName, id));
     }
 
     // A site is allowed more than one page — the agent is told to add
@@ -145,5 +151,47 @@ export class ShareController {
         `min-height:100vh;margin:0;background:#141413;color:#e8e6dc">` +
         `<main style="text-align:center"><p>${message}</p></main>`,
     );
+  }
+
+  /**
+   * The wait while an app's sandbox boots. Polls the live endpoint and
+   * redirects when the dev server answers; gives up with a retry link after
+   * three minutes, which is past any cold start we have measured.
+   */
+  private bootingPage(name: string, id: string) {
+    const safe = name.replace(/[<>&"]/g, '');
+    return `<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starting ${safe} — CodeFox</title>
+<body style="font:16px/1.6 system-ui;display:grid;place-items:center;min-height:100vh;margin:0;background:#141413;color:#e8e6dc">
+<main style="text-align:center;max-width:32rem;padding:0 1.5rem">
+  <p style="font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.12em;color:#c96a3a;text-transform:uppercase">Built with CodeFox</p>
+  <h1 style="font-size:1.5rem;margin:.5rem 0">Starting ${safe}…</h1>
+  <p id="s" style="color:#a8a59a">Waking the app up — a cold start can take up to a minute.</p>
+</main>
+<script>
+const s = document.getElementById('s');
+const deadline = Date.now() + 180000;
+const tick = async () => {
+  try {
+    const r = await fetch('/api/live/${id}');
+    if (r.ok) {
+      const { url } = await r.json();
+      if (url) { location.replace(url); return; }
+    }
+  } catch {}
+  if (Date.now() > deadline) {
+    s.textContent = 'This one is taking too long — ';
+    const a = document.createElement('a');
+    a.textContent = 'try again';
+    a.href = '';
+    a.style.color = '#c96a3a';
+    s.appendChild(a);
+    return;
+  }
+  setTimeout(tick, 3000);
+};
+tick();
+</script>`;
   }
 }
