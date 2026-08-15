@@ -15,7 +15,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const landing = read('frontend/src/app/(main)/page.tsx');
+// The landing markup moved to a component when /landing was added.
+const landing = read('frontend/src/components/root/landing.tsx');
 const nav = read('frontend/src/components/root/nav.tsx');
 
 // A grid track's default floor is min-content, so the column sized itself to
