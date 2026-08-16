@@ -21,6 +21,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/**
+ * What the user picks between is a speed/depth trade, not a vendor id —
+ * "google/gemini-3.7-flash@openrouter" tells them nothing. Ids without an
+ * entry fall back to the raw tag so a config change still renders.
+ */
+const MODEL_LABELS: Record<string, string> = {
+  'google/gemini-3.7-flash@openrouter': '快速 · Fast',
+  'accounts/fireworks/models/qwen3p8-max': '强力 · Max',
+};
+const modelLabel = (id: string) => MODEL_LABELS[id] ?? id;
+
 interface ChatBottombarProps {
   messages: Message[];
   /** The planner's question card is open; the composer steps aside. */
@@ -295,7 +306,7 @@ export default function ChatBottombar({
               <SelectContent>
                 {models!.map((m) => (
                   <SelectItem key={m} value={m} className="font-mono text-xs">
-                    {m}
+                    {modelLabel(m)}
                   </SelectItem>
                 ))}
               </SelectContent>

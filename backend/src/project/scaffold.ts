@@ -301,14 +301,15 @@ export async function copyProject(
  * pick colors, which is what keeps a generated page looking deliberate
  * instead of like default Tailwind.
  */
-const htmlStarter = (style: DesignSystem, kind: Scenario): string => `<!doctype html>
+const htmlStarter = (style: DesignSystem, kind?: Scenario): string => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- What this page is. Read back on every turn to remind the agent what
-         shape it is building; the style lives in :root the same way. -->
-    ${scenarioMeta(kind.id)}
+         shape it is building; the style lives in :root the same way. An
+         unpicked scenario writes no tag: the user's words are the brief. -->
+    ${kind ? scenarioMeta(kind.id) : ''}
     <title>New Project</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>

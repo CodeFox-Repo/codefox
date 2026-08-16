@@ -6,7 +6,7 @@ import { JWTAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ChatGuard } from '../common/guards/chat.guard';
 import { GetAuthToken } from '../common/decorators/get-auth-token.decorator';
 import { streamText } from 'ai';
-import { openrouter, DEFAULT_MODEL } from '../common/constants/ai.constants';
+import { modelFor, DEFAULT_MODEL } from '../common/constants/ai.constants';
 import { runProjectAgent } from './project-agent';
 import { explain } from './explain-error';
 import { MessageRole, TurnStep } from './message.model';
@@ -585,7 +585,7 @@ export class ChatController {
     let failure: unknown;
 
     const result = streamText({
-      model: openrouter(chatDto.model || DEFAULT_MODEL),
+      model: modelFor(chatDto.model || DEFAULT_MODEL),
       prompt: chatDto.message,
       onError: ({ error }) => {
         failure = error;

@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { Logger } from '@nestjs/common';
 import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
+import { runAiSdkAgent } from './aisdk-agent';
 import { instructionsFor, notesNote } from './instructions';
 import { lintNote } from './lint-note';
 import type { LintFinding } from './lint-artifact';
@@ -13,6 +15,7 @@ import { sniff } from '../common/security/file_check';
 import {
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
+  endpointFor,
 } from '../common/constants/ai.constants';
 import {
   SANDBOX_ROOT,
@@ -42,15 +45,65 @@ const UPLOAD_DIR = '.codefox-uploads';
  * url, which is what makes an aggregator like OpenRouter usable — and with it
  * any model that aggregator serves, including Anthropic's.
  */
-export type AgentHarness = 'claude-code' | 'codex';
+export type AgentHarness = 'claude-code' | 'codex' | 'aisdk';
 
+// The in-process AI SDK loop is the default: it speaks plain
+// chat/completions, which every provider serves natively. The CLI harnesses
+// remain reachable by env for the paths that still need them (remote
+// sandboxes, BYOK) and for comparison runs.
 const agentHarness = (): AgentHarness =>
-  process.env.AGENT_HARNESS === 'claude-code' ? 'claude-code' : 'codex';
+  process.env.AGENT_HARNESS === 'claude-code'
+    ? 'claude-code'
+    : process.env.AGENT_HARNESS === 'codex'
+      ? 'codex'
+      : 'aisdk';
 
 export const harnessId = () =>
   agentHarness() === 'claude-code' ? claudeCode.harnessId : codex.harnessId;
 
 const harnessCache = new Map<string, ReturnType<typeof createCodex>>();
+
+/**
+ * A CODEX_HOME of our own, so the operator's personal CLI config stays out of
+ * the product's requests.
+ *
+ * The harness only sets CODEX_HOME when it writes skills, and we pass none —
+ * so the CLI falls back to ~/.codex and sends whatever is configured there.
+ * On a dev box that meant a dozen personal plugins riding every turn: the CLI
+ * logged "skill descriptions were shortened to fit the 2% skills context
+ * budget" and the endpoint answered 500, killing every turn with zero tool
+ * calls. The operator's machine must not be able to change what the product
+ * sends.
+ */
+const codexHome = (): string => {
+  const dir = path.join(getProjectsDir(), '.codex-home');
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+    // Empty but present: the CLI writes its own state here and reads no
+    // plugin or skill config, which is the point.
+    writeFileSync(path.join(dir, 'config.toml'), '');
+  }
+  return dir;
+};
+
+/**
+ * How hard the model thinks before acting — opt-in, and off by default.
+ *
+ * A build turn plans a whole page, so more thinking should buy a better one.
+ * But passing this makes the codex CLI construct a request an
+ * OpenAI-compatible endpoint answers with a 500: verified on Fireworks at
+ * both 'high' and 'medium', where a direct call carrying reasoning_effort
+ * succeeds. Every turn died with zero tool calls. So it stays unset unless a
+ * deployment has checked its own endpoint tolerates it.
+ */
+const reasoningEffort = ():
+  | 'low'
+  | 'medium'
+  | 'high'
+  | undefined => {
+  const raw = process.env.LLM_REASONING_EFFORT?.trim().toLowerCase();
+  return raw === 'low' || raw === 'medium' || raw === 'high' ? raw : undefined;
+};
 
 /**
  * One harness per model id. The model is fixed at harness-construction time,
@@ -78,8 +131,10 @@ const harnessFor = (rawModel?: string, credential?: UserCredential) => {
   // handed to user B asking for the same model. Building one per turn costs
   // an object; getting this wrong costs someone else's bill.
   if (credential) {
+    process.env.CODEX_HOME = codexHome();
     return createCodex({
       model,
+      reasoningEffort: reasoningEffort(),
       auth: {
         openaiCompatible: {
           apiKey: credential.apiKey,
@@ -88,6 +143,9 @@ const harnessFor = (rawModel?: string, credential?: UserCredential) => {
       },
     });
   }
+
+    // Set before the CLI is spawned; it inherits our env.
+  process.env.CODEX_HOME = codexHome();
 
   const key = `${kind}:${model ?? ''}`;
   const cached = harnessCache.get(key);
@@ -123,8 +181,10 @@ const harnessFor = (rawModel?: string, credential?: UserCredential) => {
           });
         })()
       : (() => {
-          const apiKey =
-            process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY;
+          // The model tag decides the endpoint: a `@provider` suffix routes to
+          // that provider's own base URL, so one deployment can serve models
+          // that do not share a host.
+          const { model: modelId, baseURL, apiKey } = endpointFor(model);
           if (!apiKey) {
             throw new Error(
               'The agent has no credentials. Set LLM_API_KEY to a key for ' +
@@ -132,14 +192,9 @@ const harnessFor = (rawModel?: string, credential?: UserCredential) => {
             );
           }
           return createCodex({
-            model,
-            auth: {
-              openaiCompatible: {
-                apiKey,
-                baseUrl:
-                  process.env.LLM_BASE_URL ?? 'https://openrouter.ai/api/v1',
-              },
-            },
+            model: modelId,
+            reasoningEffort: reasoningEffort(),
+            auth: { openaiCompatible: { apiKey, baseUrl: baseURL } },
           });
         })();
 
@@ -383,6 +438,18 @@ export const runProjectAgent = async ({
   // they are about the page as it is right now, and the request is what has
   // to stay loudest.
   const prompt = `${notesNote(notes)}${retell(history ?? [])}${handEditNote(handEdits ?? [])}${lintNote(lint)}${asked}`;
+
+  // The in-process loop needs the files on this disk; a remote sandbox has
+  // no local directory to hand it, so those projects stay on the CLI harness.
+  if (agentHarness() === 'aisdk' && onHost && !credential) {
+    logger.debug(`aisdk agent turn in ${workingDirectory}`);
+    return runAiSdkAgent({
+      workingDirectory,
+      instructions: instructionsFor(template, scenarioId),
+      prompt,
+      model,
+    });
+  }
 
   const agent = new HarnessAgent({
     harness: harnessFor(model, credential),

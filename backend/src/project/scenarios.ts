@@ -48,12 +48,15 @@ export const SCENARIOS: Scenario[] = [
     template: 'html',
     guidance: `You are building a landing page — one page, one product, one call to action.
 
-Regions, in order: a nav bar (wordmark + 3-4 links + one CTA button); a hero
-(eyebrow, headline, one-sentence subhead, primary CTA, and a visual — an
-inline SVG or a tinted block, never a stock photo URL); a proof strip (3-6
-logos as wordmarks, or a single quote with an attributed name); a features
-section (3 cards, each an icon, a short title and two lines of copy); pricing
-if the brief implies a paid product; a closing CTA; a small footer.
+A visitor arriving cold must learn, in the first screen, what this is, who
+it is for, and what to do next. Everything after that earns attention by
+being specific: named customers, real numbers, the actual thing rather than
+an adjective about it. One action leads; the rest give way to it.
+
+This kind of page fails by being generic — a slogan nobody would disagree
+with, three interchangeable feature cards, no evidence anyone uses it. If a
+sentence would survive being moved to a competitor's site unchanged, it is
+filler.
 
 Write real copy from the brief — a real product name, a real benefit
 sentence. "Feature One / Lorem ipsum" is a failure, not a placeholder.
@@ -68,10 +71,15 @@ and one more. Everything else is var(--fg) and var(--muted).`,
     template: 'html',
     guidance: `You are building a single-screen dashboard.
 
-Regions: a left sidebar (220-260px — a brand mark, then 6-8 nav links, the
-active one carrying the accent); a top bar (page title left, search and an
-avatar right); and a main area holding, in rows: 3-4 KPI cards (label, big
-number, delta against the prior period), then one primary chart, then a
+Someone opens this to answer a question about how things are going, so the
+data has to be dense enough to be worth reading and shaped so the rows that
+need a human stand out from the ones that do not. Summary figures are
+computed from the rows on screen, and recompute when a filter changes.
+
+This kind of screen fails by being a poster: six cards with round numbers
+and nothing to interrogate. Filters that do not filter, a total that
+disagrees with the table beneath it, and a chart whose axis does not match
+its legend all destroy trust in everything else on the page, then a
 secondary chart or a table of recent rows.
 
 Decide what it monitors from the brief and generate specific, plausible
@@ -87,6 +95,15 @@ nav item and one chart highlight.`,
     blurb: 'Slides you arrow through, in one page',
     template: 'html',
     guidance: `You are building a slide deck as one HTML file.
+
+A deck is read from across a room and driven without looking down, so a
+slide carries one idea at a size that survives a projector. The arc matters
+more than any single slide: something to open on, a case developed in
+order, something to leave them with.
+
+This fails when a slide is a document — a paragraph nobody at the back can
+read, three points competing for the same moment, or a deck that ends
+without saying what to do.
 
 Every slide is a <section class="slide"> sized to the viewport, carrying
 exactly one theme class: light, dark, hero light, or hero dark. Alternate
@@ -111,11 +128,14 @@ with no substance is not a deck.`,
 600-680px wide, sitting on a tinted page background so the body reads as an
 email rather than a web page.
 
-Layout: a masthead (wordmark left, 2-3 short links right, thin rule under);
-a hero block (a 16:9 tinted panel or an inline SVG of the product); a
-headline lockup at the largest display size; two short paragraphs of body
-copy; one primary CTA button; a specifications or details grid if the brief
-implies a product; a footer with an unsubscribe line.
+Someone reads this in a mail client on a phone, often with images off. The
+message has to survive that: the essential facts as live text, one clear
+action, and a reason to care in the first two lines. Everything else is
+supporting detail.
+
+This fails by being a web page in an email's clothing — a layout that
+collapses in Outlook, a CTA that is only clickable on the text, or critical
+information baked into an image nobody loads.
 
 Email clients are not browsers: use tables or simple stacked divs, inline
 the critical styles, and avoid flex/grid for the outer structure. No
@@ -129,11 +149,14 @@ the first one's click rate.`,
     template: 'html',
     guidance: `You are building a documentation page — three columns.
 
-Left: a sticky nav 240-280px wide, 3-5 groups of 4-8 links, the current page
-bold with an accent stripe on its leading edge. Centre: the article, max-width
-around 720px — an H1, a lede paragraph, H2 sections, code blocks, note and
-warning callouts, lists. Right: a sticky "On this page" table of contents
-200-240px wide listing the H2s.
+A developer arrives with a specific question and wants to leave with an
+answer. So: real API names, runnable examples with plausible values, and the
+errors they will actually hit. Structure exists to let them find their
+question fast, not to look organised.
+
+This fails by being a table of contents with nothing under it, or by being
+prose about the product rather than instructions for using it. Examples that
+would not run are worse than no examples.
 
 Pick a real topic from the brief and write real documentation: concrete API
 names, runnable command examples, plausible parameters and return values.
@@ -150,11 +173,14 @@ current nav item and inline links.`,
     guidance: `You are building a portfolio — the work is the content, and
 everything else gets out of its way.
 
-Regions: a masthead (name at display size, one line saying what you do, and
-2-4 links — email, GitHub, whichever the brief names); a selected-work
-section of 3-6 pieces, each a generous visual block with a title, a one-line
-role, a year, and two sentences of what it was; a short about paragraph
-written in first person; a contact line that is a real mailto link.
+The work is the argument, so each piece needs enough context to be
+understood — what it was, what the person did, when — and enough visual
+weight to be looked at. A visitor should finish knowing what kind of
+problems this person is good at.
+
+This fails when the pieces are interchangeable: same size, same treatment,
+no dates, no client names, a role described as "designer" with nothing
+about what changed.
 
 The visual for each piece is an inline SVG composition or a tinted panel
 built from the token palette — never a stock photo url, which will 404 and
@@ -174,13 +200,15 @@ var(--muted) — a portfolio competing with its own work is the failure mode.`,
     guidance: `You are building a résumé that reads on screen and survives
 being printed.
 
-One column, max-width around 760px, on a plain background. Regions in order:
-a header (name at var(--text-2xl), then role, location, email, and links on
-one wrapped line); a two-to-three sentence summary; experience as reverse
-chronological entries, each with role, organisation, dates right-aligned,
-and 2-4 bullets that state what changed rather than what was assigned;
-skills as a compact wrapped list, not a bar chart of invented percentages;
-education last.
+A recruiter skims this in twenty seconds and may print it. So the hierarchy
+has to carry them — name, current role, then achievements stated as what
+changed, with numbers where numbers exist. Dates align down the page so the
+timeline reads at a glance, and skills are grouped meaningfully rather than
+sprayed as a keyword wall.
+
+This fails by listing duties instead of outcomes, by burying the strongest
+thing below the fold, or by looking correct on screen and breaking apart
+when printed.
 
 Print is a real target: add @media print that sets a white background, black
 text, hides any nav, and avoids page-break-inside on an entry. Test the
@@ -199,12 +227,13 @@ candidate has to defend in an interview.`,
     guidance: `You are building a page for one event — a conference, a
 meetup, a launch. The job is answering what/when/where before anything else.
 
-Regions: a hero carrying the event name, a one-line pitch, and the date and
-place as their own prominent line (not buried in a paragraph); a primary
-register CTA repeated once near the bottom; an agenda or schedule as a
-time-and-session list; speakers or hosts as 3-8 blocks with name, role, and
-a monogram avatar built from initials; a venue block with the address and
-plain travel notes; an FAQ of 3-5 real questions.
+Someone is deciding whether to go, so what, when and where come before
+anything persuasive — as their own prominent facts, not sentences to parse.
+After that: who is speaking, what happens when, and how to get there.
+
+This fails when the date is inside a paragraph, when the schedule is prose
+rather than a scannable list, or when registering takes more than one
+obvious step.
 
 Use <time datetime="..."> for the date and every schedule row — this is the
 one page type where a machine-readable date genuinely matters, and it costs
@@ -224,12 +253,14 @@ a door.`,
 restaurant, studio, shop. Someone is on a phone deciding whether to walk
 over, so the practical facts come first.
 
-Regions: a hero with the name, one line of what it is, and the neighbourhood;
-hours as a plain day-and-time list, with today's row emphasised if the brief
-implies it; the offering — a menu, service list or price list, grouped, with
-prices as plain text; a location block with the address, one line of getting
-there, and a tel: link that actually dials; two or three lines of story; a
-footer repeating address, phone and hours.
+Someone on a phone is deciding whether to walk over. Hours, address, and a
+tappable phone number come first, then what the place actually offers, with
+real prices. Atmosphere matters but earns its place after the practical
+facts.
+
+This fails by putting a mood photograph and a paragraph of story above the
+opening hours, or by listing an address that is not a link and a phone
+number that does not dial.
 
 Design for the phone first: single column, generous tap targets, no
 horizontal scroll at 360px. A menu that needs pinch-zoom is the commonest
@@ -248,12 +279,14 @@ someone opened the page.`,
     guidance: `You are building a comparison — plans, products or
 approaches, laid out so a reader can decide.
 
-Regions: a short intro naming what is being compared and for whom; the
-comparison itself as a real <table> with the options as columns and the
-criteria as rows, marking one column as the common recommendation; a
-per-option summary block saying who it suits and what it costs them; a
-closing verdict paragraph that actually picks, hedged only where the brief
-genuinely leaves it open; an FAQ if the brief supports one.
+A reader is choosing, so the page has to make differences visible rather
+than list features twice. Same criteria in the same order for every option,
+the ones that actually differ made obvious, and a recommendation for who
+each suits.
+
+This fails when every option looks equally good — a matrix of ticks with no
+weighting, no statement of who should pick what, and no acknowledgement of
+what each gives up.
 
 This is one of the few places a <table> is correct — it is tabular data, not
 layout. Give it <thead>, scope="col" on headers, and let it scroll
@@ -322,8 +355,14 @@ export function scenarioOfPage(html?: string | null): string | null {
   return html?.match(SCENARIO_META_RE)?.[1] ?? null;
 }
 
-export function scenario(id?: string | null): Scenario {
-  return SCENARIOS.find((s) => s.id === id) ?? SCENARIOS[0];
+/**
+ * No default: an unpicked or unrecognised scenario means the user's own
+ * words carry the shape. Falling back to SCENARIOS[0] injected the landing
+ * guidance into every unpicked project — a collaborative editor built on
+ * this default came out as a marketing page with a hero and a logo strip.
+ */
+export function scenario(id?: string | null): Scenario | undefined {
+  return SCENARIOS.find((s) => s.id === id);
 }
 
 export const scenarioChoices = (): ScenarioChoice[] =>

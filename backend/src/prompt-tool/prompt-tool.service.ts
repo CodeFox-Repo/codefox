@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { generateText } from 'ai';
-import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
+import { modelFor, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 
 @Injectable()
 export class PromptToolService {
@@ -9,7 +9,7 @@ export class PromptToolService {
   async regenerateDescription(description: string): Promise<string> {
     try {
       const result = await generateText({
-        model: openrouter(DEFAULT_MODEL),
+        model: modelFor(DEFAULT_MODEL),
         // The prompt asks for 300-500 words; reserving the model's whole
         // output window instead gets the request rejected on a small balance.
         maxOutputTokens: 2048,

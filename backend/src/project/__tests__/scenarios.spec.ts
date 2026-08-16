@@ -31,11 +31,13 @@ describe('scenarios', () => {
     }
   });
 
-  it('falls back to a real scenario for unknown or missing ids', () => {
-    expect(scenario('no-such-thing').id).toBe('landing');
-    expect(scenario(null).id).toBe('landing');
-    expect(scenario(undefined).id).toBe('landing');
-    expect(scenario('deck').id).toBe('deck');
+  it('answers undefined for unknown or missing ids — no default shape', () => {
+    // The old fallback to SCENARIOS[0] injected landing guidance into every
+    // unpicked project: a collaborative editor came out as a marketing page.
+    expect(scenario('no-such-thing')).toBeUndefined();
+    expect(scenario(null)).toBeUndefined();
+    expect(scenario(undefined)).toBeUndefined();
+    expect(scenario('deck')?.id).toBe('deck');
   });
 
   it('keeps the guidance server-side', () => {
@@ -80,14 +82,21 @@ describe('scenarios', () => {
 
   it('gives every page scenario enough guidance to build from', () => {
     // The bar is not "has a string" — a one-line scenario produces the
-    // centered hero this table exists to prevent. Each real one names its
-    // regions, so it runs to several sentences.
+    // centered hero this table exists to prevent.
     for (const s of SCENARIOS.filter((x) => x.template === 'html')) {
       expect(s.guidance.length).toBeGreaterThan(600);
-      // Names the parts it is made of — regions, columns, or (for the deck)
-      // slides. That is what turns a scenario into a layout rather than a
-      // mood; the wording differs because the shapes genuinely differ.
-      expect(s.guidance).toMatch(/Regions|regions|columns|slide|entries|rows/);
+    }
+  });
+
+  it('says how each kind of page fails, rather than listing its regions', () => {
+    // Guidance used to prescribe regions in order, which prevented the
+    // centered hero by replacing it with a different identical page: every
+    // landing page came out with the same six blocks. What a scenario should
+    // carry is what this kind of page must accomplish and how it
+    // characteristically fails — the layout is a judgement about the brief.
+    for (const s of SCENARIOS.filter((x) => x.template === 'html')) {
+      expect(s.guidance).toMatch(/fails|failure/i);
+      expect(s.guidance).not.toMatch(/^Regions[,:]/m);
     }
   });
 

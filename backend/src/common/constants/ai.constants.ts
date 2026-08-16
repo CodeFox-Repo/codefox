@@ -1,17 +1,24 @@
 import { createOpenAI } from '@ai-sdk/openai';
+import { endpointFor } from './model-endpoint';
 
-/**
- * The LLM backend is any OpenAI-compatible endpoint. Defaults to OpenRouter;
- * point LLM_BASE_URL at a local proxy (CLIProxyAPI, ollama, LM Studio, …) to
- * run against locally-authenticated Claude / Codex CLIs instead — no cloud key.
- *
- * LLM_MODELS is a comma-separated list; the first entry is the default unless
- * LLM_DEFAULT_MODEL says otherwise. Model ids must match what the endpoint
- * serves — OpenRouter ids ("anthropic/claude-sonnet-4.5") differ from a local
- * proxy's ("claude-sonnet-5").
- */
+export { endpointFor } from './model-endpoint';
+export type { ModelEndpoint } from './model-endpoint';
+
 const env = (name: string) => process.env[name]?.trim() || undefined;
 
+/** A provider client bound to whichever endpoint serves this model. */
+export const providerFor = (tag?: string | null) => {
+  const { baseURL, apiKey } = endpointFor(tag);
+  return createOpenAI({ apiKey, baseURL });
+};
+
+/** The model client for a tag — `providerFor(tag)(id)` in one call. */
+export const modelFor = (tag?: string | null) => {
+  const { model } = endpointFor(tag);
+  return providerFor(tag)(model);
+};
+
+/** Single-provider client, for callers with no model tag in hand. */
 export const openrouter = createOpenAI({
   apiKey: env('LLM_API_KEY') ?? env('OPENROUTER_API_KEY'),
   baseURL: env('LLM_BASE_URL') ?? 'https://openrouter.ai/api/v1',

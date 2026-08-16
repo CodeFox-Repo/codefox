@@ -47,3 +47,7 @@ qa/
 # Agent runtime state (nested worktrees) and local UI screenshots
 .kobe/
 /frontend/*.png
+eval/.env
+eval/sandbox/
+# The eval harness and its runs live in the private codefox-eval repo
+eval/

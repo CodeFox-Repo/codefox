@@ -25,7 +25,7 @@ import { staleMediaPath } from './media-file';
 import { assertCanCreateProject } from './quota';
 import { AuthService } from '../auth/auth.service';
 import { noteStyle } from './style-note';
-import { openrouter, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
+import { modelFor, DEFAULT_MODEL } from 'src/common/constants/ai.constants';
 import { ChatService } from 'src/chat/chat.service';
 import { Chat } from 'src/chat/chat.model';
 import { v4 as uuidv4 } from 'uuid';
@@ -170,7 +170,7 @@ export class ProjectService {
         );
 
         const result = await generateText({
-          model: openrouter(input.model || DEFAULT_MODEL),
+          model: modelFor(input.model || DEFAULT_MODEL),
           // A title is a handful of tokens. Left unset the SDK asks for the
           // model's full output window — 64k for Sonnet — which providers
           // reserve credit against and reject outright on a small balance.
@@ -231,11 +231,9 @@ export class ProjectService {
     // workspace kind. `template` is still what the other 16 call sites
     // branch on, so it stays the stored answer.
     // `template` still wins when a client sends only that.
-    project.template = input.scenario
-      ? scenario(input.scenario).template
-      : input.template === 'next'
-        ? 'next'
-        : 'html';
+    project.template =
+      (input.scenario && scenario(input.scenario)?.template) ||
+      (input.template === 'next' ? 'next' : 'html');
     return this.projectsRepository.save(project);
   }
 

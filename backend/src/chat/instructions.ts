@@ -27,6 +27,59 @@ everything at once, never by hardcoding a hex somewhere in the markup.
 
 `;
 
+/**
+ * What separates a page someone ships from one that merely renders.
+ *
+ * Two kinds of rule live here, and only these two. Correctness, which is not
+ * a matter of taste — an animation that never resolves leaves the page blank
+ * whatever it looks like. And the aesthetics a model regresses to when left
+ * unconstrained, which have to be named or they arrive by default.
+ *
+ * Everything else — what sections a page has, how it is laid out, which
+ * colours it uses — is a judgement about THIS request, so the agent derives
+ * it rather than reading it here. A prompt that specifies structure produces
+ * pages that all look the same, which is the failure this section replaces.
+ */
+const CRAFT_SECTION = `Before you build, work out what would make this particular thing bad, and
+avoid those. A dashboard fails differently from a landing page: totals that
+disagree with their rows, a filter that changes one chart and not the others.
+A landing page fails by saying nothing specific. Name the failure modes for
+what you are actually building, then build so they do not happen.
+
+Content is written, not filled. Real names, plausible numbers, dated
+entries, copy that could only describe this product. "Feature One", lorem,
+and grey placeholder boxes are all the same failure: nothing to judge.
+Copy passes one test: swap in a competitor's name — if the sentence still
+works, it says nothing. "Unlock insights", "seamless", "effortless",
+"know what's moving your business" survive the swap; a real product's
+words do not. Write like the team that built it: specific, declarative,
+a little dry.
+
+Get these right; they are correctness, not taste:
+- Anything that animates in must end fully visible. A page whose content is
+  stranded at opacity 0 is blank, however good the CSS is.
+- Animate transform and opacity. Animating layout properties stutters.
+- Under prefers-reduced-motion: reduce, everything resolves immediately and
+  every feature still works.
+- Numbers shown as totals are computed from the rows on screen. A summary
+  that contradicts what is beneath it destroys trust in the whole page.
+- Labels do not overlap or get clipped, at any width you support.
+- Interactive elements have visible hover and focus-visible states, and are
+  reachable by keyboard.
+
+The look is a composition, not a collection of styled parts. Choose a
+typographic scale, a spacing rhythm, and a palette derived from what this
+page is about, and hold them everywhere — restraint held consistently reads
+as design; variety reads as accident. One accent colour doing real work
+beats five decorating. Semantic colours (success, warning, danger) stay on
+their own scale, never doubling as the accent. If the user names colours, a
+brand, or a mood, that outranks everything else.
+
+Three defaults to refuse, because they mark a page as generated: emoji
+doing the work of icons or section markers, gradients standing in for an
+idea, and the purple-blue "AI product" palette reached for without a reason
+in the brief. Everything else is yours to judge against the brief.`;
+
 const STYLE_SECTION = `When the look is what is open — the user asks for a restyle, or the brief
 leaves the visual direction unsaid — the style question is NOT free text. It
 carries "kind":"style" and its options are design system ids, verbatim, from
@@ -96,9 +149,12 @@ export const instructionsFor = (
   // is. It used to be html-only: the app guidance (the database helper, the
   // component library) was written, tested for presence, and never shipped
   // to the model — a next project's prompt said nothing about either.
-  const shape = scenarioId ? scenario(scenarioId).guidance : '';
+  // Unpicked or unrecognised → no shape guidance; the user's request is the
+  // brief. Injecting a default scenario's guidance shaped projects into
+  // things nobody asked for.
+  const shape = (scenarioId && scenario(scenarioId)?.guidance) || '';
   if (template !== 'html') {
-    return [INSTRUCTIONS, shape, NOTES_SECTION].filter(Boolean).join('\n\n');
+    return [INSTRUCTIONS, shape, CRAFT_SECTION, NOTES_SECTION].filter(Boolean).join('\n\n');
   }
   // STYLE_SECTION after PLAN_SECTION, not before: PLAN_SECTION carries its
   // own question example using `"id":"style"` with free-text options, and a
@@ -110,6 +166,7 @@ export const instructionsFor = (
     shape,
     PLAN_SECTION,
     STYLE_SECTION,
+    CRAFT_SECTION,
     NOTES_SECTION,
     'Finish with a short summary of what you changed.',
   ]
