@@ -6,6 +6,8 @@
  */
 import { DESIGN_SYSTEMS } from '../project/design-systems';
 import { scenario } from '../project/scenarios';
+import { lintNote } from './lint-note';
+import type { LintFinding } from './lint-artifact';
 
 const HTML_INSTRUCTIONS = `You are CodeFox, building self-contained HTML pages.
 
@@ -201,3 +203,106 @@ export function clipNotes(notes?: string | null): string | null {
   if (notes.length <= NOTES_LIMIT) return notes;
   return `${notes.slice(0, NOTES_LIMIT)}\n\n[NOTES.md is longer than this — the rest was cut. Read the file if you need it, and shorten it.]`;
 }
+
+/** One earlier turn, oldest first. */
+export interface PriorTurn {
+  role: string;
+  content: string;
+}
+
+/** How much of the conversation to replay, and how much of each turn. */
+export const HISTORY_TURNS = 20;
+const HISTORY_CHARS = 2000;
+
+/**
+ * Retell the conversation so far.
+ *
+ * Every turn gets a brand-new agent session, so without this the agent saw
+ * only the sentence just typed: told a preference in one message it answered
+ * "Unknown" when asked about it in the next, and a follow-up like "make it
+ * bigger" had no referent at all.
+ *
+ * Replayed as text rather than resumed through the harness on purpose — a
+ * resumable session lives in a bridge process that does not survive a deploy,
+ * and this server redeploys constantly.
+ */
+export const retell = (history: PriorTurn[]): string => {
+  const recent = history.slice(-HISTORY_TURNS);
+  if (recent.length === 0) return '';
+
+  const lines = recent.map((turn) => {
+    const who = /assistant/i.test(turn.role) ? 'Assistant' : 'User';
+    const said =
+      turn.content.length > HISTORY_CHARS
+        ? `${turn.content.slice(0, HISTORY_CHARS)}…`
+        : turn.content;
+    return `${who}: ${said}`;
+  });
+
+  return `Earlier in this conversation:\n\n${lines.join('\n\n')}\n\n---\n\n`;
+};
+
+/** Enough to point the agent at the work; a rewrite of 200 files is noise. */
+const HAND_EDIT_FILES = 20;
+
+/**
+ * Tell the agent what the user changed by hand since the last turn.
+ *
+ * Without it the agent works from the project as it remembers it and
+ * cheerfully rewrites a file the user just fixed themselves — the edits are
+ * on disk, but nothing pointed at them, so nothing read them.
+ *
+ * Paths and statuses rather than a diff: the agent has read tools and the
+ * files are right there, so naming them is enough to make it look, and a
+ * large hand edit cannot crowd out the actual request.
+ *
+ * Prompt-only by design. This never becomes a message, so the chat shows the
+ * conversation the user had rather than bookkeeping addressed to the model.
+ */
+export const handEditNote = (
+  edits: { path: string; status: string }[],
+): string => {
+  if (!edits.length) return '';
+  const lines = edits
+    .slice(0, HAND_EDIT_FILES)
+    .map((edit) => `- ${edit.path} (${edit.status} by the user)`);
+  const more = edits.length - lines.length;
+  return (
+    `The user edited these files themselves since your last turn:\n${lines.join('\n')}` +
+    `${more > 0 ? `\n- …and ${more} more` : ''}\n\n` +
+    'Read them before you change anything, and keep what they did unless ' +
+    'this message asks you to undo it.\n\n---\n\n'
+  );
+};
+
+/**
+ * The prompt, from its parts. THE definition — project-agent calls this to
+ * build what ships, and the turn-record test calls it to rebuild a recorded
+ * prompt from its stored halves and check the hash still matches.
+ *
+ * Here rather than in project-agent.ts for the reason that module's docblock
+ * gives: project-agent imports ESM-only harness packages jest cannot require,
+ * so nothing under test can load it. Two copies of this assembly is exactly
+ * the drift that would make a recorded promptHash describe a prompt that
+ * never ran.
+ *
+ * `asked` is the user's message plus any attachment lines — image staging
+ * needs a sandbox, so it stays on the caller's side.
+ */
+export const assemblePrompt = ({
+  notes,
+  history,
+  handEdits,
+  lint,
+  asked,
+}: {
+  notes?: string | null;
+  history?: PriorTurn[];
+  handEdits?: { path: string; status: string }[];
+  lint?: LintFinding[] | null;
+  asked: string;
+}): string =>
+  // Lint findings sit last of the context blocks, immediately before the ask:
+  // they are about the page as it is right now, and the request is what has
+  // to stay loudest.
+  `${notesNote(notes)}${retell(history ?? [])}${handEditNote(handEdits ?? [])}${lintNote(lint)}${asked}`;

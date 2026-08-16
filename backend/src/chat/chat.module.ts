@@ -6,6 +6,7 @@ import { ChatService } from './chat.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/user.model';
 import { Chat } from './chat.model';
+import { AgentTurn } from './agent-turn.model';
 import { ChatGuard } from '../common/guards/chat.guard';
 import { AuthModule } from '../auth/auth.module';
 import { UserService } from 'src/user/user.service';
@@ -18,8 +19,10 @@ import { WorkspaceService } from 'src/project/workspace.service';
 @Module({
   imports: [
     // Project: the controller snapshots a turn's file changes, which needs a
-    // workspace, which resolves the project's kind.
-    TypeOrmModule.forFeature([Chat, User, Project]),
+    // workspace, which resolves the project's kind. AgentTurn: one row per
+    // turn, the only thing that joins a version sha to the chat, user, model
+    // and prompt that produced it.
+    TypeOrmModule.forFeature([Chat, User, Project, AgentTurn]),
     AuthModule,
     JwtCacheModule,
     UploadModule,

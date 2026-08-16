@@ -8,8 +8,11 @@ import { claudeCode, createClaudeCode } from '@ai-sdk/harness-claude-code';
 import { codex, createCodex } from '@ai-sdk/harness-codex';
 import { getProjectsDir } from '../common/utils/common-path';
 import { runAiSdkAgent } from './aisdk-agent';
-import { instructionsFor, notesNote } from './instructions';
-import { lintNote } from './lint-note';
+import {
+  assemblePrompt,
+  instructionsFor,
+  type PriorTurn,
+} from './instructions';
 import type { LintFinding } from './lint-artifact';
 import { sniff } from '../common/security/file_check';
 import {
@@ -59,7 +62,11 @@ const agentHarness = (): AgentHarness =>
       : 'aisdk';
 
 export const harnessId = () =>
-  agentHarness() === 'claude-code' ? claudeCode.harnessId : codex.harnessId;
+  agentHarness() === 'claude-code'
+    ? claudeCode.harnessId
+    : agentHarness() === 'codex'
+      ? codex.harnessId
+      : 'aisdk';
 
 const harnessCache = new Map<string, ReturnType<typeof createCodex>>();
 
@@ -202,74 +209,7 @@ const harnessFor = (rawModel?: string, credential?: UserCredential) => {
   return created;
 };
 
-/** One earlier turn, oldest first. */
-export interface PriorTurn {
-  role: string;
-  content: string;
-}
-
-/** How much of the conversation to replay, and how much of each turn. */
-const HISTORY_TURNS = 20;
-const HISTORY_CHARS = 2000;
-
-/**
- * Retell the conversation so far.
- *
- * Every turn gets a brand-new agent session, so without this the agent saw
- * only the sentence just typed: told a preference in one message it answered
- * "Unknown" when asked about it in the next, and a follow-up like "make it
- * bigger" had no referent at all.
- *
- * Replayed as text rather than resumed through the harness on purpose — a
- * resumable session lives in a bridge process that does not survive a deploy,
- * and this server redeploys constantly.
- */
-/** Enough to point the agent at the work; a rewrite of 200 files is noise. */
-const HAND_EDIT_FILES = 20;
-
-const retell = (history: PriorTurn[]): string => {
-  const recent = history.slice(-HISTORY_TURNS);
-  if (recent.length === 0) return '';
-
-  const lines = recent.map((turn) => {
-    const who = /assistant/i.test(turn.role) ? 'Assistant' : 'User';
-    const said =
-      turn.content.length > HISTORY_CHARS
-        ? `${turn.content.slice(0, HISTORY_CHARS)}…`
-        : turn.content;
-    return `${who}: ${said}`;
-  });
-
-  return `Earlier in this conversation:\n\n${lines.join('\n\n')}\n\n---\n\n`;
-};
-
-/**
- * Tell the agent what the user changed by hand since the last turn.
- *
- * Without it the agent works from the project as it remembers it and
- * cheerfully rewrites a file the user just fixed themselves — the edits are
- * on disk, but nothing pointed at them, so nothing read them.
- *
- * Paths and statuses rather than a diff: the agent has read tools and the
- * files are right there, so naming them is enough to make it look, and a
- * large hand edit cannot crowd out the actual request.
- *
- * Prompt-only by design. This never becomes a message, so the chat shows the
- * conversation the user had rather than bookkeeping addressed to the model.
- */
-const handEditNote = (edits: { path: string; status: string }[]): string => {
-  if (!edits.length) return '';
-  const lines = edits
-    .slice(0, HAND_EDIT_FILES)
-    .map((edit) => `- ${edit.path} (${edit.status} by the user)`);
-  const more = edits.length - lines.length;
-  return (
-    `The user edited these files themselves since your last turn:\n${lines.join('\n')}` +
-    `${more > 0 ? `\n- …and ${more} more` : ''}\n\n` +
-    'Read them before you change anything, and keep what they did unless ' +
-    'this message asks you to undo it.\n\n---\n\n'
-  );
-};
+export type { PriorTurn };
 
 export interface ProjectAgentOptions {
   /** Project directory name under .codefox/projects. */
@@ -434,26 +374,28 @@ export const runProjectAgent = async ({
   const asked = staged.length
     ? `${message}\n\nThe user attached ${staged.length === 1 ? 'this image' : 'these images'} — read ${staged.length === 1 ? 'it' : 'them'} before answering:\n${staged.map((f) => `- ${f}`).join('\n')}`
     : message;
-  // Lint findings sit last of the context blocks, immediately before the ask:
-  // they are about the page as it is right now, and the request is what has
-  // to stay loudest.
-  const prompt = `${notesNote(notes)}${retell(history ?? [])}${handEditNote(handEdits ?? [])}${lintNote(lint)}${asked}`;
+  const prompt = assemblePrompt({ notes, history, handEdits, lint, asked });
+  // Hoisted rather than called twice: it is returned below so the turn record
+  // can hash exactly what shipped, and two calls are two chances to drift.
+  const instructions = instructionsFor(template, scenarioId);
 
   // The in-process loop needs the files on this disk; a remote sandbox has
   // no local directory to hand it, so those projects stay on the CLI harness.
   if (agentHarness() === 'aisdk' && onHost && !credential) {
     logger.debug(`aisdk agent turn in ${workingDirectory}`);
-    return runAiSdkAgent({
+    const { result, session } = runAiSdkAgent({
       workingDirectory,
-      instructions: instructionsFor(template, scenarioId),
+      instructions,
       prompt,
       model,
     });
+    // Same contract as the CLI path below: the turn record hashes what ran.
+    return { result, session, prompt, instructions };
   }
 
   const agent = new HarnessAgent({
     harness: harnessFor(model, credential),
-    instructions: instructionsFor(template, scenarioId),
+    instructions,
     // html projects live on the host in every mode — their agent edits those
     // files directly. NOTE: that trades away microVM isolation for them;
     // seed-a-sandbox is the follow-up before registration opens.
@@ -468,5 +410,10 @@ export const runProjectAgent = async ({
   logger.debug(`agent session started in ${workingDirectory}`);
 
   const result = await agent.stream({ session, prompt });
-  return { result, session };
+  // The prompt and instructions come back rather than being reassembled by the
+  // caller: every piece of them (retell, handEditNote, lintNote, notesNote,
+  // the attachment line) is built here, and a second copy in the controller
+  // would drift the moment anyone edits this file — silently, into a corpus
+  // whose recorded prompts were never the prompts that ran.
+  return { result, session, prompt, instructions };
 };
