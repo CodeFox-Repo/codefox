@@ -8,14 +8,6 @@ Describe a page in a sentence. CodeFox scaffolds it on your disk, hands the
 directory to a coding agent, and renders the result beside the chat — so what
 you are looking at is the file the agent just wrote, not a picture of it.
 
-## ⚠️ Experimental Stage
-
-> **Note**: The workflow engine this project started as is gone; a single
-> agent loop with file and shell tools replaced it. What is here works, but it
-> is not hardened: in the default `host` sandbox the agent runs shell commands
-> with the backend's own privileges, which is fine on your laptop and is not
-> multi-tenant. See [Where the agent runs](#where-the-agent-runs).
-
 ## Demo
 
 One prompt on the landing page, the questions the agent asks before it builds,
