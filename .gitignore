@@ -51,3 +51,8 @@ eval/.env
 eval/sandbox/
 # The eval harness and its runs live in the private codefox-eval repo
 eval/
+
+# The demo recorder's intermediates. The mp4 and its poster are committed;
+# the 20MB capture and the speed badges are rebuilt on every run.
+assets/demo-raw.webm
+assets/.demo-badge-*.png
