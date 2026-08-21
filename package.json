@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "dev:backend": "turbo dev:backend",
     "demo:record": "node scripts/record-demo.mjs",
+    "demo:flow": "node scripts/record-flow.mjs",
     "test": "turbo test",
     "check": "node scripts/run-checks.mjs",
     "fix": "eslint . --ext .js,.ts,.tsx --fix",
@@ -25,7 +26,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
