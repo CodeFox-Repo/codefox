@@ -1,9 +1,6 @@
 <img src="https://raw.githubusercontent.com/CodeFox-Repo/codefox/main/assets/banner.svg" width="100%" alt="codefox">
 
 # CodeFox
-
-![LOGO](./assets/badge.svg)
-
 Describe a page in a sentence. CodeFox scaffolds it on your disk, hands the
 directory to a coding agent, and renders the result beside the chat — so what
 you are looking at is the file the agent just wrote, not a picture of it.
