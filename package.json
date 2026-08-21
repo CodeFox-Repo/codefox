@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "dev:backend": "turbo dev:backend",
     "demo:record": "node scripts/record-demo.mjs",
+    "demo:flow": "node scripts/record-flow.mjs",
     "test": "turbo test",
     "check": "node scripts/run-checks.mjs",
     "fix": "eslint . --ext .js,.ts,.tsx --fix",
