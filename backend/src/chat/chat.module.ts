@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ProjectModule } from 'src/project/project.module';
 import { ChatResolver } from './chat.resolver';
 import { ChatController } from './chat.controller';
+import { AgentApiController } from './agent-api.controller';
 import { ChatService } from './chat.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/user.model';
@@ -31,12 +32,16 @@ import { WorkspaceService } from 'src/project/workspace.service';
     ProjectModule,
     // GitHubModule,
   ],
-  controllers: [ChatController],
+  controllers: [ChatController, AgentApiController],
   providers: [
     ChatResolver,
     ChatService,
     ChatGuard,
     UserService,
+    // Also a provider, so AgentApiController can run a turn through the real
+    // one instead of a second copy of `runTurn`. Stateless per request, so
+    // the extra instance costs nothing.
+    ChatController,
     // Declared here rather than imported from ProjectModule, which already
     // pulls ChatService in — importing it back would close the cycle. This
     // provider is stateless; PreviewService, which is not, comes from the
