@@ -167,7 +167,7 @@ sequenceDiagram
     loop until the agent stops
         Agent->>Dir: read / write / edit / bash
         Agent-->>API: text and tool-call parts
-        API-->>Web: text, tool and keepalive events
+        API-->>Web: text and tool events
     end
     API->>Dir: snapshot the turn as a commit
     API->>API: record the agent_turn row
