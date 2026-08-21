@@ -614,6 +614,24 @@ export class ChatController {
       deadline = undefined;
       stalled = undefined;
     };
+    // A turn writes nothing to the socket while the agent thinks, and thinking
+    // for half a minute before the next tool call is ordinary. Next's dev
+    // proxy — the path `pnpm dev` puts every local user on — hangs up on a
+    // response that idle, and the hang-up arrives here as `close`: the backend
+    // reads it as the user leaving and stops the agent mid-build. The turn
+    // dies about forty seconds in, every time, and the UI just stops.
+    // A line the client's parser ignores keeps the socket busy through the
+    // quiet, and costs one write every ten seconds.
+    //
+    // Above `armed()` rather than below it because that call and the `try` it
+    // guards are read as one unit by check-stream-watchdog — and because this
+    // has nothing to do with the idle deadline: one keeps the socket warm, the
+    // other gives up on a socket that has gone cold.
+    const keepalive = setInterval(() => {
+      if (!res.writableEnded && !clientGone) send({ t: 'ping' });
+    }, 10_000);
+    keepalive.unref?.();
+
     const iterator = result.stream[Symbol.asyncIterator]();
     armed(IDLE_MS);
 
@@ -678,6 +696,7 @@ export class ChatController {
       if (!res.writableEnded) send({ t: 'error', v: explain(error) });
     } finally {
       disarm();
+      clearInterval(keepalive);
       // Frees the bridge and its port. The project directory is the user's,
       // so the session is stopped rather than destroyed.
       await endSession('stop', false);
