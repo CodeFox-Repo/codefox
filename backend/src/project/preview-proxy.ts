@@ -31,7 +31,7 @@ export const PREVIEW_COOKIE = 'codefox_preview';
  * trick.
  */
 const OURS =
-  /^\/(graphql|health|download|share|auth|api\/(chat|project|file|media|preview|screenshot|pdf|test|live))(\/|\?|$)/i;
+  /^\/(graphql|health|download|share|auth|api\/(chat|agent|project|file|media|preview|screenshot|pdf|test|live))(\/|\?|$)/i;
 
 const logger = new Logger('PreviewProxy');
 
