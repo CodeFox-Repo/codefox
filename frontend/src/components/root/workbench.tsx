@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@apollo/client';
 import {
@@ -75,13 +75,13 @@ export function Workbench({
   onSubmit,
   isLoading,
 }: WorkbenchProps) {
-  const { chats, loading, refetchChats } = useChatList();
+  const { chats, loading, error, refetchChats } = useChatList();
   // Nine keeps the grid tidy, but the tenth project must not be unreachable.
   const [showAll, setShowAll] = useState(false);
   const recent = showAll ? chats : chats.slice(0, 9);
 
-  // With the sidebar gone, the cards are where a project gets renamed or
-  // deleted. One dialog serves both, keyed by mode.
+  // Cards rename the chat title or delete the whole project.
+  // One dialog serves both, keyed by mode.
   const [action, setAction] = useState<{
     mode: 'rename' | 'delete';
     id: string;
@@ -93,7 +93,7 @@ export function Workbench({
 
   const [updateTitle] = useMutation(UPDATE_CHAT_TITLE, {
     onCompleted: () => refetchChats(),
-    onError: () => toast.error('Could not rename the project'),
+    onError: () => toast.error('Could not rename the chat'),
   });
   const deleted = {
     onCompleted: () => {
@@ -106,7 +106,8 @@ export function Workbench({
   // the workspace, so it is the whole delete. deleteChat is the fallback for a
   // chat whose project never got scaffolded — there is nothing else to reclaim.
   const [deleteProject] = useMutation(DELETE_PROJECT, deleted);
-  const [duplicate] = useMutation(DUPLICATE_PROJECT, deleted);
+  const [duplicate] = useMutation(DUPLICATE_PROJECT);
+  const duplicatePending = useRef(false);
   const [duplicating, setDuplicating] = useState(false);
   const router = useRouter();
   const [deleteChat] = useMutation(DELETE_CHAT, deleted);
@@ -158,6 +159,30 @@ export function Workbench({
           )}
         </div>
 
+        {error && (
+          <div
+            role="alert"
+            className="mb-4 rounded-xl border border-border bg-card p-4"
+          >
+            <p className="text-sm text-foreground">
+              Could not load your projects
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {chats.length > 0
+                ? 'The projects shown may be out of date.'
+                : 'Try again to see your projects.'}
+            </p>
+            <Button
+              className="mt-3"
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              onClick={() => void refetchChats()}
+            >
+              {loading ? 'Trying again…' : 'Try again'}
+            </Button>
+          </div>
+        )}
         {loading && chats.length === 0 ? (
           // A skeleton in the shape of the thing that is coming, rather than
           // the word "Loading" — the row keeps its height so the page below
@@ -173,7 +198,7 @@ export function Workbench({
               />
             ))}
           </ul>
-        ) : recent.length === 0 ? (
+        ) : error && recent.length === 0 ? null : recent.length === 0 ? (
           <div className="space-y-4">
             <p className="font-mono text-sm text-muted-foreground">
               Nothing yet. Describe a project above — or start from one of
@@ -246,24 +271,42 @@ export function Workbench({
                         }
                       >
                         <Pencil className="mr-2 h-4 w-4 shrink-0" />
-                        Rename
+                        Rename chat
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         disabled={!chat.project?.id || duplicating}
                         onSelect={() => {
                           const projectId = chat.project?.id;
-                          if (!projectId) return;
+                          if (!projectId || duplicatePending.current) return;
+                          duplicatePending.current = true;
                           setDuplicating(true);
                           duplicate({ variables: { projectId } })
                             .then(({ data }) => {
                               const id = data?.duplicateProject?.id;
-                              toast.success('Copied — opening it now');
-                              if (id) router.push(`/chat?id=${id}`);
+                              if (!id)
+                                throw new Error(
+                                  'Could not duplicate this project. Try again.'
+                                );
+                              toast.success('Project duplicated');
+                              void refetchChats();
+                              router.push(`/chat?id=${id}`);
                             })
-                            // The server's words: the quota refusal names the
-                            // limit and the way out.
-                            .catch((e) => toast.error(e.message))
-                            .finally(() => setDuplicating(false));
+                            .catch((error) => {
+                              const message = (error as Error)?.message ?? '';
+                              toast.error(
+                                message.includes('which is the limit of')
+                                  ? message
+                                  : message.includes(
+                                        'That project is not yours'
+                                      )
+                                    ? 'You can only duplicate your own projects.'
+                                    : 'Could not duplicate this project. Try again.'
+                              );
+                            })
+                            .finally(() => {
+                              duplicatePending.current = false;
+                              setDuplicating(false);
+                            });
                         }}
                       >
                         <Copy className="mr-2 h-4 w-4 shrink-0" />
@@ -333,13 +376,16 @@ export function Workbench({
         <DialogContent>
           {action?.mode === 'rename' ? (
             <DialogHeader className="space-y-4">
-              <DialogTitle>Rename project</DialogTitle>
+              <DialogTitle>Rename chat</DialogTitle>
+              <DialogDescription>
+                Change this chat’s title. The project name stays the same.
+              </DialogDescription>
               <Input
                 autoFocus
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && commitRename()}
-                aria-label="Project title"
+                aria-label="Chat title"
               />
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setAction(null)}>

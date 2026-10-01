@@ -735,11 +735,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             message.includes('your own')
               ? 'You already own this project'
               : // The quota message already names the limit, the count and
-                // what to do about it — replacing it with "Failed to fork"
+                // what to do about it — replacing it with a generic remix error
                 // would throw away the only actionable part.
                 message.includes('which is the limit of')
                 ? message
-                : 'Failed to fork project'
+                : 'Could not remix this project. Try again.'
           );
         }
         return null;

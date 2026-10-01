@@ -25,12 +25,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import {
-  CLEAR_CHAT_HISTORY,
-  DELETE_CHAT,
-  UPDATE_CHAT_TITLE,
-} from '@/graphql/request';
+import { DELETE_CHAT, UPDATE_CHAT_TITLE } from '@/graphql/request';
 import { useChatList } from '@/hooks/useChatList';
+import { ClearHistoryDialog } from './clear-history-dialog';
 
 interface ChatTopbarProps {
   chatId?: string;
@@ -52,6 +49,8 @@ export default function ChatTopbar({
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  useEffect(() => setConfirmClear(false), [chatId]);
 
   const title = chatId
     ? chats.find((c) => c.id === chatId)?.title || 'Untitled'
@@ -69,13 +68,6 @@ export default function ChatTopbar({
   const [updateTitle] = useMutation(UPDATE_CHAT_TITLE, {
     onCompleted: () => refetchChats(),
     onError: () => toast.error('Could not rename the chat'),
-  });
-  const [clearHistory] = useMutation(CLEAR_CHAT_HISTORY, {
-    onCompleted: () => {
-      onHistoryCleared?.();
-      toast.success('History cleared');
-    },
-    onError: () => toast.error('Could not clear the history'),
   });
   const [deleteChat] = useMutation(DELETE_CHAT, {
     onCompleted: () => {
@@ -147,7 +139,7 @@ export default function ChatTopbar({
               Rename
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={() => clearHistory({ variables: { chatId } })}
+              onSelect={() => setTimeout(() => setConfirmClear(true), 0)}
             >
               <Eraser className="mr-2 h-4 w-4 shrink-0" />
               Clear history
@@ -163,6 +155,13 @@ export default function ChatTopbar({
         </DropdownMenu>
       )}
 
+      <ClearHistoryDialog
+        chatId={chatId}
+        title={title}
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        onCleared={onHistoryCleared}
+      />
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent>
           <DialogHeader className="space-y-4">

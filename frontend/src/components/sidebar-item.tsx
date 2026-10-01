@@ -14,11 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  CLEAR_CHAT_HISTORY,
-  DELETE_CHAT,
-  UPDATE_CHAT_TITLE,
-} from '@/graphql/request';
+import { DELETE_CHAT, UPDATE_CHAT_TITLE } from '@/graphql/request';
 import { cn } from '@/lib/utils';
 import { useMutation } from '@apollo/client';
 import { Eraser, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
@@ -27,6 +23,7 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { EventEnum } from '../const/EventEnum';
 import { logger } from '@/app/log/logger';
+import { ClearHistoryDialog } from '@/components/chat/clear-history-dialog';
 
 interface SideBarItemProps {
   id: string;
@@ -65,6 +62,7 @@ function SideBarItemComponent({
   refetchChats,
 }: SideBarItemProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -82,18 +80,6 @@ function SideBarItemComponent({
       logger.error('Error renaming chat:', error);
       toast.error('Could not rename this chat');
       setDraft(title);
-    },
-  });
-
-  const [clearHistory] = useMutation(CLEAR_CHAT_HISTORY, {
-    onCompleted: () => {
-      toast.success('History cleared');
-      // The open conversation is now stale — reload it from the server.
-      if (isSelected) window.dispatchEvent(new Event(EventEnum.CHAT));
-    },
-    onError: (error) => {
-      logger.error('Error clearing history:', error);
-      toast.error('Could not clear this chat');
     },
   });
 
@@ -204,7 +190,7 @@ function SideBarItemComponent({
             Rename
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={() => clearHistory({ variables: { chatId: id } })}
+            onSelect={() => setTimeout(() => setConfirmClear(true), 0)}
           >
             <Eraser className="mr-2 h-4 w-4 shrink-0" />
             Clear history
@@ -222,6 +208,15 @@ function SideBarItemComponent({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <ClearHistoryDialog
+        chatId={id}
+        title={title}
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        onCleared={() => {
+          if (isSelected) window.dispatchEvent(new Event(EventEnum.CHAT));
+        }}
+      />
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader className="space-y-4">
