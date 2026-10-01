@@ -41,9 +41,16 @@ assert.match(
   /Keep NOTES\.md in the project root as its memory/,
   'the agent is no longer told to keep NOTES.md'
 );
-// Read back into the prompt, which is what makes an edit take effect.
+// Guard both ends of the extracted assembler: the helper can keep accepting
+// notes while the agent accidentally stops forwarding them.
 assert.match(
   agent,
+  /const prompt = assemblePrompt\(\{\s*notes,\s*history,\s*handEdits,\s*lint,\s*asked,?\s*\}\)/,
+  'the agent no longer passes project notes to the prompt assembler'
+);
+// Read back into the prompt, which is what makes an edit take effect.
+assert.match(
+  instructions.slice(instructions.indexOf('export const assemblePrompt')),
   /\$\{notesNote\(notes\)\}/,
   'notes are no longer in the prompt — editing them would change nothing'
 );
@@ -99,7 +106,7 @@ assert.match(
 // appends NOTES_SECTION on the Next path too.
 assert.match(
   instructions,
-  /\[INSTRUCTIONS, shape, NOTES_SECTION\]/,
+  /if \(template !== 'html'\) \{\s*return \[[^\]]*\bNOTES_SECTION\b/,
   'Next projects no longer get the notes section — the button should then be page-only'
 );
 

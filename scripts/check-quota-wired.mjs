@@ -85,7 +85,7 @@ assert.match(
 );
 assert.match(
   controller,
-  /withUserTurn\(userId, \(\) => this\.pipeAgent\(chatDto, res\)\)/,
+  /await withUserTurn\(userId, \(\) => this\.pipeAgent\(chatDto, res, userId\)\)/,
   'turns are no longer counted while they run',
 );
 // The finally is the whole safety of this: a leaked slot locks the user out

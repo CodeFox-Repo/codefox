@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { existsSync, mkdirSync, promises as fsPromises } from 'fs-extra';
+import { existsSync, mkdirSync, promises as fsPromises } from 'node:fs';
 import { createHash } from 'crypto';
 
 // Constants for the frontend root directory

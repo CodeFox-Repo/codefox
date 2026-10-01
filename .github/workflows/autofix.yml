@@ -20,18 +20,16 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-          
+      - uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Cache pnpm modules
         uses: actions/cache@v3
@@ -41,31 +39,35 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
-      - name: Format code with Prettier
-        id: format
+      - name: Find files changed by this pull request
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          pnpm exec prettier --write "**/*.{js,jsx,ts,tsx,json,md}"
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "FORMAT_HAS_CHANGES=true" >> $GITHUB_ENV
-          fi
-          git add .
+          git diff --name-only --diff-filter=ACMR -z "$BASE_SHA...$HEAD_SHA" -- \
+            '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.md' > "$RUNNER_TEMP/codefox-format-files"
+          git diff --name-only --diff-filter=ACMR -z "$BASE_SHA...$HEAD_SHA" -- \
+            '*.js' '*.jsx' '*.ts' '*.tsx' > "$RUNNER_TEMP/codefox-lint-files"
 
-      - name: Run ESLint fix
-        id: lint
-        continue-on-error: true
+      - name: Format changed files with Prettier
         run: |
-          pnpm exec eslint . --ext .js,.jsx,.ts,.tsx --fix
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "LINT_HAS_CHANGES=true" >> $GITHUB_ENV
+          mapfile -d '' files < "$RUNNER_TEMP/codefox-format-files"
+          if (( ${#files[@]} )); then
+            pnpm exec prettier --write --ignore-unknown "${files[@]}"
+            git add -- "${files[@]}"
           fi
-          # Run ESLint again to check remaining issues
-          pnpm exec eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0 || echo "LINT_HAS_ERRORS=true" >> $GITHUB_ENV
-          git add .
 
-      - name: Check TypeScript
+      - name: Run ESLint fix on changed files
         run: |
-          pnpm exec tsc --noEmit
-          if [ $? -ne 0 ]; then
-            echo "TS_HAS_ERRORS=true" >> $GITHUB_ENV
+          mapfile -d '' files < "$RUNNER_TEMP/codefox-lint-files"
+          if (( ${#files[@]} )); then
+            pnpm exec eslint --resolve-plugins-relative-to backend --fix "${files[@]}"
+            git add -- "${files[@]}"
           fi
+
+      - name: Check frontend TypeScript
+        run: pnpm exec tsc --project frontend/tsconfig.json --noEmit
+
+      - name: Check backend TypeScript
+        run: pnpm exec tsc --project backend/tsconfig.json --noEmit
       - uses: autofix-ci/action@dd55f44df8f7cdb7a6bf74c78677eb8acd40cd0a
