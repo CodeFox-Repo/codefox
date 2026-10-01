@@ -130,6 +130,48 @@ describe('deployToVercel', () => {
     );
     expect(res.ok).toBe(false);
     expect(res.message).toMatch(/60s/);
+    expect(res.message).toMatch(/could not confirm/i);
+    expect(res.message).toContain(
+      'Check your Vercel deployments before trying again',
+    );
+    expect(res.message).not.toContain('Nothing was deployed');
+  });
+
+  it('keeps a lost network response uncertain instead of encouraging a duplicate deploy', async () => {
+    const post = jest.fn(async () => {
+      throw new Error('connection reset after request body was sent');
+    });
+    const res = await deployToVercel(
+      'tok',
+      'p',
+      [{ file: 'a', data: 'b' }],
+      post,
+    );
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(res.ok).toBe(false);
+    expect(res.message).toContain(
+      'Check your Vercel deployments before trying again',
+    );
+  });
+
+  it('handles a lost response body after Vercel accepts the request', async () => {
+    const res = await deployToVercel(
+      'tok',
+      'p',
+      [{ file: 'a', data: 'b' }],
+      async () =>
+        ({
+          ok: true,
+          text: async () => {
+            throw new Error('body stream failed');
+          },
+        }) as unknown as Response,
+    );
+    expect(res.ok).toBe(false);
+    expect(res.message).toContain('could not read the deployment result');
+    expect(res.message).toContain(
+      'Check your Vercel deployments before trying again',
+    );
   });
 
   it('does not claim success when no url comes back', async () => {

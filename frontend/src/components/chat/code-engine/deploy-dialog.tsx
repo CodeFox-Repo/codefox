@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { Check, Copy, Loader, Rocket } from 'lucide-react';
 import {
@@ -46,6 +46,43 @@ export function DeployDialog({
     null
   );
   const [copied, setCopied] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const copyRequest = useRef(0);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setCopied(false);
+    setCopying(false);
+    setCopyError(false);
+    return () => {
+      // A late clipboard result must not mark a different URL or a reopened
+      // dialog as copied. Also stop the previous success timer on dismissal.
+      // Invalidate the latest request, not a captured generation.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      copyRequest.current++;
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    };
+  }, [open, result?.url]);
+
+  const copyUrl = async () => {
+    if (!result?.url || copying) return;
+    const request = ++copyRequest.current;
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    setCopied(false);
+    setCopyError(false);
+    setCopying(true);
+    try {
+      await navigator.clipboard.writeText(result.url);
+      if (request !== copyRequest.current) return;
+      setCopied(true);
+      copiedTimer.current = setTimeout(() => setCopied(false), 1500);
+    } catch {
+      if (request === copyRequest.current) setCopyError(true);
+    } finally {
+      if (request === copyRequest.current) setCopying(false);
+    }
+  };
   const [deploy, { loading }] = useMutation(DEPLOY_PROJECT);
 
   const run = async () => {
@@ -135,12 +172,11 @@ export function DeployDialog({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 shrink-0"
-                aria-label="Copy deployment URL"
-                onClick={() => {
-                  navigator.clipboard.writeText(result.url);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                }}
+                aria-label={
+                  copied ? 'Deployment URL copied' : 'Copy deployment URL'
+                }
+                disabled={copying}
+                onClick={() => void copyUrl()}
               >
                 {copied ? (
                   <Check className="h-3 w-3" />
@@ -148,6 +184,25 @@ export function DeployDialog({
                   <Copy className="h-3 w-3" />
                 )}
               </Button>
+            </div>
+          )}
+
+          {copied && (
+            <p role="status" className="text-xs">
+              Deployment URL copied
+            </p>
+          )}
+          {copyError && result?.url && (
+            <div className="space-y-2">
+              <p role="status" className="text-xs text-muted-foreground">
+                {"Couldn't copy the link. Select and copy it manually."}
+              </p>
+              <Input
+                aria-label="Deployment URL"
+                readOnly
+                value={result.url}
+                onFocus={(event) => event.currentTarget.select()}
+              />
             </div>
           )}
 

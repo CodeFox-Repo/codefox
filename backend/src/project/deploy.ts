@@ -147,12 +147,23 @@ export async function deployToVercel(
       url: '',
       message:
         (error as Error)?.name === 'TimeoutError'
-          ? 'Vercel did not respond within 60s. Nothing was deployed.'
-          : `Could not reach Vercel: ${(error as Error)?.message ?? error}`,
+          ? 'Vercel did not respond within 60s. We could not confirm the deployment. Check your Vercel deployments before trying again.'
+          : 'We could not confirm the deployment. Check your Vercel deployments before trying again.',
     };
   }
 
-  const body = await res.text();
+  let body: string;
+  try {
+    body = await res.text();
+  } catch {
+    // The provider may have accepted the POST before the response was lost.
+    return {
+      ok: false,
+      url: '',
+      message:
+        'We could not read the deployment result. Check your Vercel deployments before trying again.',
+    };
+  }
   const json = (() => {
     try {
       return JSON.parse(body);
@@ -184,6 +195,7 @@ export async function deployToVercel(
     : {
         ok: false,
         url: '',
-        message: 'Vercel accepted the deploy but returned no URL.',
+        message:
+          'Vercel accepted the deploy but returned no URL. Check your Vercel deployments before trying again.',
       };
 }
