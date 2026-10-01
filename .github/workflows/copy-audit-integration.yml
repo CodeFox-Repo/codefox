@@ -42,7 +42,7 @@ jobs:
       CI_SHA: f5ea2bfdf2037ace6ad50f6c3c7feaa9df0693d9
       FEATURE_SHA: ${{ matrix.feature_sha }}
       FRONTEND_JEST_CONFIG: ${{ matrix.jest_config }}
-      ARTIFACT_DIR: ${{ runner.temp }}/copy-audit-integration/${{ matrix.scenario }}
+      ARTIFACT_DIR: ${{ github.workspace }}/ci-integration-artifacts/${{ matrix.scenario }}
 
     steps:
       - name: Initialize retained diagnostics
