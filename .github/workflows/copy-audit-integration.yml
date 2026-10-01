@@ -1,0 +1,218 @@
+name: Copy audit feature integration
+
+on:
+  push:
+    branches: [test/copy-audit-ui-evidence]
+    paths:
+      - '.github/workflows/copy-audit-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: ${{ matrix.scenario }} with CI repair
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scenario: onboarding
+            feature_sha: 5318d2e84137dc57e70e747c02cf0d898031df57
+            jest_config: jest.onboarding-copy.config.js
+          - scenario: project-feedback
+            feature_sha: 2f500ace5aa4de98d9422899f18baa2a16f62e5b
+            jest_config: jest.project-feedback.config.js
+          - scenario: auth
+            feature_sha: 94d238c4d8475439a0f569d05590d270f6ac69d9
+            jest_config: jest.auth-copy.config.js
+          - scenario: editor
+            feature_sha: b3c1a666b5f9cdcec94be7480ca978e7fa5397a2
+            jest_config: jest.editor-feedback.config.js
+    defaults:
+      run:
+        shell: bash
+        working-directory: integration
+    env:
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      CI_SHA: f5ea2bfdf2037ace6ad50f6c3c7feaa9df0693d9
+      FEATURE_SHA: ${{ matrix.feature_sha }}
+      FRONTEND_JEST_CONFIG: ${{ matrix.jest_config }}
+      ARTIFACT_DIR: ${{ github.workspace }}/ci-integration-artifacts/${{ matrix.scenario }}
+
+    steps:
+      - name: Initialize retained diagnostics
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          printf 'feature_sha=%s\nci_sha=%s\nworkflow_sha=%s\nrun_id=%s\nrun_attempt=%s\n' \
+            "$FEATURE_SHA" "$CI_SHA" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" \
+            > "$ARTIFACT_DIR/requested-revisions.txt"
+
+      - name: Checkout the exact CI repair with full history
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          repository: CodeFox-Repo/codefox
+          ref: ${{ env.CI_SHA }}
+          path: integration
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge the exact feature locally without creating a commit
+        id: merge
+        run: |
+          set -euo pipefail
+          exec > >(tee "$ARTIFACT_DIR/merge.log") 2>&1
+          test "$(git rev-parse HEAD)" = "$CI_SHA"
+          git fetch --no-tags origin "$FEATURE_SHA"
+          test "$(git rev-parse FETCH_HEAD)" = "$FEATURE_SHA"
+          merge_base=$(git merge-base "$CI_SHA" "$FEATURE_SHA")
+          git -c user.name='Copy audit integration' \
+            -c user.email='copy-audit-integration@users.noreply.github.com' \
+            -c core.hooksPath=/dev/null \
+            merge --no-commit --no-ff "$FEATURE_SHA"
+          # HEAD must remain the CI repair; the staged tree is the integration.
+          test "$(git rev-parse HEAD)" = "$CI_SHA"
+          integration_tree=$(git write-tree)
+          git cat-file -e "$integration_tree:frontend/$FRONTEND_JEST_CONFIG"
+          printf 'INTEGRATION_TREE=%s\n' "$integration_tree" >> "$GITHUB_ENV"
+          printf '{\n  "feature_sha": "%s",\n  "ci_sha": "%s",\n  "merge_base": "%s",\n  "integration_tree": "%s",\n  "workflow_sha": "%s"\n}\n' \
+            "$FEATURE_SHA" "$CI_SHA" "$merge_base" "$integration_tree" "$GITHUB_SHA" \
+            > "$ARTIFACT_DIR/provenance.json"
+          git status --short > "$ARTIFACT_DIR/merged-status.txt"
+          git diff --stat "$merge_base" "$integration_tree" > "$ARTIFACT_DIR/merged-diff-stat.txt"
+          # Include eligible changes from both the feature and the CI repair.
+          git diff --name-only --diff-filter=ACMR -z "$merge_base" "$integration_tree" -- \
+            '*.js' '*.jsx' '*.ts' '*.tsx' > "$ARTIFACT_DIR/changed-js-ts.nul"
+          cat "$ARTIFACT_DIR/provenance.json"
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up the declared pnpm version
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+          package_json_file: integration/package.json
+          run_install: false
+
+      - name: Install independently from the lockfile
+        id: install
+        run: |
+          set -euo pipefail
+          exec > >(tee "$ARTIFACT_DIR/install.log") 2>&1
+          # No restored node_modules, shared checkout links, or dependency cache.
+          test ! -e node_modules
+          test ! -e frontend/node_modules
+          test ! -e backend/node_modules
+          node --version
+          pnpm --version
+          test "$(pnpm --version)" = '9.1.0'
+          pnpm install --frozen-lockfile --store-dir "$RUNNER_TEMP/copy-audit-pnpm-store"
+
+      # A failed validation stays blocking, while unrelated checks still run.
+      - name: Check frontend TypeScript
+        id: frontend_types
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' && steps.install.outcome == 'success' }}
+        run: |
+          pnpm exec tsc --project frontend/tsconfig.json --noEmit 2>&1 | tee "$ARTIFACT_DIR/frontend-types.log"
+
+      - name: Check backend TypeScript
+        id: backend_types
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' && steps.install.outcome == 'success' }}
+        run: |
+          pnpm exec tsc --project backend/tsconfig.json --noEmit 2>&1 | tee "$ARTIFACT_DIR/backend-types.log"
+
+      - name: Build frontend
+        id: frontend_build
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' && steps.install.outcome == 'success' }}
+        working-directory: integration/frontend
+        run: |
+          pnpm build 2>&1 | tee "$ARTIFACT_DIR/frontend-build.log"
+
+      - name: Build backend
+        id: backend_build
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' && steps.install.outcome == 'success' }}
+        working-directory: integration/backend
+        run: |
+          pnpm build 2>&1 | tee "$ARTIFACT_DIR/backend-build.log"
+
+      - name: Run all source guards
+        id: source_guards
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' && steps.install.outcome == 'success' }}
+        run: |
+          pnpm check 2>&1 | tee "$ARTIFACT_DIR/source-guards.log"
+
+      - name: Run the matching focused frontend suite
+        id: frontend_tests
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' && steps.install.outcome == 'success' }}
+        working-directory: integration/frontend
+        run: |
+          pnpm exec jest --config "$FRONTEND_JEST_CONFIG" --runInBand 2>&1 | tee "$ARTIFACT_DIR/frontend-jest.log"
+
+      - name: Run the full backend Jest suite
+        id: backend_tests
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' && steps.install.outcome == 'success' }}
+        working-directory: integration/backend
+        run: |
+          pnpm exec jest --runInBand 2>&1 | tee "$ARTIFACT_DIR/backend-jest.log"
+
+      - name: Lint changed eligible JavaScript and TypeScript without fixes
+        id: lint
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' && steps.install.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          pnpm exec node <<'NODE' 2>&1 | tee "$ARTIFACT_DIR/lint-selection.log"
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { ESLint } = require('eslint');
+          (async () => {
+            const output = process.env.ARTIFACT_DIR;
+            const candidates = fs.readFileSync(path.join(output, 'changed-js-ts.nul'), 'utf8').split('\0').filter(Boolean);
+            const eslint = new ESLint({ resolvePluginsRelativeTo: path.resolve('backend') });
+            const eligible = [];
+            const ignored = [];
+            for (const file of candidates) {
+              if (await eslint.isPathIgnored(file)) {
+                ignored.push(file);
+                console.log(`Ignored by existing ESLint configuration: ${file}`);
+              } else {
+                eligible.push(file);
+                console.log(`Linting: ${file}`);
+              }
+            }
+            fs.writeFileSync(path.join(output, 'lint-files.nul'), eligible.map(file => `${file}\0`).join(''));
+            fs.writeFileSync(path.join(output, 'lint-files.json'), JSON.stringify({ eligible, ignored }, null, 2) + '\n');
+          })().catch(error => { console.error(error); process.exitCode = 1; });
+          NODE
+          mapfile -d '' files < "$ARTIFACT_DIR/lint-files.nul"
+          if (( ${#files[@]} )); then
+            pnpm exec eslint --resolve-plugins-relative-to backend "${files[@]}" 2>&1 | tee "$ARTIFACT_DIR/eslint.log"
+          else
+            echo 'No changed files are eligible under the existing ESLint configuration.' | tee "$ARTIFACT_DIR/eslint.log"
+          fi
+
+      - name: Retain validation outcomes
+        if: always()
+        working-directory: ${{ github.workspace }}
+        env:
+          STEP_RESULTS: ${{ toJSON(steps) }}
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          printf '%s\n' "$STEP_RESULTS" > "$ARTIFACT_DIR/step-outcomes.json"
+
+      - name: Upload integration provenance and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copy-audit-integration-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.ARTIFACT_DIR }}/
+          if-no-files-found: error
+          retention-days: 7

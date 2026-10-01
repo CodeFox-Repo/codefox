@@ -1,0 +1,9 @@
+{
+  "name": "codefox-copy-audit-evidence",
+  "private": true,
+  "type": "module",
+  "description": "Isolated CI-only fixtures for before/after UI evidence",
+  "devDependencies": {
+    "playwright": "1.51.0"
+  }
+}

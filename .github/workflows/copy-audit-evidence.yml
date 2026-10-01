@@ -1,0 +1,116 @@
+name: Copy audit UI evidence
+
+on:
+  push:
+    branches: [test/copy-audit-ui-evidence]
+    paths:
+      - '.github/workflows/copy-audit-evidence.yml'
+      - 'scripts/ui-evidence/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: ${{ matrix.scenario }} before and after
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scenario: auth
+            after: 94d238c4d8475439a0f569d05590d270f6ac69d9
+          - scenario: project-feedback
+            after: 2f500ace5aa4de98d9422899f18baa2a16f62e5b
+          - scenario: editor
+            after: b3c1a666b5f9cdcec94be7480ca978e7fa5397a2
+          - scenario: onboarding
+            after: 5318d2e84137dc57e70e747c02cf0d898031df57
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      EVIDENCE_SCENARIO: ${{ matrix.scenario }}
+      AFTER_SHA: ${{ matrix.after }}
+      BEFORE_DIR: ${{ github.workspace }}/before
+      AFTER_DIR: ${{ github.workspace }}/after
+      EVIDENCE_OUTPUT: ${{ github.workspace }}/artifacts/${{ matrix.scenario }}
+
+    steps:
+      - name: Initialize retained diagnostics
+        run: |
+          mkdir -p "$EVIDENCE_OUTPUT"
+          printf 'scenario=%s\nafter=%s\nharness=%s\n' "$EVIDENCE_SCENARIO" "$AFTER_SHA" "$GITHUB_SHA" > "$EVIDENCE_OUTPUT/setup.txt"
+
+      - name: Checkout capture infrastructure
+        uses: actions/checkout@v4
+        with:
+          path: harness
+
+      - name: Checkout exact audited baseline
+        uses: actions/checkout@v4
+        with:
+          ref: dd33611e3debb0170b801f42370cda55d6c5caa7
+          path: before
+
+      - name: Checkout exact feature revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.after }}
+          path: after
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: before/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: before/pnpm-lock.yaml
+
+      - name: Install locked app dependencies without unrelated native postinstalls
+        working-directory: before
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install independent feature dependencies
+        working-directory: after
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install locked evidence tooling
+        working-directory: harness/scripts/ui-evidence
+        run: npm ci --ignore-scripts
+
+      - name: Install the pinned Chromium browser
+        id: browser-setup
+        working-directory: harness/scripts/ui-evidence
+        run: |
+          npx playwright install --with-deps chromium
+          echo "CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+
+      - name: Build the exact feature frontend revision
+        id: feature-build
+        if: matrix.scenario == 'project-feedback' || matrix.scenario == 'editor'
+        working-directory: after/frontend
+        run: |
+          set -o pipefail
+          set +e
+          pnpm build 2>&1 | tee "$EVIDENCE_OUTPUT/${EVIDENCE_SCENARIO}-after-build.log"
+          status=$?
+          set -e
+          printf '%s\n' "$status" > "$EVIDENCE_OUTPUT/${EVIDENCE_SCENARIO}-build-exit-code.txt"
+          exit "$status"
+
+      - name: Capture real before and after components with local fixture responses
+        if: ${{ !cancelled() && steps.browser-setup.outcome == 'success' }}
+        run: node harness/scripts/ui-evidence/run.mjs
+
+      - name: Retain screenshots, source SHAs, fixture observations and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copy-audit-${{ matrix.scenario }}-${{ github.run_id }}
+          path: artifacts/${{ matrix.scenario }}/
+          if-no-files-found: error
+          retention-days: 7
