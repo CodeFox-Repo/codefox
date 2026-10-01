@@ -333,7 +333,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                     <span>Public</span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Anyone can view this project
+                    Other signed-in users can remix this project
                   </p>
                 </SelectItem>
 
@@ -346,7 +346,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                     <span>Private</span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Only you can access this project
+                    Hidden from the gallery and unavailable for others to remix
                   </p>
                 </SelectItem>
               </SelectContent>
