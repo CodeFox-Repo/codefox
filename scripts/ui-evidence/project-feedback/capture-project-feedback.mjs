@@ -60,10 +60,17 @@ page.on('request', (request) => {
 const bodyText = () => page.evaluate(() => document.body.innerText);
 const waitText = (text) => page.waitForFunction((value) => document.body.innerText.includes(value), {}, text);
 const clickText = async (selector, text) => {
-  const handle = await page.waitForFunction((selector, text) => [...document.querySelectorAll(selector)].find((node) => node.textContent.trim() === text && node.getBoundingClientRect().width > 0), {}, selector, text);
-  const element = handle.asElement();
-  assert(element, `Missing ${selector} with text ${text}`);
-  await element.click();
+  // Responsive React layouts may replace the node between lookup and click.
+  // Retry only that pre-click detachment; never retry a completed action.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const handle = await page.waitForFunction((selector, text) => [...document.querySelectorAll(selector)].find((node) => node.textContent.trim() === text && node.getBoundingClientRect().width > 0), {}, selector, text);
+    const element = handle.asElement();
+    assert(element, `Missing ${selector} with text ${text}`);
+    try { await element.click(); return; }
+    catch (error) {
+      if (attempt === 2 || !String(error).includes('Node is detached from document')) throw error;
+    } finally { await handle.dispose(); }
+  }
 };
 const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
 const capture = async (name) => {
@@ -177,6 +184,7 @@ try {
   await waitText(mode === 'after' ? 'Make public' : 'Private');
   await capture('07-visibility-desktop');
   await page.setViewport({ width: 430, height: 900, deviceScaleFactor: 1 });
+  await chat();
   await clickText('button', 'Preview');
   await page.click('[aria-label="More actions"]');
   await waitText(mode === 'after' ? 'Currently private.' : 'Private');
