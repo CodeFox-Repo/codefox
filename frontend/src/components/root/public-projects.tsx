@@ -12,6 +12,7 @@ import { ProjectContext } from '@/components/chat/code-engine/project-context';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { mediaUrl } from '@/lib/media';
 import { shareUrl } from '@/lib/share';
+import { Button } from '@/components/ui/button';
 
 interface PublicProject {
   id: string;
@@ -79,12 +80,17 @@ export function PublicProjects({
   const { forkProject } = useContext(ProjectContext);
   const [forking, setForking] = useState<string | null>(null);
 
-  const { data, loading } = useQuery(FETCH_PUBLIC_PROJECTS, {
-    variables: { input: { size: limit, strategy } },
-  });
+  const { data, previousData, loading, error, refetch } = useQuery(
+    FETCH_PUBLIC_PROJECTS,
+    {
+      variables: { input: { size: limit, strategy } },
+      notifyOnNetworkStatusChange: true,
+    }
+  );
 
-  const projects: PublicProject[] = data?.fetchPublicProjects ?? [];
-  const empty = !loading && projects.length === 0;
+  const projects: PublicProject[] =
+    data?.fetchPublicProjects ?? previousData?.fetchPublicProjects ?? [];
+  const empty = !loading && !error && projects.length === 0;
 
   const handleFork = async (id: string) => {
     if (!isAuthorized) {
@@ -153,7 +159,31 @@ export function PublicProjects({
         </div>
       )}
 
-      {loading ? (
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 rounded-xl border border-border bg-card p-4"
+        >
+          <p className="text-sm text-foreground">
+            Could not load public projects
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {projects.length > 0
+              ? 'The projects shown may be out of date.'
+              : 'Try again to browse projects to remix.'}
+          </p>
+          <Button
+            className="mt-3"
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            onClick={() => void refetch().catch(() => {})}
+          >
+            {loading ? 'Trying again…' : 'Try again'}
+          </Button>
+        </div>
+      )}
+      {loading && projects.length === 0 ? (
         <ul
           aria-hidden
           className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]"
@@ -168,7 +198,7 @@ export function PublicProjects({
             </li>
           ))}
         </ul>
-      ) : empty ? (
+      ) : error && projects.length === 0 ? null : empty ? (
         // The section used to disappear when nothing was public, which left a
         // hole where the showcase belongs and told a new user nothing. Hold
         // the space and say what would fill it.

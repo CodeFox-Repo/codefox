@@ -27,6 +27,7 @@ import { GET_PROJECT } from '../../../graphql/request';
 import { ProjectContext } from './project-context';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { shareUrl } from '@/lib/share';
+import { copyText } from '@/lib/copy-text';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -75,6 +76,7 @@ const ResponsiveToolbar = ({
   // Query to check if the project is already synced
   const { setProjectPublicStatus } = useContext(ProjectContext);
   const [togglingVisibility, setTogglingVisibility] = useState(false);
+  const visibilityPending = useRef(false);
   const { data: projectData, refetch: refetchProject } = useQuery(GET_PROJECT, {
     variables: { projectId },
     skip: !projectId,
@@ -115,6 +117,36 @@ const ResponsiveToolbar = ({
   // Undefined until the query resolves. Do NOT default to false: the button
   // toggles to `!isPublic`, so an unknown state would publish the project.
   const isPublic: boolean | undefined = projectData?.getProject?.isPublic;
+
+  const visibilityAction = togglingVisibility
+    ? 'Updating visibility…'
+    : isPublic === undefined
+      ? 'Loading visibility…'
+      : isPublic
+        ? 'Make private'
+        : 'Make public';
+  const visibilityDescription =
+    isPublic === undefined
+      ? 'Loading the current project visibility'
+      : isPublic
+        ? 'Currently public. Make private to remove public access in CodeFox.'
+        : 'Currently private. Make public to let other signed-in users remix this project.';
+
+  const handleVisibilityChange = async () => {
+    if (!projectId || isPublic === undefined || visibilityPending.current)
+      return;
+    visibilityPending.current = true;
+    setTogglingVisibility(true);
+    try {
+      await setProjectPublicStatus(projectId, !isPublic);
+      await refetchProject();
+    } catch {
+      toast.error('Could not refresh project visibility. Try again.');
+    } finally {
+      visibilityPending.current = false;
+      setTogglingVisibility(false);
+    }
+  };
 
   // A page anyone can open, once it is public. Private projects and Next apps
   // have no such link — Next has no single file to serve.
@@ -340,30 +372,35 @@ const ResponsiveToolbar = ({
               {compactIcons && (
                 <>
                   <DropdownMenuItem
-                    disabled={!projectId || isPublic === undefined}
-                    onClick={async () => {
-                      if (!projectId || isPublic === undefined) return;
-                      setTogglingVisibility(true);
-                      await setProjectPublicStatus(projectId, !isPublic);
-                      await refetchProject();
-                      setTogglingVisibility(false);
-                    }}
+                    disabled={
+                      isLoading ||
+                      !projectId ||
+                      togglingVisibility ||
+                      isPublic === undefined
+                    }
+                    title={visibilityDescription}
+                    onClick={handleVisibilityChange}
                   >
                     {isPublic ? (
                       <Globe className="w-3 h-3 mr-2" />
                     ) : (
                       <Lock className="w-3 h-3 mr-2" />
                     )}
-                    {isPublic ? 'Public' : 'Private'}
+                    <span>
+                      <span className="block">{visibilityAction}</span>
+                      <span className="block max-w-64 text-xs text-muted-foreground">
+                        {visibilityDescription}
+                      </span>
+                    </span>
                   </DropdownMenuItem>
                   {share && (
                     <DropdownMenuItem
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          `${window.location.origin}${share}`
-                        );
-                        toast.success('Share link copied — anyone can open it');
-                      }}
+                      onClick={() =>
+                        void copyText(
+                          `${window.location.origin}${share}`,
+                          'Share link copied — anyone can open it'
+                        )
+                      }
                     >
                       <Share2 className="w-3 h-3 mr-2" />
                       Share
@@ -449,8 +486,7 @@ const ResponsiveToolbar = ({
             aria-label="Copy project id"
             onClick={() => {
               if (!projectId) return;
-              navigator.clipboard.writeText(projectId);
-              toast.success('Project id copied');
+              void copyText(projectId, 'Project id copied');
             }}
           >
             <Copy className="w-3 h-3" />
@@ -469,30 +505,16 @@ const ResponsiveToolbar = ({
                   togglingVisibility ||
                   isPublic === undefined
                 }
-                onClick={async () => {
-                  if (!projectId || isPublic === undefined) return;
-                  setTogglingVisibility(true);
-                  await setProjectPublicStatus(projectId, !isPublic);
-                  await refetchProject();
-                  setTogglingVisibility(false);
-                }}
-                title={
-                  isPublic
-                    ? 'Anyone can see and fork this project'
-                    : 'Only you can see this project'
-                }
-                aria-busy={isPublic === undefined}
+                onClick={handleVisibilityChange}
+                title={visibilityDescription}
+                aria-busy={togglingVisibility || isPublic === undefined}
               >
                 {isPublic ? (
                   <Globe className="w-3 h-3 mr-1" />
                 ) : (
                   <Lock className="w-3 h-3 mr-1" />
                 )}
-                {isPublic === undefined
-                  ? 'Visibility'
-                  : isPublic
-                    ? 'Public'
-                    : 'Private'}
+                {visibilityAction}
               </Button>
               {/* The published page's own url. Only shown when there is one
                   to copy — publishing is what creates it. */}
@@ -502,12 +524,12 @@ const ResponsiveToolbar = ({
                   size="sm"
                   className="text-sm"
                   title="Copy a link anyone can open"
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `${window.location.origin}${share}`
-                    );
-                    toast.success('Share link copied — anyone can open it');
-                  }}
+                  onClick={() =>
+                    void copyText(
+                      `${window.location.origin}${share}`,
+                      'Share link copied — anyone can open it'
+                    )
+                  }
                 >
                   <Share2 className="w-3 h-3 mr-1" />
                   Share

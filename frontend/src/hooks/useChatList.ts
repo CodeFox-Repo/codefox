@@ -9,6 +9,7 @@ export function useChatList() {
   const { isAuthorized } = useAuthContext();
   const {
     data: chatData,
+    previousData,
     loading,
     error,
     refetch,
@@ -17,11 +18,18 @@ export function useChatList() {
     // this used to key on died with the sidebar, so a cache-first list went
     // stale the moment a project was created or renamed elsewhere.
     fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
     skip: !isAuthorized,
   });
 
-  const handleRefetch = useCallback(() => {
-    refetch();
+  const handleRefetch = useCallback(async () => {
+    try {
+      return await refetch();
+    } catch {
+      // Apollo exposes the failure through error; callers can safely retry
+      // without also creating an unhandled promise rejection.
+      return undefined;
+    }
   }, [refetch]);
 
   const handleChatListUpdate = useCallback((value: boolean) => {
@@ -29,12 +37,12 @@ export function useChatList() {
   }, []);
 
   const sortedChats = useMemo(() => {
-    const chats = chatData?.getUserChats || [];
+    const chats = chatData?.getUserChats ?? previousData?.getUserChats ?? [];
     return [...chats].sort(
       (a: Chat, b: Chat) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [chatData?.getUserChats]);
+  }, [chatData?.getUserChats, previousData?.getUserChats]);
 
   return {
     chats: sortedChats,
