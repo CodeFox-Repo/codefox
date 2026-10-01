@@ -15,7 +15,7 @@ The runner verifies both source SHAs and writes them together with its own
 harness SHA and the fixture limitations into `run.json`. Images visibly label
 their fixture scope and source commit. Application copy is never replaced by
 the capture scripts. The editor harness adds a disposable route importing the
-real components and an offline layout; that override is recorded explicitly.
+real components and a minimal layout retaining the real font definitions; that override is recorded explicitly.
 
 All browser network requests outside the local fixture endpoints are blocked
 (or, for the decorative GitHub star counter, answered with a fixed local

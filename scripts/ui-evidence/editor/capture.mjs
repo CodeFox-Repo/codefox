@@ -70,7 +70,7 @@ try {
     await page.evaluate(({ tag, commit }) => {
       const badge = document.createElement('div');
       badge.textContent = `UI TEST · mocked editor context/API · ${tag} ${commit.slice(0, 8)}`;
-      badge.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:8px;background:#172033;color:#fff;font:11px monospace;z-index:2147483647;text-align:center';
+      badge.style.cssText = 'position:fixed;top:0;right:0;max-width:100%;padding:3px 6px;background:#172033;color:#fff;font:10px monospace;z-index:2147483647;text-align:center;pointer-events:none';
       document.body.appendChild(badge);
     }, { tag, commit: process.env.EVIDENCE_CURRENT_SHA || 'unknown' });
     await page.screenshot({ path: join(dir, `${tag}-${scenario}.png`) });

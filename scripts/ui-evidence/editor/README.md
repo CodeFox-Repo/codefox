@@ -28,7 +28,7 @@ The fake clipboard rejection has a no-op rejection observer to suppress only
 the development overlay; it remains rejected for the component's await.
 Monaco's script origin is changed to a local nonexistent fixture route so it
 cannot fetch the external editor; the history panel itself remains real.
-The app layout is temporarily simplified to avoid external font fetching.
+The app layout is temporarily simplified while retaining its actual Next font definitions. Fixture mode is selected after hydration to match the initial server markup.
 
 Assertions cover before/after indeterminate loading, failed-history treatment
 and after retry, actual 320px save-bar layout, falsely optimistic baseline

@@ -14,7 +14,7 @@ const messages = [
 http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3102');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'content-type,authorization,apollo-require-preflight');
+  res.setHeader('Access-Control-Allow-Headers', 'content-type,authorization,apollo-require-preflight,access-control-allow-credentials,access-control-allow-origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   if (req.method === 'OPTIONS') { res.end(); return; }
   const state = JSON.parse(fs.readFileSync(`${base}/fixture-state.json`, 'utf8'));

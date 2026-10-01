@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, Observable } from '@apollo/client';
 import { Toaster } from 'sonner';
 import { loader } from '@monaco-editor/react';
@@ -22,7 +22,8 @@ if (typeof window !== 'undefined') {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => { const denied = Promise.reject(new Error('Simulated clipboard permission denial')); denied.catch(() => {}); return denied; } } });
 }
 export default function Fixture() {
-  const mode = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('case');
+  const [mode, setMode] = useState('');
+  useEffect(() => { setMode(new URLSearchParams(window.location.search).get('case') || ''); }, []);
   const [filePath, setFilePath] = useState<string | null>('index.html');
   const editorRef = useRef(null);
   const client = useMemo(() => new ApolloClient({ cache: new InMemoryCache(), link: new ApolloLink(() => new Observable((observer) => {

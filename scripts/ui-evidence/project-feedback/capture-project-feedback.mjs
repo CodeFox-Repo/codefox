@@ -38,6 +38,16 @@ await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 1 });
 page.setDefaultTimeout(45000);
 page.setDefaultNavigationTimeout(180000);
 const errors = [];
+const consoleMessages = [];
+const failedRequests = [];
+page.on('console', (message) => { if (message.type() === 'error') consoleMessages.push(message.text()); });
+page.on('requestfailed', (request) => failedRequests.push({ url: request.url(), failure: request.failure()?.errorText }));
+// Seed only a synthetic local fixture session before the app hydrates. This
+// avoids racing the development login button and never signs into an account.
+await page.evaluateOnNewDocument(() => {
+  localStorage.setItem('accessToken', 'local-fixture-only-not-a-credential');
+  localStorage.setItem('refreshToken', 'local-fixture-only-not-a-credential');
+});
 page.on('pageerror', (error) => errors.push(error.message));
 // CI isolation: the fixture endpoints are the only browser network destinations.
 await page.setRequestInterception(true);
@@ -70,9 +80,6 @@ const capture = async (name) => {
 };
 const home = async () => {
   await page.goto(url, { waitUntil: 'networkidle2' });
-  if (await page.$('[aria-label="Dev sign in"]')) {
-    await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2' }), page.click('[aria-label="Dev sign in"]')]);
-  }
   await waitText('What are we building?');
 };
 const openProjectMenu = async () => {
@@ -175,11 +182,11 @@ try {
     url, fixtureBackend: 'local deterministic server', screenshots: 8,
     verified: ['rename scope', 'duplicate success and failure', 'query failures and retry', 'clear confirmation, Cancel, Escape, and failed clear', 'desktop and compact visibility labels'],
     limitations: 'Actual Next/React/Radix UI with fake GraphQL/file data and a non-credential fixture token. No live backend/account, model generation, real clipboard denial, publishing, or deployment.',
-    pageErrors: errors,
+    pageErrors: errors, consoleErrors: consoleMessages, failedRequests,
   }, null, 2));
   console.log(`${mode}: verified eight genuine component screenshots in ${output}`);
 } catch (error) {
   await page.screenshot({ path: join(output, 'failure.png'), timeout: 10000 }).catch(() => {});
-  writeFileSync(join(output, 'failure.json'), JSON.stringify({ mode, commit: sourceCommit, error: String(error.stack || error), pageErrors: errors }, null, 2));
+  writeFileSync(join(output, 'failure.json'), JSON.stringify({ mode, commit: sourceCommit, error: String(error.stack || error), pageErrors: errors, consoleErrors: consoleMessages, failedRequests }, null, 2));
   throw error;
 } finally { await browser.close(); }

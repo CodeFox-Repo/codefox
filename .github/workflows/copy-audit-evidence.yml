@@ -88,20 +88,20 @@ jobs:
           npx playwright install --with-deps chromium
           echo "CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
 
-      - name: Build the exact project-feedback frontend revision
-        id: project-build
-        if: matrix.scenario == 'project-feedback'
+      - name: Build the exact feature frontend revision
+        id: feature-build
+        if: matrix.scenario == 'project-feedback' || matrix.scenario == 'editor'
         continue-on-error: true
         working-directory: after/frontend
         run: |
           set -o pipefail
-          pnpm build 2>&1 | tee "$EVIDENCE_OUTPUT/project-after-build.log"
+          pnpm build 2>&1 | tee "$EVIDENCE_OUTPUT/${EVIDENCE_SCENARIO}-after-build.log"
 
       - name: Capture real before and after components with local fixture responses
         run: node harness/scripts/ui-evidence/run.mjs
 
-      - name: Keep a failed project-feedback production build blocking
-        if: always() && steps.project-build.outcome == 'failure'
+      - name: Keep a failed feature production build blocking
+        if: always() && steps.feature-build.outcome == 'failure'
         run: exit 1
 
       - name: Retain screenshots, source SHAs, fixture observations and logs

@@ -24,7 +24,7 @@ await mkdir(output, { recursive: true });
 const metadata = {
   scenario, baseline: sha(before), feature: sha(after), harness: sha(here),
   syntheticFixtures: true,
-  fixtureOverrides: scenario === 'editor' ? ['temporary offline layout', 'temporary fixture route importing real components'] : [],
+  fixtureOverrides: scenario === 'editor' ? ['temporary minimal layout retaining real font definitions', 'temporary fixture route importing real components'] : [],
   limitations: 'Actual application components with deterministic local API/context responses. No production account, email, generation, deployment or real clipboard-permission validation.',
   startedAt: new Date().toISOString(), status: 'running',
 };

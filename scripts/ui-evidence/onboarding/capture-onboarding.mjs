@@ -111,10 +111,44 @@ try {
     await page.getByRole('button', {name:'Close',exact:true}).click();
     assert.equal(await input.inputValue(), 'A portfolio for an architect');
     assert.equal(page.url(), `${origin}/`);
-    await page.setViewportSize({width:390,height:844});
-    await input.scrollIntoViewIfNeeded();
-    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= window.innerWidth), true, 'Composer must fit compact viewport');
-    await page.screenshot({ path: join(output, `onboarding-compact-${label}.png`) });
+    // A fresh compact page avoids retaining the desktop scroll position and
+    // capturing a responsive layout while its entrance animation is moving.
+    const compact = await context.newPage();
+    lastPage = compact;
+    await compact.setViewportSize({ width: 390, height: 844 });
+    await compact.emulateMedia({ reducedMotion: 'reduce' });
+    await compact.goto(origin, { waitUntil: 'domcontentloaded' });
+    const compactInput = label === 'after' ? compact.getByRole('textbox', { name: 'Describe your project', exact: true }) : compact.locator('textarea').first();
+    await compactInput.fill('A portfolio for an architect');
+    await compact.evaluate(() => document.fonts.ready);
+    await compactInput.evaluate((element) => element.parentElement.parentElement.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
+    await compact.waitForFunction((element) => {
+      for (let node = element; node; node = node.parentElement) {
+        if (Number(getComputedStyle(node).opacity) < 0.99) return false;
+      }
+      return true;
+    }, await compactInput.elementHandle());
+    const formBox = await compactInput.evaluate((element) => {
+      const r = element.parentElement.parentElement.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    });
+    assert.ok(formBox.x >= 0 && formBox.x + formBox.width <= 390 && formBox.y >= 0 && formBox.y + formBox.height <= 780, 'Entire compact composer must fit above the evidence caption');
+    for (const name of [label === 'after' ? 'Create project' : 'Create', label === 'after' ? 'Improve prompt' : 'Enhance']) {
+      const box = await compact.getByRole('button', { name, exact: true }).boundingBox();
+      assert.ok(box && box.y >= 0 && box.y + box.height <= 780 && box.x >= 0 && box.x + box.width <= 390, `${name} must be fully visible in the compact capture`);
+    }
+    if (label === 'after') {
+      const box = await compact.getByText('Describe your project', { exact: true }).boundingBox();
+      assert.ok(box && box.y >= 0 && box.y + box.height <= 780, 'The visible field label must fit in the compact capture');
+    }
+    assert.equal(await compact.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Composer must fit compact viewport');
+    await compact.evaluate(({ label, commit }) => {
+      const badge = document.createElement('div');
+      badge.textContent = `UI TEST · synthetic API fixture · ${label} ${commit.slice(0, 8)}`;
+      badge.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:6px;background:#172033;color:#fff;font:11px monospace;z-index:2147483647;text-align:center';
+      document.body.appendChild(badge);
+    }, { label, commit: sha(label === 'before' ? before : after) });
+    await compact.screenshot({ path: join(output, `onboarding-compact-${label}.png`) });
     await context.close();
   }
   assert.equal(mutations, 0, 'Screenshot capture must not submit accounts, generation, or paid model requests');
