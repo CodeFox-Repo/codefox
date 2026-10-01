@@ -38,13 +38,13 @@ jest.mock('@/providers/AuthProvider', () => ({
   useAuthContext: () => ({ isAuthorized: true, user: { id: 'owner' } }),
 }));
 jest.mock('@/components/chat/code-engine/project-context', () => ({
-  ProjectContext: require('react').createContext({
+  ProjectContext: jest.requireActual<typeof React>('react').createContext({
     forkProject: jest.fn(),
     setProjectPublicStatus: (...args: unknown[]) => mockSetVisibility(...args),
   }),
 }));
 jest.mock('@/components/root/prompt-form', () => ({
-  PromptForm: require('react').forwardRef(() => null),
+  PromptForm: jest.requireActual<typeof React>('react').forwardRef(() => null),
 }));
 jest.mock('@/components/chat/code-engine/deploy-dialog', () => ({
   DeployDialog: () => null,
