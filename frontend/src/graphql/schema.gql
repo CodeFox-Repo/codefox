@@ -48,6 +48,7 @@ type AdminRuntime {
   model: String!
   nodeEnv: String!
   provider: String!
+  passwordResetEmailAvailable: Boolean!
   registrationOpen: Boolean!
   sandbox: String!
   uptime: Int!
@@ -276,6 +277,7 @@ type Query {
   logout: Boolean!
   me: User!
   myRoles: [String!]!
+  passwordResetEmailAvailable: Boolean!
   registrationOpen: Boolean!
   scenarios: [ScenarioChoice!]!
 }

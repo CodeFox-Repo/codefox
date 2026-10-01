@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/texture-card';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getVerificationFailureMessage } from '@/lib/auth-copy';
 
 export default function ConfirmEmailPage() {
   const searchParams = useSearchParams();
@@ -25,21 +26,19 @@ export default function ConfirmEmailPage() {
     onCompleted: (data) => {
       if (data.confirmEmail.success) {
         setStatus('success');
-        setMessage(data.confirmEmail.message || 'Email verified successfully!');
+        setMessage('Email verified. You can sign in now.');
         // Redirect to home page after a short delay
         setTimeout(() => {
           router.push('/');
         }, 3000);
       } else {
         setStatus('error');
-        setMessage(data.confirmEmail.message || 'Failed to verify email.');
+        setMessage(getVerificationFailureMessage(data.confirmEmail.message));
       }
     },
-    onError: (error) => {
+    onError: () => {
       setStatus('error');
-      setMessage(
-        error.message || 'An error occurred while verifying your email.'
-      );
+      setMessage('We couldn’t verify your email. Try opening the link again.');
     },
   });
 
@@ -48,7 +47,9 @@ export default function ConfirmEmailPage() {
 
     if (!token) {
       setStatus('error');
-      setMessage('Invalid verification link. No token provided.');
+      setMessage(
+        'This verification link is incomplete. Open the full link from your CodeFox email.'
+      );
       return;
     }
 
@@ -65,7 +66,7 @@ export default function ConfirmEmailPage() {
       <BackgroundGradient className="rounded-[22px] p-4 bg-background max-w-md w-full">
         <TextureCardHeader className="flex flex-col gap-2 items-center justify-center p-4">
           <TextureCardTitle className="text-center text-2xl">
-            Email Verification
+            Verify your email
           </TextureCardTitle>
 
           <div className="mt-4 flex items-center justify-center">
@@ -86,13 +87,13 @@ export default function ConfirmEmailPage() {
 
           {status === 'success' && (
             <p className="text-sm text-muted-foreground">
-              You will be redirected to the home page shortly...
+              Returning to CodeFox…
             </p>
           )}
 
           {status === 'error' && (
             <Button onClick={() => router.push('/')} className="mt-4">
-              Go to Home Page
+              Back to CodeFox
             </Button>
           )}
         </TextureCardContent>
