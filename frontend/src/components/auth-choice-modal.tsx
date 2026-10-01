@@ -23,7 +23,7 @@ export function AuthChoiceModal({
       <DialogContent className="sm:max-w-[425px] fixed top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%]">
         {/* Invisible but accessible DialogTitle */}
         <VisuallyHidden>
-          <DialogTitle>Choose Authentication Method</DialogTitle>
+          <DialogTitle>Welcome to CodeFox</DialogTitle>
         </VisuallyHidden>
 
         <BackgroundGradient className="rounded-[22px] p-4 bg-background">
@@ -32,7 +32,7 @@ export function AuthChoiceModal({
               Welcome to CodeFox
             </h2>
             <p className="text-center text-muted-foreground">
-              Choose how you want to continue
+              Sign in or create an account to continue
             </p>
             <div className="space-y-4">
               {/* Sign In button */}

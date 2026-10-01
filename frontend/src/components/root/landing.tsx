@@ -33,20 +33,20 @@ const TOOL_CALLS = [
 
 const FACTS = [
   {
-    n: '365',
-    title: 'files in the app starter',
-    hint: 'Next.js 15 + shadcn — or a one-file HTML page, your pick',
+    n: '2',
+    title: 'starter types',
+    hint: 'A self-contained HTML page or a Next.js app',
     accent: true,
   },
   {
-    n: '1',
-    title: 'dependency install, ever',
-    hint: '629 packages cached once, shared by every project',
+    n: 'Live',
+    title: 'preview beside the chat',
+    hint: 'Review the page as you build and refine it',
   },
   {
-    n: '0',
-    title: 'cloud keys required',
-    hint: 'Any OpenAI- or Anthropic-compatible endpoint works',
+    n: 'Your choice',
+    title: 'model provider',
+    hint: 'Self-hosting requires a configured model provider',
   },
 ];
 
@@ -54,12 +54,12 @@ const LIMITS = [
   {
     title: 'The sandbox is not isolation',
     tag: 'by design',
-    body: 'The agent runs with the backend process privileges inside a scoped directory. That is the trade for using the CLI you are already signed into. Swap in a network sandbox provider for anything untrusted — same interface.',
+    body: 'The agent runs with the backend process privileges inside a scoped directory. Swap in a network sandbox provider for anything untrusted — same interface.',
   },
   {
     title: 'Projects share one node_modules',
     tag: 'known',
-    body: 'Every project comes from the same template, so they symlink a single install. That stops being true the moment the agent is allowed to add a dependency.',
+    body: 'Next.js projects share the starter dependency install. That stops being true the moment the agent is allowed to add a dependency.',
   },
   {
     title: 'Two starters, not a marketplace',
@@ -153,21 +153,20 @@ export function Landing() {
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="mb-7 flex flex-wrap gap-2">
-              <Chip>Local-first</Chip>
-              <Chip>Claude Code inside</Chip>
+              <Chip>Self-hostable</Chip>
+              <Chip>AI-assisted</Chip>
               <Chip>MIT</Chip>
             </div>
 
             <h1 className="font-display text-[clamp(2.5rem,5vw,4rem)] font-bold leading-[1.02] tracking-[-0.035em] text-foreground">
-              One prompt.
-              <br />A repo that{' '}
-              <span className="text-primary">already runs</span>.
+              Describe a page.
+              <br />
+              <span className="text-primary">Build it.</span>
             </h1>
 
             <p className="mt-6 max-w-[54ch] text-[1.0625rem] leading-relaxed text-muted-foreground">
-              CodeFox scaffolds a real Next.js project on your disk, points
-              Claude Code at it, and boots a dev server beside the chat. Not a
-              preview of code — the code, on a port, in your browser.
+              CodeFox creates a webpage or Next.js app from your prompt. Preview
+              the result beside the chat, then describe what to change.
             </p>
           </motion.div>
 
@@ -216,7 +215,7 @@ export function Landing() {
           </div>
 
           <p className="mt-4 font-mono text-xs text-muted-foreground">
-            Node 18+ · no database to install · no cloud API key
+            Self-host with Node 22+ and a configured model provider
           </p>
         </motion.div>
       </section>
@@ -393,11 +392,11 @@ export function Landing() {
         <div className="grid gap-x-14 gap-y-9 border-t-[3px] border-border pt-12 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <h2 className="max-w-[20ch] text-balance font-display text-[clamp(1.75rem,3.4vw,2.5rem)] font-bold leading-[1.08] tracking-[-0.025em] text-foreground">
-              Clone it, run one command, type one sentence.
+              Run CodeFox on your own machine.
             </h2>
             <p className="mt-5 max-w-[52ch] text-pretty text-[1.0625rem] leading-relaxed text-muted-foreground">
-              All of it happens on your machine. If it does not work in the
-              first minute, that is a bug worth filing.
+              Clone the repository, install the dependencies, and configure a
+              model provider. The setup guide walks you through each step.
             </p>
           </div>
 
@@ -419,7 +418,7 @@ export function Landing() {
                 </button>
               )}
               <a
-                href="https://github.com/Sma1lboy/codefox"
+                href="https://github.com/CodeFox-Repo/codefox"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary"
@@ -428,7 +427,7 @@ export function Landing() {
               </a>
             </div>
             <p className="mt-6 font-mono text-xs text-muted-foreground">
-              MIT · Node 18+ · macOS, Linux, WSL
+              MIT · Node 22+ · macOS, Linux, WSL
             </p>
           </div>
         </div>

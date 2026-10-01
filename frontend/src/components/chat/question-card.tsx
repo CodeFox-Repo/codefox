@@ -250,7 +250,7 @@ export function QuestionCard({
               {q.label}
               {q.multi && (
                 <span className="ml-2 font-mono text-[10px] uppercase text-muted-foreground">
-                  multi
+                  Select all that apply
                 </span>
               )}
             </p>
@@ -322,6 +322,7 @@ export function QuestionCard({
       {interactive && (
         <div className="mt-5 space-y-3">
           <input
+            aria-label="Additional details (optional)"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Anything else the agent should know? (optional)"
