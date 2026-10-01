@@ -54,7 +54,7 @@ await page.setRequestInterception(true);
 page.on('request', (request) => {
   const address = request.url();
   if (/^(data:|blob:|about:)/.test(address) || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/)/.test(address)) request.continue();
-  else if (address === 'https://api.github.com/repos/Sma1lboy/codefox') request.respond({ status: 200, contentType: 'application/json', body: '{"stargazers_count":0}' });
+  else if (address === 'https://api.github.com/repos/Sma1lboy/codefox') request.respond({ status: 200, headers: { 'Access-Control-Allow-Origin': '*' }, contentType: 'application/json', body: '{"stargazers_count":0}' });
   else request.abort();
 });
 const bodyText = () => page.evaluate(() => document.body.innerText);
@@ -83,6 +83,8 @@ const home = async () => {
   await waitText('What are we building?');
 };
 const openProjectMenu = async () => {
+  // Radix restores pointer events/focus after the closing dialog unmounts.
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]') && getComputedStyle(document.body).pointerEvents !== 'none');
   await page.click('[aria-label="Project options"]');
   await page.waitForSelector('[role="menu"]');
 };
@@ -109,6 +111,9 @@ try {
   await clickText('button', 'Cancel');
 
   scenario('duplicate-error');
+  // The duplicate case starts from its own page load; rename/dialog timing
+  // is not a prerequisite for observing the independent duplicate outcome.
+  await home();
   await openProjectMenu();
   await clickText('[role="menuitem"]', 'Duplicate');
   await waitText(mode === 'after' ? 'Could not duplicate this project. Try again.' : 'Could not delete the project');

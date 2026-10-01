@@ -23,7 +23,7 @@ jobs:
           - scenario: auth
             after: 94d238c4d8475439a0f569d05590d270f6ac69d9
           - scenario: project-feedback
-            after: a90ff30d50fd8e29fe3c3a5288fc7c4fa3de4549
+            after: 2f500ace5aa4de98d9422899f18baa2a16f62e5b
           - scenario: editor
             after: b3c1a666b5f9cdcec94be7480ca978e7fa5397a2
           - scenario: onboarding
@@ -83,6 +83,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Install the pinned Chromium browser
+        id: browser-setup
         working-directory: harness/scripts/ui-evidence
         run: |
           npx playwright install --with-deps chromium
@@ -91,18 +92,19 @@ jobs:
       - name: Build the exact feature frontend revision
         id: feature-build
         if: matrix.scenario == 'project-feedback' || matrix.scenario == 'editor'
-        continue-on-error: true
         working-directory: after/frontend
         run: |
           set -o pipefail
+          set +e
           pnpm build 2>&1 | tee "$EVIDENCE_OUTPUT/${EVIDENCE_SCENARIO}-after-build.log"
+          status=$?
+          set -e
+          printf '%s\n' "$status" > "$EVIDENCE_OUTPUT/${EVIDENCE_SCENARIO}-build-exit-code.txt"
+          exit "$status"
 
       - name: Capture real before and after components with local fixture responses
+        if: ${{ !cancelled() && steps.browser-setup.outcome == 'success' }}
         run: node harness/scripts/ui-evidence/run.mjs
-
-      - name: Keep a failed feature production build blocking
-        if: always() && steps.feature-build.outcome == 'failure'
-        run: exit 1
 
       - name: Retain screenshots, source SHAs, fixture observations and logs
         if: always()
