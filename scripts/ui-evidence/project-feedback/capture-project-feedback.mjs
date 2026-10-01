@@ -185,7 +185,7 @@ try {
   await capture('07-visibility-desktop');
   await page.setViewport({ width: 430, height: 900, deviceScaleFactor: 1 });
   await chat();
-  await clickText('button', 'Preview');
+  await clickText('button', 'App');
   await page.click('[aria-label="More actions"]');
   await waitText(mode === 'after' ? 'Currently private.' : 'Private');
   await capture('08-visibility-compact');

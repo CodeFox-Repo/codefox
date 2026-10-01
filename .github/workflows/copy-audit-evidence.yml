@@ -27,7 +27,7 @@ jobs:
           - scenario: editor
             after: b3c1a666b5f9cdcec94be7480ca978e7fa5397a2
           - scenario: onboarding
-            after: 3ad2368bca5a1d5a4043226343a0250d840dc2a8
+            after: 5318d2e84137dc57e70e747c02cf0d898031df57
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       PUPPETEER_SKIP_DOWNLOAD: 'true'

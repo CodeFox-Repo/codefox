@@ -20,7 +20,7 @@ jobs:
       matrix:
         include:
           - scenario: onboarding
-            feature_sha: 3ad2368bca5a1d5a4043226343a0250d840dc2a8
+            feature_sha: 5318d2e84137dc57e70e747c02cf0d898031df57
             jest_config: jest.onboarding-copy.config.js
           - scenario: project-feedback
             feature_sha: 2f500ace5aa4de98d9422899f18baa2a16f62e5b
