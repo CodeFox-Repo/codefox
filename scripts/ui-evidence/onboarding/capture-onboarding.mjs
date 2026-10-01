@@ -18,6 +18,36 @@ const data = {
   fetchPublicProjects: [], getAvailableModelTags: [], scenarios: [],
   designSystems: [], getUserChats: [], getUserProjects: [], me: null, myRoles: [],
 };
+const assetReadiness = {};
+const waitForLandingAssets = async (page) => {
+  await page.waitForLoadState('networkidle', { timeout: 30000 });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => {
+    const visible = (node) => { const r = node.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight; };
+    return [...document.images].filter(visible).every((image) => image.complete && image.naturalWidth > 0);
+  }, undefined, { timeout: 30000 });
+  const assets = await page.evaluate(async () => {
+    const visible = (node) => { const r = node.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight; };
+    const images = [...document.images].filter(visible);
+    await Promise.all(images.map((image) => image.decode()));
+    const backgrounds = [...new Set([...document.querySelectorAll('section *')]
+      .map((node) => getComputedStyle(node).backgroundImage)
+      .filter((value) => value.includes('hero-aqueduct.jpg'))
+      .map((value) => /url\(["']?(.*?)["']?\)/.exec(value)?.[1]).filter(Boolean))];
+    if (!backgrounds.length) throw new Error('The actual hero background is missing');
+    await Promise.all(backgrounds.map(async (src) => { const image = new Image(); image.src = src; await image.decode(); if (!image.naturalWidth) throw new Error('Hero background did not decode'); }));
+    return { fonts: document.fonts.status, images: images.map((image) => ({ src: image.currentSrc, width: image.naturalWidth, height: image.naturalHeight })), backgrounds };
+  });
+  await page.waitForFunction(() => {
+    const elements = [...document.querySelectorAll('h1, img[alt="A generated analog-synth sound designer running inside CodeFox preview"]')];
+    return elements.every((element) => {
+      for (let node = element; node; node = node.parentElement) if (Number(getComputedStyle(node).opacity) < 0.99) return false;
+      return true;
+    });
+  }, undefined, { timeout: 10000 });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  return assets;
+};
 const processes = [], servers = [], logs = {};
 let mutations = 0;
 let browser;
@@ -83,6 +113,7 @@ try {
     lastLabel = label;
     await page.goto(origin, { waitUntil: 'domcontentloaded' });
     await page.getByRole('heading', { level: 1 }).waitFor();
+    assetReadiness[label] = await waitForLandingAssets(page);
     await page.evaluate(({label, commit}) => {
       const badge = document.createElement('div');
       badge.textContent = `UI TEST · synthetic read-only API fixture · ${label} ${commit.slice(0, 8)}`;
@@ -152,12 +183,12 @@ try {
     await context.close();
   }
   assert.equal(mutations, 0, 'Screenshot capture must not submit accounts, generation, or paid model requests');
-  await writeFile(join(output, 'metadata.json'), JSON.stringify({ before: sha(before), after: sha(after), syntheticFixture: true, mailEnabled: false, viewport: { width: 1440, height: 1000 }, mutationsSubmitted: mutations }, null, 2));
+  await writeFile(join(output, 'metadata.json'), JSON.stringify({ before: sha(before), after: sha(after), syntheticFixture: true, mailEnabled: false, viewport: { width: 1440, height: 1000 }, mutationsSubmitted: mutations, assetReadiness }, null, 2));
 } catch (error) {
   if (lastPage && !lastPage.isClosed()) {
     await lastPage.screenshot({ path: join(output, `failure-${lastLabel}.png`), timeout: 10000 }).catch(() => {});
   }
-  await writeFile(join(output, 'failure.json'), JSON.stringify({ label: lastLabel, error: String(error.stack || error), mutationsSubmitted: mutations }, null, 2));
+  await writeFile(join(output, 'failure.json'), JSON.stringify({ label: lastLabel, error: String(error.stack || error), mutationsSubmitted: mutations, assetReadiness }, null, 2));
   throw error;
 } finally {
   await browser?.close();

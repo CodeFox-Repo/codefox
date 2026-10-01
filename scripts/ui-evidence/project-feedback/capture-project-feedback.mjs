@@ -74,6 +74,29 @@ const clickText = async (selector, text) => {
 };
 const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
 const capture = async (name) => {
+  await page.evaluate(() => document.fonts.ready);
+  // Read actual rendered overlay state. Do not hide animations or repaint the
+  // UI: wait for visible dialogs/menus/toasts to finish entering the viewport.
+  await page.waitForFunction(() => {
+    const nodes = [...document.querySelectorAll('[role="dialog"], [role="menu"], [data-sonner-toast]')].filter((node) => {
+      const r = node.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && node.getAttribute('data-state') !== 'closed' && node.getAttribute('data-removed') !== 'true' && node.getAttribute('data-visible') !== 'false';
+    });
+    if (!nodes.every((node) => {
+      const r = node.getBoundingClientRect();
+      return Number(getComputedStyle(node).opacity) >= 0.99 && r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth;
+    })) return false;
+    const signature = nodes.map((node) => {
+      const r = node.getBoundingClientRect();
+      return [r.x, r.y, r.width, r.height].map((n) => n.toFixed(1)).join(',');
+    }).join(';');
+    const previous = window.__codefoxEvidenceStable;
+    if (!previous || previous.signature !== signature) {
+      window.__codefoxEvidenceStable = { signature, since: performance.now() };
+      return false;
+    }
+    return performance.now() - previous.since >= 250;
+  }, { timeout: 5000 });
   await page.evaluate((label) => {
     document.querySelector('[data-qa-evidence]')?.remove();
     const caption = document.createElement('div');
