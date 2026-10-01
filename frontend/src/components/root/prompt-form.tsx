@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, forwardRef, useImperativeHandle, useEffect } from 'react';
+import {
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+  useId,
+} from 'react';
 import { SendIcon, Sparkles, Globe, Lock, Loader2, Cpu } from 'lucide-react';
 import Typewriter from 'typewriter-effect';
 import {
@@ -67,6 +73,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
     ref
   ) {
     const [message, setMessage] = useState('');
+    const [promptError, setPromptError] = useState('');
+    const promptId = useId();
+    const errorId = `${promptId}-error`;
     // Light by default: a page, not a toolchain. The full Next starter is
     // the plug-in choice for when a real app is the goal.
     const [scenarioId, setScenarioId] = useState('landing');
@@ -106,7 +115,16 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
       REGENERATE_DESCRIPTION,
       {
         onCompleted: (data) => {
+          if (!data?.regenerateDescription?.trim()) {
+            setPromptError(
+              "Couldn't improve your prompt. Your text is still here. Try again."
+            );
+            setIsEnhanced(false);
+            setIsRegenerating(false);
+            return;
+          }
           setMessage(data.regenerateDescription);
+          setPromptError('');
           // Only now is the prompt actually enhanced. The button used to flip
           // to "Enhanced" on click, including on an empty box or a failure.
           setIsEnhanced(true);
@@ -114,6 +132,9 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
         },
         onError: (error) => {
           logger.error('Error regenerating description:', error);
+          setPromptError(
+            "Couldn't improve your prompt. Your text is still here. Try again."
+          );
           setIsEnhanced(false);
           setIsRegenerating(false);
         },
@@ -122,6 +143,11 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
 
     const handleSubmit = () => {
       if (isLoading || isRegenerating) return;
+      if (!message.trim()) {
+        setPromptError('Describe your project first.');
+        return;
+      }
+      setPromptError('');
       if (!isAuthorized) {
         onAuthRequired();
       } else {
@@ -131,6 +157,11 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
 
     const handleMagicEnhance = () => {
       if (isLoading || isRegenerating) return;
+      if (!message.trim()) {
+        setPromptError('Describe your project first.');
+        return;
+      }
+      setPromptError('');
       if (!isAuthorized) {
         onAuthRequired();
         return;
@@ -166,10 +197,12 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
       }),
       clearMessage: () => {
         setMessage('');
+        setPromptError('');
         setIsEnhanced(false);
       },
       setMessage: (text: string) => {
         setMessage(text);
+        setPromptError('');
         setIsEnhanced(false);
       },
     }));
@@ -185,12 +218,23 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
 
     return (
       <div className={cn('w-full border border-border', 'bg-card rounded-lg')}>
+        <label
+          htmlFor={promptId}
+          className="block px-4 pt-3 text-sm font-medium"
+        >
+          Describe your project
+        </label>
         {/* Typewriter */}
         <div className="relative">
           <textarea
+            id={promptId}
+            aria-label="Describe your project"
+            aria-describedby={promptError ? errorId : undefined}
+            aria-invalid={Boolean(promptError)}
             value={message}
             onChange={(e) => {
               setMessage(e.target.value);
+              setPromptError('');
               // Typing over the enhanced text makes the label stale.
               setIsEnhanced(false);
             }}
@@ -209,12 +253,30 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
             disabled={isLoading || isRegenerating}
           />
           {message === '' && !isLoading && !isRegenerating && !isFocused && (
-            <div className="pointer-events-none text-muted-foreground text-base font-normal absolute top-4 left-4 right-4 overflow-hidden">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none text-muted-foreground text-base font-normal absolute top-4 left-4 right-4 overflow-hidden"
+            >
               <Typewriter onInit={handleTypewriterInit} />
             </div>
           )}
         </div>
 
+        {promptError && (
+          <p
+            id={errorId}
+            role="alert"
+            className="px-4 pb-3 text-sm text-destructive"
+          >
+            {promptError}
+          </p>
+        )}
+        {!isAuthorized && (
+          <p className="px-4 pb-3 text-xs text-muted-foreground">
+            Sign in or create an account to create a project or improve your
+            prompt.
+          </p>
+        )}
         <div className="border-t border-border" />
 
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
@@ -429,14 +491,18 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
                       size={16}
                       className={cn(isRegenerating && 'animate-spin')}
                     />
-                    {isEnhanced ? 'Enhanced' : 'Enhance'}
+                    {isRegenerating
+                      ? 'Improving prompt…'
+                      : isEnhanced
+                        ? 'Prompt improved'
+                        : 'Improve prompt'}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   <p>
                     {message.trim()
-                      ? 'Regenerate & enhance'
-                      : 'Magic enhance generation'}
+                      ? 'Rewrite your description with more detail'
+                      : 'Describe your project first.'}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -461,7 +527,7 @@ export const PromptForm = forwardRef<PromptFormRef, PromptFormProps>(
               ) : (
                 <>
                   <SendIcon size={16} />
-                  <span className="ml-1">Create</span>
+                  <span className="ml-1">Create project</span>
                 </>
               )}
             </Button>

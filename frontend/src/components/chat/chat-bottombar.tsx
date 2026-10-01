@@ -27,8 +27,8 @@ import {
  * entry fall back to the raw tag so a config change still renders.
  */
 const MODEL_LABELS: Record<string, string> = {
-  'google/gemini-3.7-flash@openrouter': '快速 · Fast',
-  'accounts/fireworks/models/qwen3p8-max': '强力 · Max',
+  'google/gemini-3.7-flash@openrouter': 'Fast',
+  'accounts/fireworks/models/qwen3p8-max': 'Max',
 };
 const modelLabel = (id: string) => MODEL_LABELS[id] ?? id;
 
@@ -366,9 +366,10 @@ export default function ChatBottombar({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               name="message"
+              aria-label="Message CodeFox"
               placeholder={
                 isStreaming
-                  ? 'Keep typing — sends when the agent finishes this turn'
+                  ? 'Write your next message. Press Enter or select Send to queue it.'
                   : 'Describe a change — the agent edits the real files'
               }
               className="resize-none px-2 py-2.5 w-full focus:outline-none bg-transparent text-foreground text-sm placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
@@ -387,7 +388,7 @@ export default function ChatBottombar({
                     type="button"
                     onClick={queueCurrentInput}
                     className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-foreground transition-colors hover:bg-accent"
-                    aria-label="Queue for the next turn"
+                    aria-label="Send: queue message for the next turn"
                   >
                     <Send className="h-3.5 w-3.5" />
                   </button>
