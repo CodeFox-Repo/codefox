@@ -4,7 +4,11 @@ on:
     branches: [ main ]
     paths:
       - 'backend/**'
-      - 'codefox-common/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'patches/**'
+      - '.github/workflows/backend-ci.yml'
       - 'scripts/**'
   workflow_dispatch:
 jobs:
@@ -19,12 +23,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '22'
       
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
           run_install: false
       
       - name: Get pnpm store directory
@@ -41,12 +44,8 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       
-      - name: Build codefox-common
-        working-directory: ./codefox-common
-        run: pnpm build
-        
       - name: Build backend
         working-directory: ./backend
         run: pnpm build

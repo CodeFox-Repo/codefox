@@ -119,8 +119,16 @@ assert.equal(
 
 // ── The wiring, which is what actually breaks ──────────────────────
 const agent = read('backend/src/chat/project-agent.ts');
+const instructions = read('backend/src/chat/instructions.ts');
+// Assembly moved out of the harness module. Guard both the caller and the
+// callee: checking the helper alone would pass if the agent stopped using it.
 assert.match(
   agent,
+  /const prompt = assemblePrompt\(\{\s*notes,\s*history,\s*handEdits,\s*lint,\s*asked,?\s*\}\)/,
+  'the agent no longer passes live findings to the prompt assembler'
+);
+assert.match(
+  instructions.slice(instructions.indexOf('export const assemblePrompt')),
   /\$\{lintNote\(lint\)\}\$\{asked\}/,
   'lint findings are no longer in the prompt, or no longer sit last before the request'
 );
@@ -130,8 +138,21 @@ const controller = read('backend/src/chat/chat.controller.ts');
 // restyle, a restore or a hand edit has since changed.
 assert.match(
   controller,
-  /lint:\s*\n?\s*project\.template === 'html'\s*\n?\s*\?\s*await this\.lintPage\(project\.projectPath\)/,
+  /const lint\s*=\s*project\.template === 'html'\s*\?\s*await this\.lintPage\(project\.projectPath\)/,
   'the turn no longer lints the page before running the agent'
+);
+const agentOptions = controller.match(
+  /await runProjectAgent\(\{([\s\S]*?)\}\)/
+)?.[1];
+assert.match(
+  agentOptions ?? '',
+  /\blint,/,
+  'the freshly computed findings never reach the agent'
+);
+assert.ok(
+  controller.search(/\bconst lint\s*=/) <
+    controller.indexOf('await runProjectAgent('),
+  'the page is linted only after the agent has already run'
 );
 // The end-of-turn lint is what feeds the panel; both halves have to stay.
 assert.match(
