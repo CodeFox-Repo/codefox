@@ -215,7 +215,7 @@ export function Landing() {
           </div>
 
           <p className="mt-4 font-mono text-xs text-muted-foreground">
-            Self-host with Node 18+ and a configured model provider
+            Self-host with Node 22+ and a configured model provider
           </p>
         </motion.div>
       </section>
@@ -427,7 +427,7 @@ export function Landing() {
               </a>
             </div>
             <p className="mt-6 font-mono text-xs text-muted-foreground">
-              MIT · Node 18+ · macOS, Linux, WSL
+              MIT · Node 22+ · macOS, Linux, WSL
             </p>
           </div>
         </div>

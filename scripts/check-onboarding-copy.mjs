@@ -10,6 +10,7 @@ const landing = read('frontend/src/components/root/landing.tsx');
 const chat = read('frontend/src/components/chat/chat-bottombar.tsx');
 const questions = read('frontend/src/components/chat/question-card.tsx');
 const auth = read('frontend/src/components/auth-choice-modal.tsx');
+const readme = read('README.md');
 assert.match(
   prompt,
   /aria-label="Describe your project"/,
@@ -31,6 +32,9 @@ assert.doesNotMatch(
   /cloud keys required|no cloud API key|Claude Code inside|All of it happens on your machine/
 );
 assert.match(landing, /configured model provider/);
+assert.match(landing, /Self-host with Node 22\+/);
+assert.doesNotMatch(landing, /Node 18\+/);
+assert.match(readme, /Node\.js >= 22 and pnpm/);
 assert.match(chat, /aria-label="Message CodeFox"/);
 assert.match(chat, /Press Enter or select Send to queue it/);
 assert.doesNotMatch(chat, /Keep typing — sends|快速 ·|强力 ·/);

@@ -50,7 +50,7 @@ a wall others can remix, with attribution back to the original.
 
 ## Quick start
 
-Node.js >= 18 and pnpm. Nothing else — no database to install, no tmux.
+Node.js >= 22 and pnpm. Nothing else — no database to install, no tmux.
 
 ```bash
 git clone https://github.com/CodeFox-Repo/codefox.git
