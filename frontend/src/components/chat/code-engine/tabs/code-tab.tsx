@@ -72,6 +72,8 @@ interface CodeTabProps {
   projectPath?: string | null;
   fileStructureData: Record<string, TreeNode>;
   newCode: string;
+  /** The displayed content belongs to the selected file. */
+  fileReady?: boolean;
   isFileStructureLoading: boolean;
   updateSavingStatus: (value: string) => void;
   filePath: string | null;
@@ -89,6 +91,7 @@ const CodeTab = ({
   projectPath,
   fileStructureData,
   newCode,
+  fileReady = true,
   isFileStructureLoading,
   updateSavingStatus,
   filePath,
@@ -109,6 +112,8 @@ const CodeTab = ({
   const [changesLoading, setChangesLoading] = useState(true);
   const [versions, setVersions] = useState<Version[] | null>(null);
   const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versionsError, setVersionsError] = useState(false);
+  const versionsRequest = useRef(0);
   const [restoring, setRestoring] = useState<string | null>(null);
   /** Which project the view has already been coerced for. A project with no
    *  git baseline keeps `changes: null` forever, so deriving "first load"
@@ -120,23 +125,41 @@ const CodeTab = ({
   // sessions never look at history, and it is a git log per project.
   const loadVersions = async () => {
     if (!projectPath) return;
+    const request = ++versionsRequest.current;
     try {
       setVersionsLoading(true);
+      setVersionsError(false);
       const res = await authenticatedFetch(
         `/api/project/versions?path=${encodeURIComponent(projectPath)}`
       );
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
-      setVersions(data.versions ?? null);
+      if (request !== versionsRequest.current) return;
+      if (data.versions !== null && !Array.isArray(data.versions)) {
+        throw new Error('Invalid version history response');
+      }
+      setVersions(data.versions);
     } catch {
-      setVersions(null);
+      if (request === versionsRequest.current) setVersionsError(true);
     } finally {
-      setVersionsLoading(false);
+      if (request === versionsRequest.current) setVersionsLoading(false);
     }
   };
 
+  useEffect(() => {
+    setVersions(null);
+    setVersionsError(false);
+    return () => {
+      // A response for the previous project must not populate this history.
+      // Invalidate the latest request, not a captured generation.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      versionsRequest.current++;
+    };
+  }, [projectPath]);
+
   const restore = async (versionId: string) => {
     if (!projectPath || restoring) return;
+    let rejected = false;
     try {
       setRestoring(versionId);
       const res = await authenticatedFetch('/api/project/restore', {
@@ -144,7 +167,10 @@ const CodeTab = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: projectPath, versionId }),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) {
+        rejected = [400, 401, 403, 404, 422].includes(res.status);
+        throw new Error(String(res.status));
+      }
       const data = await res.json();
       // The restore rewrote the files, so the open editor and the changes
       // list are both stale. Drop the selection rather than show contents
@@ -158,10 +184,21 @@ const CodeTab = ({
       turnFinished?.();
       toast.success('Files restored to that version');
     } catch {
-      // A restore that silently did nothing would read as "the button is
-      // broken" — and the files are still whatever they were, so saying so
-      // is the honest state.
-      toast.error('Could not restore that version — the files are unchanged');
+      // A network or response failure may follow a completed server write.
+      // Invalidate stale files and history, then reread instead of promising
+      // that nothing changed or encouraging an immediate duplicate request.
+      toast.error(
+        rejected
+          ? 'The restore request was rejected. Check your access and version history before trying again.'
+          : "We couldn't confirm the restore. Check your files and version history before trying again."
+      );
+      if (!rejected) {
+        setFilePath(null);
+        setChanges(null);
+        turnFinished?.();
+      }
+      setVersions(null);
+      await loadVersions();
     } finally {
       setRestoring(null);
     }
@@ -389,6 +426,20 @@ const CodeTab = ({
               <p className="px-2 py-3 font-mono text-xs text-muted-foreground">
                 Reading history…
               </p>
+            ) : versionsError ? (
+              <div role="alert" className="space-y-2 px-2 py-3">
+                <p className="font-mono text-xs text-muted-foreground">
+                  {"Couldn't load version history. Try again."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void loadVersions()}
+                  disabled={versionsLoading}
+                  className="rounded border border-border px-2 py-1 text-xs hover:bg-secondary"
+                >
+                  Try again
+                </button>
+              </div>
             ) : !versions || versions.length === 0 ? (
               <p className="px-2 py-3 font-mono text-xs text-muted-foreground">
                 No history yet — each turn the agent takes becomes a version you
@@ -424,7 +475,7 @@ const CodeTab = ({
                       {!version.current && (
                         <button
                           type="button"
-                          disabled={restoring !== null}
+                          disabled={restoring !== null || versionsLoading}
                           onClick={() => void restore(version.id)}
                           className={cn(
                             'rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em]',
@@ -455,16 +506,25 @@ const CodeTab = ({
 
       {/* Code Editor */}
       <div className="flex-1 relative">
+        {!fileReady && filePath && (
+          <p
+            role="status"
+            className="absolute right-3 top-2 z-10 text-xs text-muted-foreground"
+          >
+            File contents are not loaded yet.
+          </p>
+        )}
         <Editor
           height="100%"
           width="100%"
           defaultLanguage="typescript"
-          value={newCode}
+          value={fileReady ? newCode : ''}
           language={type}
           loading={isLoading}
           onChange={updateSavingStatus}
           onMount={handleEditorMount}
           options={{
+            readOnly: !fileReady,
             fontSize: 14,
             minimap: { enabled: false },
             wordWrap: 'on',

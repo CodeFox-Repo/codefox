@@ -404,6 +404,7 @@ function PreviewContent({
             size="icon"
             className="h-6 w-6"
             onClick={goBack}
+            aria-label="Go back"
             disabled={!baseUrl || currentIndex === 0}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -413,6 +414,7 @@ function PreviewContent({
             size="icon"
             className="h-6 w-6"
             onClick={goForward}
+            aria-label="Go forward"
             disabled={!baseUrl || currentIndex >= history.length - 1}
           >
             <ChevronRight className="h-4 w-4" />
@@ -422,6 +424,7 @@ function PreviewContent({
             size="icon"
             className="h-6 w-6"
             onClick={reloadIframe}
+            aria-label="Refresh preview"
             disabled={!baseUrl}
           >
             <RefreshCcw />
@@ -432,6 +435,7 @@ function PreviewContent({
         <div className="flex-1 flex items-center">
           <Input
             type="text"
+            aria-label="Preview path"
             value={displayPath}
             onChange={(e) => handlePathChange(e.target.value)}
             className="h-7 bg-secondary text-xs"
@@ -446,6 +450,7 @@ function PreviewContent({
             variant="ghost"
             size="icon"
             onClick={zoomOut}
+            aria-label="Zoom out"
             className="h-8 w-8"
             disabled={!baseUrl}
           >
@@ -455,6 +460,7 @@ function PreviewContent({
             variant="ghost"
             size="icon"
             onClick={zoomIn}
+            aria-label="Zoom in"
             className="h-8 w-8"
             disabled={!baseUrl}
           >
@@ -464,6 +470,7 @@ function PreviewContent({
             variant="ghost"
             size="icon"
             onClick={openInNewTab}
+            aria-label="Open preview in new tab"
             className="h-8 w-8"
             disabled={!baseUrl}
           >
@@ -473,6 +480,7 @@ function PreviewContent({
             variant="ghost"
             size="icon"
             onClick={enterFullScreen}
+            aria-label="Enter full screen"
             className="h-8 w-8"
             disabled={!baseUrl}
           >
@@ -486,6 +494,7 @@ function PreviewContent({
         {baseUrl ? (
           <iframe
             id="myIframe"
+            title="Project preview"
             ref={iframeRef}
             src={`${baseUrl}${displayPath}`}
             className="absolute inset-0 w-full h-80% border-none bg-background"
