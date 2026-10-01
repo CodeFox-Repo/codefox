@@ -24,12 +24,11 @@ import {
   REGISTER_USER,
   RESEND_CONFIRMATION_EMAIL_MUTATION,
 } from '@/graphql/mutations/auth';
-import { useRouter } from 'next/navigation';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { AlertCircle, CheckCircle, Mail, Clock } from 'lucide-react';
-import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { logger } from '@/app/log/logger';
+import { getSignupPasswordState, SIGNUP_PASSWORD_HELP } from '@/lib/auth-copy';
 
 export function SignUpModal({
   isOpen,
@@ -38,7 +37,6 @@ export function SignUpModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const router = useRouter();
   // When the deployment sends no verification mail, saying one was sent is a
   // lie that strands the user at their inbox. Default to the strict copy
   // until the backend answers.
@@ -55,6 +53,9 @@ export function SignUpModal({
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<'success' | 'error' | null>(
+    null
+  );
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordStrength, setPasswordStrength] = useState<
@@ -62,40 +63,10 @@ export function SignUpModal({
   >(null);
 
   const validatePassword = (value: string) => {
-    // Reset errors
-    setPasswordError(null);
-
-    // Check minimum length
-    if (value.length < 6) {
-      setPasswordError('Password must be at least 6 characters long');
-      setPasswordStrength('weak');
-      return false;
-    }
-
-    // Check for complexity
-    const hasUppercase = /[A-Z]/.test(value);
-    const hasLowercase = /[a-z]/.test(value);
-    const hasNumbers = /\d/.test(value);
-    const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(value);
-
-    const strengthScore = [
-      hasUppercase,
-      hasLowercase,
-      hasNumbers,
-      hasSpecialChar,
-    ].filter(Boolean).length;
-
-    if (strengthScore < 2) {
-      setPasswordStrength('weak');
-      setPasswordError('Password is too weak');
-      return false;
-    } else if (strengthScore < 4) {
-      setPasswordStrength('medium');
-      return true;
-    } else {
-      setPasswordStrength('strong');
-      return true;
-    }
+    const result = getSignupPasswordState(value);
+    setPasswordError(result.error);
+    setPasswordStrength(result.strength);
+    return result.error === null;
   };
 
   const [registerUser, { loading }] = useMutation(REGISTER_USER, {
@@ -150,19 +121,22 @@ export function SignUpModal({
     {
       onCompleted: (data) => {
         if (data.resendConfirmationEmail.success) {
-          setResendMessage(
-            'Verification email has been resent. Please check your inbox.'
-          );
+          setResendStatus('success');
+          setResendMessage('Verification email sent again. Check your inbox.');
           setResendCooldown(60); // Start 60 second cooldown
         } else {
+          setResendStatus('error');
           setResendMessage(
             data.resendConfirmationEmail.message ||
               'Failed to resend. Please try again later.'
           );
         }
       },
-      onError: (error) => {
-        setResendMessage(`Error: ${error.message}`);
+      onError: () => {
+        setResendStatus('error');
+        setResendMessage(
+          'We couldn’t resend the verification email. Try again.'
+        );
       },
     }
   );
@@ -175,17 +149,19 @@ export function SignUpModal({
       }, 1000);
     } else if (resendCooldown === 0) {
       // Clear the resend message once cooldown is complete
-      if (resendMessage && resendMessage.includes('has been resent')) {
+      if (resendStatus === 'success') {
         setResendMessage(null);
+        setResendStatus(null);
       }
     }
     return () => clearTimeout(timer);
-  }, [resendCooldown, resendMessage]);
+  }, [resendCooldown, resendStatus]);
 
   const handleResendConfirmation = () => {
     if (resendCooldown > 0) return;
 
     setResendMessage(null);
+    setResendStatus(null);
     resendConfirmationEmail({
       variables: {
         input: {
@@ -250,13 +226,14 @@ export function SignUpModal({
 
                   {resendMessage && (
                     <div
+                      role="status"
                       className={`flex items-center gap-2 text-sm p-2 rounded-md ${
-                        resendMessage.includes('has been resent')
+                        resendStatus === 'success'
                           ? 'bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 text-green-700 dark:text-green-400'
                           : 'bg-primary-50 dark:bg-secondary border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400'
                       }`}
                     >
-                      {resendMessage.includes('has been resent') ? (
+                      {resendStatus === 'success' ? (
                         <CheckCircle className="h-4 w-4" />
                       ) : (
                         <AlertCircle className="h-4 w-4" />
@@ -336,9 +313,10 @@ export function SignUpModal({
 
                   <form onSubmit={handleSubmit} className="space-y-2">
                     <div className="space-y-1">
-                      <Label htmlFor="name">Name</Label>
+                      <Label htmlFor="name">Display name</Label>
                       <Input
                         id="name"
+                        aria-describedby="display-name-help"
                         placeholder="Ada Lovelace"
                         type="text"
                         value={name}
@@ -349,6 +327,13 @@ export function SignUpModal({
                         required
                         className="w-full"
                       />
+                      <p
+                        id="display-name-help"
+                        className="text-xs text-muted-foreground"
+                      >
+                        Shown next to your public projects. You can change it in
+                        Settings.
+                      </p>
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="email">Email</Label>
@@ -370,6 +355,7 @@ export function SignUpModal({
                       <Input
                         id="password"
                         placeholder="6+ characters…"
+                        aria-describedby="signup-password-help"
                         type="password"
                         value={password}
                         onChange={(e) => {
@@ -380,6 +366,12 @@ export function SignUpModal({
                         required
                         className={`w-full ${passwordError ? 'border-red-500' : ''}`}
                       />
+                      <p
+                        id="signup-password-help"
+                        className="text-xs text-muted-foreground"
+                      >
+                        {SIGNUP_PASSWORD_HELP}
+                      </p>
                       {password && (
                         <div className="mt-2 space-y-2">
                           <div className="flex items-center gap-2">
@@ -402,44 +394,6 @@ export function SignUpModal({
                                   ? 'Medium'
                                   : 'Strong'}
                             </div>
-                          </div>
-
-                          <div className="text-xs text-muted-foreground">
-                            Password must:
-                            <ul className="list-disc pl-5 mt-1 space-y-1">
-                              <li
-                                className={
-                                  password.length >= 6 ? 'text-green-500' : ''
-                                }
-                              >
-                                Be at least 6 characters long
-                              </li>
-                              <li
-                                className={
-                                  /[A-Z]/.test(password) ? 'text-green-500' : ''
-                                }
-                              >
-                                Include at least one uppercase letter
-                              </li>
-                              <li
-                                className={
-                                  /\d/.test(password) ? 'text-green-500' : ''
-                                }
-                              >
-                                Include at least one number
-                              </li>
-                              <li
-                                className={
-                                  /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(
-                                    password
-                                  )
-                                    ? 'text-green-500'
-                                    : ''
-                                }
-                              >
-                                Include at least one special character
-                              </li>
-                            </ul>
                           </div>
                         </div>
                       )}

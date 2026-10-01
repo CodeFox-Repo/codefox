@@ -7,6 +7,7 @@ import { useAuthContext } from '@/providers/AuthProvider';
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { toast } from 'sonner';
 import { CHANGE_PASSWORD, HAS_PASSWORD } from '@/graphql/mutations/auth';
+import { getDisplayNameErrorMessage } from '@/lib/auth-copy';
 
 /**
  * Section shell shared by every block on this page, matching the rule-and-label
@@ -89,11 +90,10 @@ function UsernameField({ current }: { current?: string | null }) {
     try {
       await update({ variables: { username: next } });
       await refreshUserInfo();
-      toast.success('Username updated');
+      toast.success('Display name updated');
     } catch (error: any) {
-      // The server owns the rules (length, characters, already taken), so
-      // show what it said rather than guessing at a second copy of them.
-      toast.error(error?.message ?? 'Could not update your username');
+      // Explain existing server outcomes using the same field name as the UI.
+      toast.error(getDisplayNameErrorMessage(error?.message));
       setValue(current ?? '');
     } finally {
       setSaving(false);
@@ -114,7 +114,7 @@ function UsernameField({ current }: { current?: string | null }) {
         }
       }}
       maxLength={32}
-      aria-label="Username"
+      aria-label="Display name"
       className="w-56 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-sm text-foreground transition-colors hover:border-primary/60 focus:border-primary focus:outline-none disabled:opacity-60"
     />
   );
@@ -233,7 +233,7 @@ function PasswordField() {
           disabled={loading || !current || !next || !confirm}
           className="rounded-md border border-primary bg-primary px-3 py-1.5 font-mono text-sm text-primary-foreground transition-opacity disabled:opacity-50"
         >
-          {loading ? 'Saving…' : 'Save'}
+          {loading ? 'Updating…' : 'Update password'}
         </button>
         <button
           type="button"
@@ -301,8 +301,8 @@ export default function UserSetting() {
           </Row>
 
           <Row
-            title="Username"
-            hint="Shown next to your projects in the gallery."
+            title="Display name"
+            hint="Shown next to your public projects. Press Enter or leave this field to save."
           >
             <UsernameField current={user?.username} />
           </Row>

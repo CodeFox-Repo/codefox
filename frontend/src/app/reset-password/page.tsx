@@ -41,7 +41,7 @@ function ResetPasswordForm() {
         setError(data.resetPassword.message);
       }
     },
-    onError: () => setError('Could not reach the server. Try again.'),
+    onError: () => setError('We couldn’t update your password. Try again.'),
   });
 
   const submit = (e: React.FormEvent) => {
@@ -78,15 +78,18 @@ function ResetPasswordForm() {
           {!token ? (
             <div className="text-center">
               <p className="mb-6">
-                This link is missing its token. Open the link from your email
-                again, or request a new one.
+                This reset link is incomplete. Open the full link from your
+                email, or go to Sign in → Forgot your password to request
+                another.
               </p>
-              <Button onClick={() => router.push('/')}>Go home</Button>
+              <Button onClick={() => router.push('/')}>Back to CodeFox</Button>
             </div>
           ) : done ? (
             <div className="text-center">
               <p className="mb-2">Password updated. You can sign in now.</p>
-              <p className="text-sm text-muted-foreground">Taking you home…</p>
+              <p className="text-sm text-muted-foreground">
+                Returning to CodeFox…
+              </p>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">

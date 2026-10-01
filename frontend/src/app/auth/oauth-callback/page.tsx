@@ -23,7 +23,9 @@ export default function OAuthCallbackPage() {
         // Handle error cases
         if (error) {
           console.error('Authentication error:', error);
-          toast.error('Authentication failed');
+          toast.error(
+            'Google sign-in didn’t finish. Return to CodeFox and try again.'
+          );
           router.push('/');
           return;
         }
@@ -31,7 +33,9 @@ export default function OAuthCallbackPage() {
         // Check if tokens exist
         if (!accessToken || !refreshToken) {
           console.error('Missing tokens in callback');
-          toast.error('Authentication failed: Missing tokens');
+          toast.error(
+            'Google sign-in didn’t finish. Return to CodeFox and try again.'
+          );
           router.push('/');
           return;
         }
@@ -40,13 +44,15 @@ export default function OAuthCallbackPage() {
         login(accessToken, refreshToken);
 
         // Show success message
-        toast.success('Logged in successfully!');
+        toast.success('Signed in');
 
         // Redirect to home or dashboard
         router.push('/');
       } catch (error) {
         console.error('Error processing authentication:', error);
-        toast.error('Authentication processing failed');
+        toast.error(
+          'Google sign-in didn’t finish. Return to CodeFox and try again.'
+        );
         router.push('/');
       }
     };
@@ -57,9 +63,7 @@ export default function OAuthCallbackPage() {
   return (
     <div className="flex h-screen w-full items-center justify-center">
       <div className="text-center p-8 max-w-md rounded-xl bg-background shadow-lg">
-        <h1 className="text-2xl font-bold mb-4">
-          Completing authentication...
-        </h1>
+        <h1 className="text-2xl font-bold mb-4">Signing you in…</h1>
         <p className="text-muted-foreground mb-4">
           Please wait while we sign you in.
         </p>

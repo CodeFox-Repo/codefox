@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,18 +17,19 @@ import {
   TextureCardContent,
   TextureSeparator,
 } from '@/components/ui/texture-card';
-import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client';
 import {
   GOOGLE_AUTH_AVAILABLE,
   LOGIN_USER,
+  PASSWORD_RESET_EMAIL_AVAILABLE,
   REQUEST_PASSWORD_RESET,
 } from '@/graphql/mutations/auth';
 import { toast } from 'sonner';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { AlertCircle, Github } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { logger } from '@/app/log/logger';
+import { getSignInErrorMessage } from '@/lib/auth-copy';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -45,6 +46,18 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   // already typed in the box above.
   const [forgot, setForgot] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
+  const {
+    data: resetCapability,
+    loading: checkingResetEmail,
+    error: resetCapabilityError,
+  } = useQuery(PASSWORD_RESET_EMAIL_AVAILABLE, {
+    skip: !isOpen || !forgot,
+    fetchPolicy: 'network-only',
+  });
+  const resetEmailAvailable =
+    !checkingResetEmail &&
+    !resetCapabilityError &&
+    resetCapability?.passwordResetEmailAvailable === true;
   // Destructure login from our AuthContext
   const { login } = useAuthContext();
 
@@ -55,7 +68,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       // registered, so there is no failure branch to show — echoing its
       // message is the whole result.
       onCompleted: (data) => setSent(data.requestPasswordReset.message),
-      onError: () => setErrorMessage('Could not reach the server. Try again.'),
+      onError: () =>
+        setErrorMessage('We couldn’t request a reset link. Try again.'),
     }
   );
 
@@ -69,7 +83,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       if (data?.login) {
         // Store tokens where desired (session storage for access, local for refresh)
         login(data.login.accessToken, data.login.refreshToken);
-        toast.success('Login successful!');
+        toast.success('Signed in');
         setErrorMessage(null);
         onClose(); // Close the modal
 
@@ -77,8 +91,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
         // router.push("/main");
       }
     },
-    onError: () => {
-      setErrorMessage('Incorrect email or password. Please try again.');
+    onError: (error) => {
+      setErrorMessage(getSignInErrorMessage(error));
     },
   });
 
@@ -104,9 +118,13 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       <DialogContent className="sm:max-w-[425px] fixed top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%] p-0">
         {/* Invisible but accessible DialogTitle and Description */}
         <VisuallyHidden>
-          <DialogTitle>Sign In</DialogTitle>
+          <DialogTitle>
+            {forgot ? 'Reset your password' : 'Sign in'}
+          </DialogTitle>
           <DialogDescription>
-            Sign in to your account by entering your credentials
+            {forgot
+              ? 'Recover access to your CodeFox account.'
+              : 'Enter your email and password.'}
           </DialogDescription>
         </VisuallyHidden>
 
@@ -119,7 +137,9 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                 {forgot ? 'Reset your password' : 'Welcome back'}
               </TextureCardTitle>
               <p className="text-center text-muted-foreground">
-                {forgot ? 'We’ll email you a link' : 'Sign in to your account'}
+                {forgot
+                  ? 'Recover access to your account'
+                  : 'Sign in to your account'}
               </p>
             </TextureCardHeader>
             <TextureSeparator />
@@ -144,6 +164,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
+                        if (!resetEmailAvailable) return;
                         setErrorMessage(null);
                         requestReset({ variables: { email } });
                       }}
@@ -163,7 +184,13 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                           className="w-full"
                         />
                         <p className="text-xs text-muted-foreground">
-                          We&apos;ll send a link to choose a new password.
+                          {checkingResetEmail
+                            ? 'Checking password reset availability…'
+                            : resetCapabilityError
+                              ? 'We couldn’t check whether password reset email is available. Close this form and try again.'
+                              : resetEmailAvailable
+                                ? 'Enter your account email to request a reset link. If you use Google to sign in, continue with Google instead.'
+                                : 'Password reset email isn’t available on this site right now.'}
                         </p>
                       </div>
 
@@ -177,7 +204,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                       <Button
                         type="submit"
                         className="w-full"
-                        disabled={sending || !email}
+                        disabled={sending || !email || !resetEmailAvailable}
                       >
                         {sending ? 'Sending…' : 'Send reset link'}
                       </Button>
@@ -282,7 +309,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                         alt="Google"
                         className="w-5 h-5"
                       />
-                      <span>Google</span>
+                      <span>Continue with Google</span>
                     </Button>
                   </div>
                 </div>

@@ -53,6 +53,13 @@ export class AuthResolver {
     return process.env.MAIL_ENABLED?.toLowerCase() === 'true';
   }
 
+  /** Never offer email recovery when this deployment cannot send it. */
+  @Query(() => Boolean)
+  @Public()
+  passwordResetEmailAvailable(): boolean {
+    return this.authService.passwordResetEmailAvailable;
+  }
+
   /**
    * Whether "Continue with Google" can actually work. The strategy boots on
    * placeholder credentials when unconfigured, so the button used to send
@@ -116,7 +123,11 @@ export class AuthResolver {
     @Args('currentPassword') currentPassword: string,
     @Args('newPassword') newPassword: string,
   ): Promise<RefreshTokenResponse> {
-    return this.authService.changePassword(userId, currentPassword, newPassword);
+    return this.authService.changePassword(
+      userId,
+      currentPassword,
+      newPassword,
+    );
   }
 
   /**

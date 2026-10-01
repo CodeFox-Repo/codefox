@@ -66,6 +66,12 @@ export const GOOGLE_AUTH_AVAILABLE = gql`
   }
 `;
 
+export const PASSWORD_RESET_EMAIL_AVAILABLE = gql`
+  query PasswordResetEmailAvailable {
+    passwordResetEmailAvailable
+  }
+`;
+
 export const REQUEST_PASSWORD_RESET = gql`
   mutation RequestPasswordReset($email: String!) {
     requestPasswordReset(email: $email) {

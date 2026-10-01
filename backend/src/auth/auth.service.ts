@@ -54,6 +54,11 @@ export class AuthService {
     this.isMailEnabled = this.configService.isMailEnabled;
   }
 
+  /** Deployment-wide mail capability, independent of any account or address. */
+  get passwordResetEmailAvailable(): boolean {
+    return this.isMailEnabled;
+  }
+
   async confirmEmail(token: string): Promise<EmailConfirmationResponse> {
     try {
       const payload = await this.jwtService.verifyAsync(token);
@@ -181,7 +186,7 @@ export class AuthService {
   ): Promise<EmailConfirmationResponse> {
     const same = {
       message:
-        'If that address has an account, a reset link is on its way. Check your inbox.',
+        'If this account can receive password reset email, check your inbox for a reset link.',
       success: true,
     };
 

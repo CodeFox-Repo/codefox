@@ -214,9 +214,14 @@ const tokenRefreshLink = onError(
           localStorage.removeItem(LocalStore.refreshToken);
 
           logger.warn(
-            'Network error during authentication, redirecting to home'
+            'Network error during authentication, clearing stored tokens'
           );
-          window.location.href = '/';
+          // Login owns an inline recovery message. Reloading here would erase
+          // it and the user's input before they can retry. Token cleanup above
+          // and redirect behavior for refresh/validation stay unchanged.
+          if (networkErrorOperation !== 'Login') {
+            window.location.href = '/';
+          }
         }
       }
     }
