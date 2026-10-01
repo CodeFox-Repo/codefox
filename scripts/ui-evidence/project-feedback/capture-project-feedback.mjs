@@ -85,6 +85,35 @@ const capture = async (name) => {
   await page.screenshot({ path: join(output, `${name}.png`), fullPage: false });
   writeFileSync(join(output, `${name}.txt`), await bodyText());
 };
+const recordDismissal = async (name) => {
+  const observations = [];
+  const started = Date.now();
+  for (const [stage, delay] of [['immediate', 0], ['500ms', 500], ['2s', 1500]]) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    const state = await page.evaluate(() => {
+      const nodes = (selector) => [...document.querySelectorAll(selector)].map((node) => ({
+        tag: node.tagName, state: node.getAttribute('data-state'),
+        visible: node.getBoundingClientRect().width > 0 && node.getBoundingClientRect().height > 0,
+        ariaHidden: node.getAttribute('aria-hidden'),
+      }));
+      const active = document.activeElement;
+      return {
+        timestamp: new Date().toISOString(),
+        bodyStylePointerEvents: document.body.style.pointerEvents,
+        computedBodyPointerEvents: getComputedStyle(document.body).pointerEvents,
+        dialogs: nodes('[role="dialog"]'), menus: nodes('[role="menu"]'),
+        activeElement: { tag: active?.tagName, id: active?.id, label: active?.getAttribute('aria-label'), text: active?.textContent?.trim().slice(0, 140) },
+      };
+    });
+    observations.push({ stage, elapsedMs: Date.now() - started, ...state });
+    writeFileSync(join(output, `${name}-interaction.json`), JSON.stringify(observations, null, 2));
+  }
+  return observations.at(-1);
+};
+const assertDismissed = (state, action) => {
+  assert.notEqual(state.computedBodyPointerEvents, 'none', `${action}: body pointer events remained blocked after 2s; inspect retained interaction observations`);
+  assert.ok(!state.dialogs.some((dialog) => dialog.visible), `${action}: a dialog remained visible after 2s`);
+};
 const home = async () => {
   await page.goto(url, { waitUntil: 'networkidle2' });
   await waitText('What are we building?');
@@ -101,6 +130,7 @@ const chat = async () => {
   await waitText('Show the project-action feedback fixture.');
 };
 const clearMenu = async () => {
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]') && getComputedStyle(document.body).pointerEvents !== 'none');
   await page.click('[aria-label="Chat options"]');
   await clickText('[role="menuitem"]', 'Clear history');
 };
@@ -116,6 +146,7 @@ try {
   await waitText(mode === 'after' ? 'Rename chat' : 'Rename project');
   await capture('01-rename-scope');
   await clickText('button', 'Cancel');
+  await recordDismissal('rename-cancel');
 
   scenario('duplicate-error');
   // The duplicate case starts from its own page load; rename/dialog timing
@@ -159,10 +190,14 @@ try {
     assert.equal(requestCount('ClearChatHistory'), countBefore, 'Opening confirmation sent a clear mutation');
     await capture('05-clear-confirmation');
     await clickText('button', 'Cancel');
+    assertDismissed(await recordDismissal('clear-cancel'), 'Cancel clear history');
     assert.equal(requestCount('ClearChatHistory'), countBefore, 'Cancel sent a clear mutation');
     assert((await bodyText()).includes('Show the project-action feedback fixture.'));
     await clearMenu();
+    await waitText('Clear chat history?');
     await page.keyboard.press('Escape');
+    await page.waitForSelector('[role="dialog"]', { hidden: true });
+    assertDismissed(await recordDismissal('clear-escape'), 'Escape clear history');
     assert.equal(requestCount('ClearChatHistory'), countBefore, 'Escape sent a clear mutation');
   } else {
     await waitText('History cleared');
